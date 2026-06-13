@@ -4,9 +4,9 @@
   "settings": {
     "width": 2400,
     "height": 2000,
-    "scrollTop": -239.602,
-    "scrollLeft": -1200,
-    "zoomLevel": 0.91,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "zoomLevel": 1,
     "show": 431,
     "database": 32,
     "databaseName": "dm_deputy",
@@ -105,15 +105,15 @@
           "XayPDPNOKsIZJm1qrG-Iy"
         ],
         "ui": {
-          "x": 1353.7089,
-          "y": 9.8734,
+          "x": 2016.7903,
+          "y": 4.8734,
           "zIndex": 1,
           "widthName": 60,
           "widthComment": 60,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013652808,
+          "updateAt": 1781167502047,
           "createAt": 1779960000000
         }
       },
@@ -153,15 +153,15 @@
           "05iglQ3c9bQwVyg-haCL-"
         ],
         "ui": {
-          "x": 395.6203,
-          "y": 283.7342,
+          "x": 621.7248,
+          "y": 322.5714,
           "zIndex": 2,
           "widthName": 60,
           "widthComment": 336,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013657900,
+          "updateAt": 1781167867794,
           "createAt": 1779960000000
         }
       },
@@ -186,15 +186,15 @@
           "col_campaign_members_role"
         ],
         "ui": {
-          "x": 720.4684,
-          "y": 2.3797,
+          "x": 659.4218,
+          "y": 12.4378,
           "zIndex": 3,
           "widthName": 60,
           "widthComment": 372,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013655987,
+          "updateAt": 1781167866444,
           "createAt": 1779960000000
         }
       },
@@ -286,15 +286,15 @@
           "xGO0aY6Xm0nnjumCDvU57"
         ],
         "ui": {
-          "x": 43,
-          "y": 527.1899,
+          "x": 45.9651,
+          "y": 395.6783,
           "zIndex": 5,
           "widthName": 60,
           "widthComment": 391,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013661626,
+          "updateAt": 1781167517444,
           "createAt": 1779960000000
         }
       },
@@ -356,15 +356,15 @@
           "col_maps_notes"
         ],
         "ui": {
-          "x": 1872.7215,
-          "y": 222.7342,
+          "x": 537.6633,
+          "y": 669.1877,
           "zIndex": 8,
           "widthName": 60,
           "widthComment": 443,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013585358,
+          "updateAt": 1781167868970,
           "createAt": 1779960000000
         }
       },
@@ -387,15 +387,15 @@
           "col_event_maps_label"
         ],
         "ui": {
-          "x": 26.5824,
-          "y": 1206.0759,
+          "x": 81.2917,
+          "y": 1279.8549,
           "zIndex": 9,
           "widthName": 65,
           "widthComment": 471,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013667399,
+          "updateAt": 1781167863309,
           "createAt": 1781009000000
         }
       },
@@ -449,15 +449,15 @@
           "col_skills_ability"
         ],
         "ui": {
-          "x": 568,
-          "y": 669,
+          "x": 788.5233,
+          "y": 1225.7443,
           "zIndex": 11,
           "widthName": 60,
           "widthComment": 379,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781005152092,
+          "updateAt": 1781167857400,
           "createAt": 1779960000000
         }
       },
@@ -482,15 +482,15 @@
           "col_items_item_info"
         ],
         "ui": {
-          "x": 1962.6582,
-          "y": 1400.0001,
+          "x": 2001.3792,
+          "y": 1426.6861,
           "zIndex": 12,
           "widthName": 60,
           "widthComment": 387,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013573940,
+          "updateAt": 1781167546892,
           "createAt": 1779960000000
         }
       },
@@ -515,15 +515,15 @@
           "col_weapons_notes"
         ],
         "ui": {
-          "x": 2045,
-          "y": 1106,
+          "x": 1967.5582,
+          "y": 1150.1861,
           "zIndex": 13,
           "widthName": 60,
           "widthComment": 424,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013498819,
+          "updateAt": 1781167876111,
           "createAt": 1779960000000
         }
       },
@@ -548,15 +548,15 @@
           "col_spells_range"
         ],
         "ui": {
-          "x": 305.3164,
-          "y": 1417.0634,
+          "x": 200.3164,
+          "y": 1584.5634,
           "zIndex": 14,
           "widthName": 60,
           "widthComment": 388,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013542733,
+          "updateAt": 1781167352967,
           "createAt": 1779960000000
         }
       },
@@ -577,15 +577,15 @@
           "col_armor_body_location"
         ],
         "ui": {
-          "x": 1734.7848,
-          "y": 1630.519,
+          "x": 1811.4127,
+          "y": 1755.8097,
           "zIndex": 15,
           "widthName": 60,
           "widthComment": 398,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013572542,
+          "updateAt": 1781167551457,
           "createAt": 1779960000000
         }
       },
@@ -608,15 +608,15 @@
           "col_character_items_notes"
         ],
         "ui": {
-          "x": 1482.2784,
-          "y": 1279.4936,
+          "x": 1456.697,
+          "y": 1440.1913,
           "zIndex": 20,
           "widthName": 84,
           "widthComment": 211,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013575293,
+          "updateAt": 1781167550026,
           "createAt": 1781007000000
         }
       },
@@ -637,15 +637,15 @@
           "col_character_weapons_equipped"
         ],
         "ui": {
-          "x": 1856,
-          "y": 551,
+          "x": 1906.3489,
+          "y": 845.128,
           "zIndex": 21,
           "widthName": 103,
           "widthComment": 213,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013504408,
+          "updateAt": 1781167873284,
           "createAt": 1781007000001
         }
       },
@@ -666,15 +666,15 @@
           "col_character_spells_prepared"
         ],
         "ui": {
-          "x": 906.7342,
-          "y": 1443.8608,
+          "x": 851.3272,
+          "y": 1496.3027,
           "zIndex": 22,
           "widthName": 85,
           "widthComment": 211,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013537900,
+          "updateAt": 1781167645878,
           "createAt": 1781007000002
         }
       },
@@ -695,15 +695,15 @@
           "col_character_armor_wearing"
         ],
         "ui": {
-          "x": 1166.8101,
-          "y": 1622.8607,
+          "x": 1151.8101,
+          "y": 1755.3607,
           "zIndex": 23,
           "widthName": 88,
           "widthComment": 198,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013567916,
+          "updateAt": 1781167355372,
           "createAt": 1781007000003
         }
       },
@@ -726,15 +726,15 @@
           "col_character_skills_expertise"
         ],
         "ui": {
-          "x": 1619.3544,
-          "y": 818.1899,
+          "x": 955.0521,
+          "y": 935.0502,
           "zIndex": 24,
           "widthName": 81,
           "widthComment": 248,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013580221,
+          "updateAt": 1781167870088,
           "createAt": 1781007000004
         }
       },
@@ -800,15 +800,15 @@
           "DUcTyZ19AJKky9QnEYxT5"
         ],
         "ui": {
-          "x": 1078.3833,
-          "y": 449,
+          "x": 1401.2321,
+          "y": 433.9419,
           "zIndex": 110,
           "widthName": 60,
           "widthComment": 662,
           "color": ""
         },
         "meta": {
-          "updateAt": 1781013470986,
+          "updateAt": 1781167871337,
           "createAt": 1779966094994
         }
       }
@@ -4874,8 +4874,8 @@
           "columnIds": [
             "XayPDPNOKsIZJm1qrG-Iy"
           ],
-          "x": 1353.7089,
-          "y": 59.873400000000004,
+          "x": 2016.7903,
+          "y": 54.873400000000004,
           "direction": 1
         },
         "end": {
@@ -4883,8 +4883,8 @@
           "columnIds": [
             "kL-HnQagTtViB0d4sa_JB"
           ],
-          "x": 1150.4684,
-          "y": 52.3797,
+          "x": 1089.4218,
+          "y": 62.437799999999996,
           "direction": 2
         },
         "meta": {
@@ -5098,8 +5098,8 @@
           "columnIds": [
             "2UswfbTetC1X3sqD28iDe"
           ],
-          "x": 395.6203,
-          "y": 395.7342,
+          "x": 621.7248,
+          "y": 434.5714,
           "direction": 1
         },
         "end": {
@@ -5107,9 +5107,9 @@
           "columnIds": [
             "8iMvKas3RtkISZ4MSpixx"
           ],
-          "x": 367.5,
-          "y": 251,
-          "direction": 8
+          "x": 481,
+          "y": 139,
+          "direction": 2
         },
         "meta": {
           "updateAt": 1781001954770,
@@ -5154,8 +5154,8 @@
           "columnIds": [
             "2UswfbTetC1X3sqD28iDe"
           ],
-          "x": 642.1203,
-          "y": 283.7342,
+          "x": 868.2248,
+          "y": 322.5714,
           "direction": 4
         },
         "end": {
@@ -5163,9 +5163,9 @@
           "columnIds": [
             "yyt7ix3E6hNNkGfBOiR3K"
           ],
-          "x": 720.4684,
-          "y": 102.3797,
-          "direction": 1
+          "x": 874.4218,
+          "y": 212.4378,
+          "direction": 8
         },
         "meta": {
           "updateAt": 1781002025328,
@@ -5210,17 +5210,17 @@
           "columnIds": [
             "SE9aD5L6ZKAY24QVfUnM9"
           ],
-          "x": 1223.8833,
-          "y": 449,
-          "direction": 4
+          "x": 1401.2321,
+          "y": 483.27523333333335,
+          "direction": 1
         },
         "end": {
           "tableId": "tbl_campaign_members",
           "columnIds": [
             "PNvtIxdULzuqKc4Jz4s6D"
           ],
-          "x": 1150.4684,
-          "y": 152.3797,
+          "x": 1089.4218,
+          "y": 162.43779999999998,
           "direction": 2
         },
         "meta": {
@@ -5294,7 +5294,7 @@
           "columnIds": [
             "col_adventures_adventure_id"
           ],
-          "x": 140.5,
+          "x": 254,
           "y": 251,
           "direction": 8
         },
@@ -5303,8 +5303,8 @@
           "columnIds": [
             "aeHFJuiIQybz7dDeD7R2c"
           ],
-          "x": 254,
-          "y": 527.1899,
+          "x": 256.9651,
+          "y": 395.6783,
           "direction": 4
         },
         "meta": {
@@ -5490,8 +5490,8 @@
           "columnIds": [
             "Q2rXPBY9HfYov2LlDv2xe"
           ],
-          "x": 254,
-          "y": 751.1899,
+          "x": 256.9651,
+          "y": 619.6783,
           "direction": 8
         },
         "end": {
@@ -5518,8 +5518,8 @@
           "columnIds": [
             "2UswfbTetC1X3sqD28iDe"
           ],
-          "x": 888.6203,
-          "y": 470.4008666666667,
+          "x": 1114.7248,
+          "y": 490.5714,
           "direction": 2
         },
         "end": {
@@ -5527,8 +5527,8 @@
           "columnIds": [
             "col_char_campaign_id"
           ],
-          "x": 1078.3833,
-          "y": 597,
+          "x": 1401.2321,
+          "y": 581.9419,
           "direction": 1
         },
         "meta": {
@@ -5546,8 +5546,8 @@
           "columnIds": [
             "XayPDPNOKsIZJm1qrG-Iy"
           ],
-          "x": 1543.7089,
-          "y": 209.8734,
+          "x": 2206.7902999999997,
+          "y": 204.8734,
           "direction": 8
         },
         "end": {
@@ -5555,9 +5555,9 @@
           "columnIds": [
             "col_char_created_by_user_id"
           ],
-          "x": 1514.8833,
-          "y": 449,
-          "direction": 4
+          "x": 1983.2321,
+          "y": 581.9419,
+          "direction": 2
         },
         "meta": {
           "updateAt": 1781005000101,
@@ -5574,8 +5574,8 @@
           "columnIds": [
             "XayPDPNOKsIZJm1qrG-Iy"
           ],
-          "x": 1353.7089,
-          "y": 159.8734,
+          "x": 2016.7903,
+          "y": 154.8734,
           "direction": 1
         },
         "end": {
@@ -5583,8 +5583,8 @@
           "columnIds": [
             "col_campaigns_owner_user_id"
           ],
-          "x": 888.6203,
-          "y": 321.0675333333333,
+          "x": 1114.7248,
+          "y": 378.5714,
           "direction": 2
         },
         "meta": {
@@ -5602,18 +5602,18 @@
           "columnIds": [
             "2UswfbTetC1X3sqD28iDe"
           ],
-          "x": 888.6203,
-          "y": 395.7342,
-          "direction": 2
+          "x": 868.2248,
+          "y": 546.5714,
+          "direction": 8
         },
         "end": {
           "tableId": "tbl_maps",
           "columnIds": [
             "col_maps_campaign_id"
           ],
-          "x": 1872.7215,
-          "y": 272.7342,
-          "direction": 1
+          "x": 739.6633,
+          "y": 669.1877,
+          "direction": 4
         },
         "meta": {
           "updateAt": 1781006000001,
@@ -5630,8 +5630,8 @@
           "columnIds": [
             "SE9aD5L6ZKAY24QVfUnM9"
           ],
-          "x": 1563.3833,
-          "y": 745,
+          "x": 1764.9821,
+          "y": 729.9419,
           "direction": 8
         },
         "end": {
@@ -5639,8 +5639,8 @@
           "columnIds": [
             "col_character_items_character_id"
           ],
-          "x": 1703.2784,
-          "y": 1279.4936,
+          "x": 1677.697,
+          "y": 1440.1913,
           "direction": 4
         },
         "meta": {
@@ -5658,17 +5658,17 @@
           "columnIds": [
             "SE9aD5L6ZKAY24QVfUnM9"
           ],
-          "x": 1660.3833,
-          "y": 523,
-          "direction": 2
+          "x": 1910.4821,
+          "y": 729.9419,
+          "direction": 8
         },
         "end": {
           "tableId": "tbl_character_weapons",
           "columnIds": [
             "col_character_weapons_character_id"
           ],
-          "x": 1856,
-          "y": 627,
+          "x": 1906.3489,
+          "y": 921.128,
           "direction": 1
         },
         "meta": {
@@ -5686,8 +5686,8 @@
           "columnIds": [
             "SE9aD5L6ZKAY24QVfUnM9"
           ],
-          "x": 1175.3833,
-          "y": 745,
+          "x": 1473.9821,
+          "y": 729.9419,
           "direction": 8
         },
         "end": {
@@ -5695,9 +5695,9 @@
           "columnIds": [
             "col_character_spells_character_id"
           ],
-          "x": 1128.7341999999999,
-          "y": 1443.8608,
-          "direction": 4
+          "x": 1295.3272,
+          "y": 1572.3027,
+          "direction": 2
         },
         "meta": {
           "updateAt": 1781007000412,
@@ -5714,8 +5714,8 @@
           "columnIds": [
             "SE9aD5L6ZKAY24QVfUnM9"
           ],
-          "x": 1369.3833,
-          "y": 745,
+          "x": 1619.4821,
+          "y": 729.9419,
           "direction": 8
         },
         "end": {
@@ -5723,8 +5723,8 @@
           "columnIds": [
             "col_character_armor_character_id"
           ],
-          "x": 1393.8101,
-          "y": 1622.8607,
+          "x": 1378.8101,
+          "y": 1755.3607,
           "direction": 4
         },
         "meta": {
@@ -5742,17 +5742,17 @@
           "columnIds": [
             "SE9aD5L6ZKAY24QVfUnM9"
           ],
-          "x": 1660.3833,
-          "y": 671,
-          "direction": 2
+          "x": 1401.2321,
+          "y": 680.6085666666667,
+          "direction": 1
         },
         "end": {
           "tableId": "tbl_character_skills",
           "columnIds": [
             "col_character_skills_character_id"
           ],
-          "x": 1836.3544,
-          "y": 818.1899,
+          "x": 1172.0520999999999,
+          "y": 935.0502,
           "direction": 4
         },
         "meta": {
@@ -5770,8 +5770,8 @@
           "columnIds": [
             "col_items_item_id"
           ],
-          "x": 1962.6582,
-          "y": 1500.0001,
+          "x": 2001.3792,
+          "y": 1526.6861,
           "direction": 1
         },
         "end": {
@@ -5779,8 +5779,8 @@
           "columnIds": [
             "col_character_items_item_id"
           ],
-          "x": 1924.2784,
-          "y": 1367.4936,
+          "x": 1898.697,
+          "y": 1528.1913,
           "direction": 2
         },
         "meta": {
@@ -5798,8 +5798,8 @@
           "columnIds": [
             "col_weapons_weapon_id"
           ],
-          "x": 2227.5,
-          "y": 1106,
+          "x": 2150.0582,
+          "y": 1150.1861,
           "direction": 4
         },
         "end": {
@@ -5807,8 +5807,8 @@
           "columnIds": [
             "col_character_weapons_weapon_id"
           ],
-          "x": 2096,
-          "y": 703,
+          "x": 2146.3489,
+          "y": 997.128,
           "direction": 8
         },
         "meta": {
@@ -5826,8 +5826,8 @@
           "columnIds": [
             "col_spells_spell_id"
           ],
-          "x": 678.3163999999999,
-          "y": 1517.0634,
+          "x": 573.3163999999999,
+          "y": 1684.5634,
           "direction": 2
         },
         "end": {
@@ -5835,8 +5835,8 @@
           "columnIds": [
             "col_character_spells_spell_id"
           ],
-          "x": 906.7342,
-          "y": 1519.8608,
+          "x": 851.3272,
+          "y": 1572.3027,
           "direction": 1
         },
         "meta": {
@@ -5854,8 +5854,8 @@
           "columnIds": [
             "col_armor_armor_id"
           ],
-          "x": 1734.7848,
-          "y": 1706.519,
+          "x": 1811.4127,
+          "y": 1831.8097,
           "direction": 1
         },
         "end": {
@@ -5863,8 +5863,8 @@
           "columnIds": [
             "col_character_armor_armor_id"
           ],
-          "x": 1620.8101,
-          "y": 1698.8607,
+          "x": 1605.8101,
+          "y": 1831.3607,
           "direction": 2
         },
         "meta": {
@@ -5882,18 +5882,18 @@
           "columnIds": [
             "col_skills_skill_id"
           ],
-          "x": 1073,
-          "y": 733,
-          "direction": 2
+          "x": 1041.0232999999998,
+          "y": 1225.7443,
+          "direction": 4
         },
         "end": {
           "tableId": "tbl_character_skills",
           "columnIds": [
             "col_character_skills_skill_id"
           ],
-          "x": 1619.3544,
-          "y": 906.1899,
-          "direction": 1
+          "x": 1172.0520999999999,
+          "y": 1111.0502000000001,
+          "direction": 8
         },
         "meta": {
           "updateAt": 1781007000424,
@@ -5919,8 +5919,8 @@
           "columnIds": [
             "col_event_maps_event_id"
           ],
-          "x": 286.5824,
-          "y": 1206.0759,
+          "x": 341.2917,
+          "y": 1279.8549,
           "direction": 4
         },
         "meta": {
@@ -5938,17 +5938,17 @@
           "columnIds": [
             "col_maps_map_id"
           ],
-          "x": 1872.7215,
-          "y": 372.7342,
-          "direction": 1
+          "x": 739.6633,
+          "y": 869.1877,
+          "direction": 8
         },
         "end": {
           "tableId": "tbl_event_maps",
           "columnIds": [
             "col_event_maps_map_id"
           ],
-          "x": 546.5824,
-          "y": 1294.0759,
+          "x": 601.2917,
+          "y": 1367.8549,
           "direction": 2
         },
         "meta": {

@@ -1,0 +1,6 @@
+---
+description: Project conventions
+alwaysApply: true
+---
+
+Wrap internal `href` and `goto()` paths with `resolve()` from `$app/paths` (enforced by `eslint-plugin-svelte`).
