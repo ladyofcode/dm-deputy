@@ -56,3 +56,9 @@ export type StoryNode = {
 	summary: string;
 	parent_node_ids: string[];
 };
+
+export type StoryItem = {
+	item_id: string;
+	parent_node_id: string;
+	label: string;
+};

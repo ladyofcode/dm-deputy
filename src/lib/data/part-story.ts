@@ -1,4 +1,4 @@
-import type { StoryNode } from '$lib/types/schema';
+import type { StoryNode, StoryItem } from '$lib/types/schema';
 
 export type NodePosition = {
 	x: number;
@@ -30,6 +30,12 @@ const DUMMY_STORY_NODES: StoryNode[] = [
 	}
 ];
 
+const DUMMY_STORY_ITEM: StoryItem = {
+	item_id: 'item-xp-encounter',
+	parent_node_id: 'node-encounter',
+	label: 'XP: 100 pts'
+};
+
 function layoutStorageKey(partId: string): string {
 	return `dm-deputy:part-node-layout:${partId}`;
 }
@@ -37,6 +43,21 @@ function layoutStorageKey(partId: string): string {
 function nodesStorageKey(partId: string): string {
 	return `dm-deputy:part-story-nodes:${partId}`;
 }
+
+export function getDummyStoryItem(): StoryItem {
+	return { ...DUMMY_STORY_ITEM };
+}
+
+export function defaultItemPosition(parentPosition: NodePosition, nodeSize: number): NodePosition {
+	return {
+		x: parentPosition.x + nodeSize + 48,
+		y: parentPosition.y + nodeSize * 0.28
+	};
+}
+
+export const ITEM_CONNECTOR_MIN_LENGTH = 72;
+export const ITEM_CONNECTOR_MAX_LENGTH = 100;
+export const ITEM_CONNECTOR_STRETCH_GIVE = 32;
 
 export function getDefaultStoryNodes(): StoryNode[] {
 	return DUMMY_STORY_NODES.map(normalizeStoryNode);

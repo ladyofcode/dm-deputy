@@ -4,6 +4,8 @@
 	export type StoryNodeCanvasContext = {
 		registerElement: (nodeId: string, element: HTMLButtonElement) => void;
 		unregisterElement: (nodeId: string) => void;
+		registerItem: (element: HTMLDivElement) => void;
+		unregisterItem: () => void;
 	};
 </script>
 
