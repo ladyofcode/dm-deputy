@@ -46,6 +46,10 @@ export function getPartsForAdventure(adventureId: string): Part[] {
 		.sort((a, b) => a.sort_order - b.sort_order);
 }
 
+export function getPartById(partId: string): Part | undefined {
+	return data.parts.find((part) => part.part_id === partId);
+}
+
 export function getMostRecentCampaignForUser(userId: string): {
 	campaign: Campaign;
 	membership: CampaignMember;

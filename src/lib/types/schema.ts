@@ -46,3 +46,13 @@ export type Part = {
 	session_estimate_max: number;
 	sort_order: number;
 };
+
+export type StoryNodeKind = 'encounter' | 'event';
+
+export type StoryNode = {
+	node_id: string;
+	kind: StoryNodeKind;
+	title: string;
+	summary: string;
+	parent_node_ids: string[];
+};

@@ -145,22 +145,33 @@
 			{:else}
 				<ol class="list-plain">
 					{#each parts as part, index (part.part_id)}
-						<li
-							class="part-item"
-							class:is-dragging={draggedIndex === index}
-							draggable="true"
-							ondragstart={() => handleDragStart(index)}
-							ondragover={(event) => handleDragOver(event, index)}
-							ondragend={handleDragEnd}
-						>
+						<li class="part-item" class:is-dragging={draggedIndex === index}>
 							<span class="part-order">{part.sort_order}</span>
 							<div class="part-content">
-								<h3>{part.title}</h3>
-								{#if part.summary}
-									<p>{part.summary}</p>
-								{/if}
+								<a
+									class="part-link"
+									href={resolve(
+										`/campaigns/${campaignId}/adventures/${adventureId}/parts/${part.part_id}`
+									)}
+								>
+									<h3>{part.title}</h3>
+									{#if part.summary}
+										<p>{part.summary}</p>
+									{/if}
+								</a>
 							</div>
-							<span class="part-handle" aria-hidden="true">⠿</span>
+							<span
+								class="part-handle"
+								role="button"
+								tabindex="0"
+								aria-label="Drag to reorder"
+								draggable="true"
+								ondragstart={() => handleDragStart(index)}
+								ondragover={(event) => handleDragOver(event, index)}
+								ondragend={handleDragEnd}
+							>
+								⠿
+							</span>
 						</li>
 					{/each}
 				</ol>
