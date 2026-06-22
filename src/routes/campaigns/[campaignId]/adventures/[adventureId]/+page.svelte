@@ -2,50 +2,73 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button, Label } from 'bits-ui';
-	import CampaignSettingsModal from '$lib/components/CampaignSettingsModal.svelte';
+	import { tick } from 'svelte';
+	import AdventureSettingsModal from '$lib/components/AdventureSettingsModal.svelte';
+	import OcrScanButton from '$lib/components/OcrScanButton.svelte';
+	import { fromStore } from 'svelte/store';
 	import { getAdventureById, getCampaignById, getPartsForAdventure } from '$lib/data';
+	import {
+		persistAdventureParts,
+		syncAdventurePartOrderWithDatabase,
+		touchCampaign
+	} from '$lib/data/writes';
+	import { dbIsReady } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import type { Part } from '$lib/types/schema';
+
+	type PartLine = {
+		id: string;
+		title: string;
+	};
+
+	const dbReady = fromStore(dbIsReady);
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const adventureId = $derived(page.params.adventureId ?? '');
 
-	const isOnboardingAdventure = $derived(workspace.createdAdventureId === adventureId);
+	const campaign = $derived.by(() => {
+		if (!dbReady.current) return undefined;
+		return getCampaignById(campaignId);
+	});
+	const adventure = $derived.by(() => {
+		if (!dbReady.current) return undefined;
+		return getAdventureById(adventureId);
+	});
 
-	const campaign = $derived(
-		isOnboardingAdventure
-			? {
-					campaign_id: campaignId,
-					campaign_name: workspace.campaignDraft.campaign_name,
-					description: workspace.campaignDraft.description,
-					game_schema: workspace.campaignDraft.game_schema,
-					theme: 'default' as const
-				}
-			: getCampaignById(campaignId)
-	);
+	let displayParts = $state<Part[]>([]);
+	let draggedPartId = $state<string | null>(null);
+	let dragOrderSnapshot = $state('');
+	let partLines = $state<PartLine[]>([{ id: crypto.randomUUID(), title: '' }]);
+	let saving = $state(false);
+	let isReordering = $state(false);
+	let sessionDurationDrafts = $state<Record<string, string>>({});
 
-	const adventure = $derived(
-		isOnboardingAdventure
-			? {
-					adventure_id: adventureId,
-					name: workspace.adventureDraft.name,
-					overview: workspace.adventureDraft.overview,
-					adventure_hook: workspace.adventureDraft.adventure_hook,
-					can_promote_to_campaign: workspace.adventureDraft.can_promote_to_campaign
-				}
-			: getAdventureById(adventureId)
-	);
+	$effect(() => {
+		if (!dbReady.current || !adventureId) return;
 
-	let parts = $state<Part[]>(
-		workspace.createdAdventureId === (page.params.adventureId ?? '')
-			? workspace.onboardingParts
-			: getPartsForAdventure(page.params.adventureId ?? '')
-	);
+		let cancelled = false;
 
-	let draggedIndex = $state<number | null>(null);
-	let showAddForm = $state(false);
-	let newTitle = $state('');
-	let newSummary = $state('');
+		void (async () => {
+			const initialParts = getPartsForAdventure(adventureId);
+			displayParts = initialParts;
+			sessionDurationDrafts = Object.fromEntries(
+				initialParts.map((part) => [part.part_id, part.session_duration ?? ''])
+			);
+
+			await syncAdventurePartOrderWithDatabase(adventureId);
+			if (cancelled) return;
+
+			const syncedParts = getPartsForAdventure(adventureId);
+			displayParts = syncedParts;
+			sessionDurationDrafts = Object.fromEntries(
+				syncedParts.map((part) => [part.part_id, part.session_duration ?? ''])
+			);
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	function assignPartOrder(items: Part[]): Part[] {
 		return items.map((part, index) => ({ ...part, sort_order: index + 1 }));
@@ -62,47 +85,136 @@
 		return assignPartOrder(next);
 	}
 
-	function setParts(next: Part[]) {
-		parts = next;
-		if (isOnboardingAdventure) {
-			workspace.onboardingParts = next;
+	async function commitParts(next: Part[]) {
+		saving = true;
+
+		try {
+			const normalized = next.map((part) => ({
+				...part,
+				session_duration: part.session_duration?.trim() || null
+			}));
+			await persistAdventureParts(adventureId, normalized);
+			await touchCampaign(workspace.currentUserId, campaignId);
+			displayParts = [...normalized];
+			for (const part of normalized) {
+				sessionDurationDrafts[part.part_id] = part.session_duration ?? '';
+			}
+		} finally {
+			saving = false;
 		}
 	}
 
-	function handleDragStart(index: number) {
-		draggedIndex = index;
+	async function savePartSessionDuration(partId: string) {
+		const draft = sessionDurationDrafts[partId] ?? '';
+		const normalized = draft.trim() || null;
+		const part = displayParts.find((entry) => entry.part_id === partId);
+		if (!part || (part.session_duration ?? null) === normalized) return;
+
+		const next = displayParts.map((entry) =>
+			entry.part_id === partId ? { ...entry, session_duration: normalized } : entry
+		);
+		await commitParts(next);
 	}
 
-	function handleDragOver(event: DragEvent, index: number) {
+	function movePartOverTarget(targetPartId: string) {
+		if (!draggedPartId || draggedPartId === targetPartId) return;
+
+		const fromIndex = displayParts.findIndex((part) => part.part_id === draggedPartId);
+		const toIndex = displayParts.findIndex((part) => part.part_id === targetPartId);
+		if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+
+		displayParts = reorderParts(displayParts, fromIndex, toIndex);
+	}
+
+	function handleWindowPointerMove(event: PointerEvent) {
+		if (!draggedPartId) return;
+
+		const target = document
+			.elementFromPoint(event.clientX, event.clientY)
+			?.closest('[data-part-id]');
+		const targetPartId = target?.getAttribute('data-part-id');
+		if (targetPartId) {
+			movePartOverTarget(targetPartId);
+		}
+	}
+
+	async function finishReorder() {
+		if (!draggedPartId || isReordering) return;
+
+		const nextParts = displayParts;
+		const orderChanged = nextParts.map((part) => part.part_id).join('\n') !== dragOrderSnapshot;
+
+		draggedPartId = null;
+		dragOrderSnapshot = '';
+		window.removeEventListener('pointermove', handleWindowPointerMove);
+		window.removeEventListener('pointerup', handleWindowPointerUp);
+		window.removeEventListener('pointercancel', handleWindowPointerUp);
+
+		if (!orderChanged) return;
+
+		isReordering = true;
+		try {
+			await commitParts(nextParts);
+		} finally {
+			isReordering = false;
+		}
+	}
+
+	function handleWindowPointerUp() {
+		void finishReorder();
+	}
+
+	function handleHandlePointerDown(partId: string, event: PointerEvent) {
+		if (event.button !== 0) return;
+
 		event.preventDefault();
-		if (draggedIndex === null || draggedIndex === index) return;
-
-		setParts(reorderParts(parts, draggedIndex, index));
-		draggedIndex = index;
+		draggedPartId = partId;
+		dragOrderSnapshot = displayParts.map((part) => part.part_id).join('\n');
+		window.addEventListener('pointermove', handleWindowPointerMove);
+		window.addEventListener('pointerup', handleWindowPointerUp);
+		window.addEventListener('pointercancel', handleWindowPointerUp);
 	}
 
-	function handleDragEnd() {
-		draggedIndex = null;
+	function addPartLine() {
+		partLines = [...partLines, { id: crypto.randomUUID(), title: '' }];
 	}
 
-	function addPart() {
-		const title = newTitle.trim();
-		if (!title) return;
+	function removePartLine(lineId: string) {
+		partLines = partLines.filter((line) => line.id !== lineId);
+		if (partLines.length === 0) {
+			partLines = [{ id: crypto.randomUUID(), title: '' }];
+		}
+	}
 
-		const nextPart: Part = {
+	async function handlePartKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter') return;
+
+		event.preventDefault();
+		addPartLine();
+		await tick();
+
+		const inputs = document.querySelectorAll<HTMLInputElement>('.part-line input');
+		inputs[inputs.length - 1]?.focus();
+	}
+
+	async function saveNewParts(event: SubmitEvent) {
+		event.preventDefault();
+		if (saving) return;
+
+		const titles = partLines.map((line) => line.title.trim()).filter(Boolean);
+		if (titles.length === 0) return;
+
+		const newParts: Part[] = titles.map((title, index) => ({
 			part_id: `part-${crypto.randomUUID()}`,
 			adventure_id: adventureId,
 			title,
-			summary: newSummary.trim() || null,
-			session_estimate_min: 1,
-			session_estimate_max: 1,
-			sort_order: parts.length + 1
-		};
+			summary: null,
+			session_duration: null,
+			sort_order: displayParts.length + index + 1
+		}));
 
-		setParts(assignPartOrder([...parts, nextPart]));
-		newTitle = '';
-		newSummary = '';
-		showAddForm = false;
+		await commitParts(assignPartOrder([...displayParts, ...newParts]));
+		partLines = [{ id: crypto.randomUUID(), title: '' }];
 	}
 </script>
 
@@ -110,104 +222,168 @@
 	<title>{adventure?.name ?? 'Adventure'} · DM Deputy</title>
 </svelte:head>
 
-{#if !campaign || !adventure}
+{#if dbReady.current && (!campaign || !adventure)}
 	<section class="page-stack">
 		<h1>Adventure not found</h1>
 		<Button.Root href={resolve('/')}>Back to home</Button.Root>
 	</section>
 {:else}
 	<section class="page-stack">
-		<div class="campaign-header campaign-header--centered">
-			<p class="eyebrow">{campaign.campaign_name}</p>
-			<CampaignSettingsModal
-				campaignId={campaign.campaign_id}
-				campaignName={campaign.campaign_name}
-			/>
-		</div>
-		<h1>{adventure.name}</h1>
+		<nav aria-label="Back to campaign">
+			<Button.Root href={resolve(`/campaigns/${campaignId}`)}>←</Button.Root>
+		</nav>
 
-		{#if adventure.overview}
+		<div class="campaign-header campaign-header--centered">
+			<div class="adventure-heading">
+				<p class="eyebrow">{campaign?.campaign_name ?? ''}</p>
+				<h1>{adventure?.name ?? ''}</h1>
+			</div>
+			{#if campaign && adventure}
+				<AdventureSettingsModal
+					campaignId={campaign.campaign_id}
+					campaignName={campaign.campaign_name}
+					adventureId={adventure.adventure_id}
+					adventureName={adventure.name}
+				/>
+			{/if}
+		</div>
+
+		{#if adventure?.overview}
 			<p>{adventure.overview}</p>
 		{/if}
 
-		{#if adventure.adventure_hook}
+		{#if adventure?.adventure_hook}
 			<blockquote>{adventure.adventure_hook}</blockquote>
 		{/if}
 
-		<section class="parts-section">
-			<header>
-				<h2>Parts</h2>
-				<p>Ordered story beats for this adventure. Drag to reorder.</p>
-			</header>
+		<div class="actions-row">
+			<Button.Root href={resolve(`/campaigns/${campaignId}/adventures/${adventureId}/full`)}>
+				Full adventure
+			</Button.Root>
+		</div>
 
-			{#if parts.length === 0}
-				<p>No parts yet. Add the first part to start outlining this adventure.</p>
+		<section class="parts-section">
+			{#if displayParts.length === 0}
+				<h2>No parts! Add below</h2>
 			{:else}
-				<ol class="list-plain">
-					{#each parts as part, index (part.part_id)}
-						<li class="part-item" class:is-dragging={draggedIndex === index}>
+				<h2>Parts</h2>
+				<p class="hint">Drag to reorder.</p>
+
+				<ul class="part-list list-plain">
+					{#each displayParts as part (part.part_id)}
+						<li
+							class="part-list-item"
+							class:is-dragging={draggedPartId === part.part_id}
+							data-part-id={part.part_id}
+						>
 							<span class="part-order">{part.sort_order}</span>
-							<div class="part-content">
+							<div class="part-list-main">
 								<a
-									class="part-link"
+									class="part-list-link"
 									href={resolve(
 										`/campaigns/${campaignId}/adventures/${adventureId}/parts/${part.part_id}`
 									)}
 								>
 									<h3>{part.title}</h3>
-									{#if part.summary}
-										<p>{part.summary}</p>
-									{/if}
 								</a>
+								<div class="part-session-field">
+									<Label.Root for="session-{part.part_id}">Session time</Label.Root>
+									<textarea
+										id="session-{part.part_id}"
+										bind:value={sessionDurationDrafts[part.part_id]}
+										placeholder="e.g. 3 hours, or two sessions in Jan"
+										rows={2}
+										onblur={() => savePartSessionDuration(part.part_id)}
+									></textarea>
+								</div>
 							</div>
 							<span
 								class="part-handle"
 								role="button"
 								tabindex="0"
 								aria-label="Drag to reorder"
-								draggable="true"
-								ondragstart={() => handleDragStart(index)}
-								ondragover={(event) => handleDragOver(event, index)}
-								ondragend={handleDragEnd}
+								onpointerdown={(event) => handleHandlePointerDown(part.part_id, event)}
 							>
 								⠿
 							</span>
 						</li>
 					{/each}
-				</ol>
+				</ul>
 			{/if}
 
-			{#if showAddForm}
-				<form
-					class="panel-form"
-					onsubmit={(event) => {
-						event.preventDefault();
-						addPart();
-					}}
-				>
-					<div class="field">
-						<Label.Root for="part_title">Title</Label.Root>
-						<input id="part_title" bind:value={newTitle} required placeholder="Part title" />
+			<form class="parts-form" onsubmit={saveNewParts}>
+				<div class="field">
+					<div class="campaign-header campaign-header--centered">
+						<Label.Root>{displayParts.length === 0 ? 'Parts' : 'Add parts'}</Label.Root>
+						<OcrScanButton />
 					</div>
-					<div class="field">
-						<Label.Root for="part_summary">Description</Label.Root>
-						<textarea
-							id="part_summary"
-							bind:value={newSummary}
-							rows="3"
-							placeholder="What happens in this part?"
-						></textarea>
-					</div>
-					<div class="actions-row actions-row--tight">
-						<Button.Root type="submit">Save part</Button.Root>
-						<Button.Root type="button" onclick={() => (showAddForm = false)}>Cancel</Button.Root>
-					</div>
-				</form>
-			{:else}
-				<Button.Root type="button" onclick={() => (showAddForm = true)}>Add a part</Button.Root>
-			{/if}
+					<p class="hint">Enter each part title on its own line. Press Enter to add another.</p>
+					<ul class="part-lines list-plain">
+						{#each partLines as line, index (line.id)}
+							<li class="part-line">
+								<input
+									bind:value={line.title}
+									placeholder="Part title"
+									aria-label="Part title"
+									onkeydown={handlePartKeydown}
+								/>
+								{#if partLines.length > 1 || line.title.trim()}
+									<Button.Root
+										type="button"
+										data-variant="icon"
+										onclick={() => removePartLine(line.id)}
+										aria-label="Remove part line"
+									>
+										−
+									</Button.Root>
+								{/if}
+								{#if index === partLines.length - 1}
+									<Button.Root
+										type="button"
+										data-variant="icon"
+										onclick={addPartLine}
+										aria-label="Add part line"
+									>
+										+
+									</Button.Root>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+
+				<div class="parts-form-submit">
+					<Button.Root type="submit" disabled={saving}>
+						{saving ? 'Saving…' : 'Save'}
+					</Button.Root>
+				</div>
+			</form>
 		</section>
-
-		<Button.Root href={resolve('/')}>Done for now</Button.Root>
 	</section>
 {/if}
+
+<style>
+	.adventure-heading h1 {
+		margin: 0.15rem 0 0;
+	}
+
+	.part-list-main {
+		flex: 1;
+		min-width: 0;
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.part-session-field {
+		display: grid;
+		gap: 0.25rem;
+		margin: 0;
+	}
+
+	.part-session-field textarea {
+		width: 100%;
+		min-height: 3.5rem;
+		resize: vertical;
+		line-height: 1.45;
+	}
+</style>

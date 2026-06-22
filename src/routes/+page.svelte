@@ -1,85 +1,63 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
-	import CampaignSettingsModal from '$lib/components/CampaignSettingsModal.svelte';
-	import { getAdventuresForCampaign, getMostRecentCampaignForUser, getUserById } from '$lib/data';
+	import { fromStore } from 'svelte/store';
+	import { getCampaigns } from '$lib/data';
+	import { getReactiveCampaignListForUser } from '$lib/stores/campaign-list.svelte';
+	import { resolveCampaignHref } from '$lib/navigation/hrefs';
+	import { dbIsReady } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 
-	const user = $derived(getUserById(workspace.currentUserId));
-	const recent = $derived(getMostRecentCampaignForUser(workspace.currentUserId));
-	const adventures = $derived(recent ? getAdventuresForCampaign(recent.campaign.campaign_id) : []);
+	const dbReady = fromStore(dbIsReady);
 
-	$effect(() => {
-		if (workspace.scenario === 'new-gm') {
-			goto(resolve('/onboarding/campaign'));
-		}
-	});
+	const campaigns = $derived(
+		dbReady.current ? getReactiveCampaignListForUser(workspace.currentUserId) : []
+	);
+
+	function formatActivityDate(iso: string): string {
+		if (!iso) return '';
+		return new Date(iso).toLocaleDateString();
+	}
 </script>
 
 <svelte:head>
 	<title>Home · DM Deputy</title>
 </svelte:head>
 
-<section class="page-stack">
-	{#if user}
-		<p>Welcome back, {user.username}.</p>
-	{/if}
+<section class="page-stack home-page">
+	{#if dbReady.current}
+		{#if campaigns.length > 0}
+			<header class="home-header">
+				<Button.Root href={resolve('/onboarding/campaign')} data-variant="ghost"
+					>Create campaign</Button.Root
+				>
+			</header>
 
-	{#if recent}
-		<header class="campaign-header">
-			<div>
-				<p class="eyebrow">Most recently played</p>
-				<h1>{recent.campaign.campaign_name}</h1>
-			</div>
-			<CampaignSettingsModal
-				campaignId={recent.campaign.campaign_id}
-				campaignName={recent.campaign.campaign_name}
-			/>
-		</header>
-		{#if recent.campaign.description}
-			<p>{recent.campaign.description}</p>
-		{/if}
-
-		<div class="meta-row">
-			<span>Ruleset: {recent.campaign.game_schema}</span>
-			<span>
-				Last played:
-				{new Date(recent.membership.last_played_at ?? '').toLocaleDateString()}
-			</span>
-		</div>
-
-		<section class="page-stack--compact">
-			<h2>Adventures</h2>
-			{#if adventures.length === 0}
-				<p>No adventures in this campaign yet.</p>
-			{:else}
-				<ul class="list-plain">
-					{#each adventures as adventure (adventure.adventure_id)}
-						<li>
-							<a
-								class="card-link"
-								href={resolve(
-									`/campaigns/${recent.campaign.campaign_id}/adventures/${adventure.adventure_id}`
-								)}
-							>
-								<strong>{adventure.name}</strong>
-								{#if adventure.overview}
-									<span>{adventure.overview}</span>
+			<ul class="campaign-list list-plain">
+				{#each campaigns as entry (entry.campaign.campaign_id)}
+					<li class="campaign-item">
+						<a class="campaign-link" href={resolveCampaignHref(entry.campaign.campaign_id)}>
+							<div class="campaign-main">
+								<h2>{entry.campaign.campaign_name}</h2>
+								{#if entry.campaign.description}
+									<p>{entry.campaign.description}</p>
 								{/if}
-							</a>
-						</li>
-					{/each}
-				</ul>
+							</div>
+							<span class="campaign-activity">
+								{entry.activity.label}: {formatActivityDate(entry.activity.at)}
+							</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p>No campaigns yet. Create one to get started.</p>
+			{#if getCampaigns().length > 0}
+				<p class="hint">
+					There are campaigns in the local database, but none are linked to the current user ({workspace.currentUserId}).
+				</p>
 			{/if}
-		</section>
-
-		<Button.Root href={resolve('/onboarding/campaign')}>Create another campaign</Button.Root>
-	{:else}
-		<header>
-			<h1>No campaigns yet</h1>
-			<p>Create your first campaign to get started.</p>
-		</header>
-		<Button.Root href={resolve('/onboarding/campaign')}>Create a new campaign</Button.Root>
+			<Button.Root href={resolve('/onboarding/campaign')}>Create campaign</Button.Root>
+		{/if}
 	{/if}
 </section>

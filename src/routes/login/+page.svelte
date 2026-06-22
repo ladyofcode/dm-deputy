@@ -2,19 +2,15 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button, Label, Separator } from 'bits-ui';
+	import { LOCAL_USER_ID } from '$lib/constants/user';
 	import { workspace } from '$lib/stores/workspace.svelte';
 
 	let email = $state('');
 	let password = $state('');
 
-	function continueAsReturningGm() {
-		workspace.setScenario('returning', 'usr-returning-gm');
+	function continueToApp() {
+		workspace.setCurrentUser(LOCAL_USER_ID);
 		goto(resolve('/'));
-	}
-
-	function continueAsNewGm() {
-		workspace.setScenario('new-gm', 'usr-new-gm');
-		goto(resolve('/onboarding/campaign'));
 	}
 </script>
 
@@ -48,15 +44,10 @@
 	<Separator.Root />
 
 	<div class="page-stack--compact">
-		<h2>Demo scenarios</h2>
-		<p>Use these to preview layouts with dummy data.</p>
+		<h2>Local mode</h2>
+		<p>Your campaigns are stored in this browser. Continue to create or resume your game.</p>
 		<div class="actions-row actions-row--stacked">
-			<Button.Root type="button" onclick={continueAsReturningGm}>
-				Returning GM — show recent campaign
-			</Button.Root>
-			<Button.Root type="button" onclick={continueAsNewGm}>
-				New GM — create campaign &amp; adventure
-			</Button.Root>
+			<Button.Root type="button" onclick={continueToApp}>Continue as game master</Button.Root>
 		</div>
 	</div>
 </section>

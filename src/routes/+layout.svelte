@@ -1,16 +1,32 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+	import { fromStore } from 'svelte/store';
 	import favicon from '$lib/assets/favicon.svg';
 	import { getMostRecentCampaignForUser } from '$lib/data';
+	import { database, dbError, dbIsReady, dbStatus } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { preferences } from '$lib/stores/preferences.svelte';
 	import { resolveActiveTheme } from '$lib/themes/resolve';
+	import { parseCampaignIdFromPath, resolveStoredActiveTheme } from '$lib/themes/storage';
+	import { syncThemesWithDatabase } from '$lib/data/writes';
+	import { installCampaignDbInspect } from '$lib/debug/campaign-db-inspect';
+	import LibraryNavMenu from '$lib/components/LibraryNavMenu.svelte';
 	import '../app.css';
 
 	let { children } = $props();
 
-	const recentCampaign = $derived(getMostRecentCampaignForUser(workspace.currentUserId));
+	const ready = fromStore(dbIsReady);
+
+	onMount(() => {
+		installCampaignDbInspect(() => workspace.currentUserId);
+		void database.init();
+	});
+
+	const recentCampaign = $derived(
+		ready.current ? getMostRecentCampaignForUser(workspace.currentUserId) : null
+	);
 
 	const contextualCampaignId = $derived.by(() => {
 		if (page.params.campaignId) {
@@ -24,14 +40,28 @@
 		return undefined;
 	});
 
-	const activeTheme = $derived(
-		resolveActiveTheme(
-			workspace.currentUserId,
-			contextualCampaignId,
-			preferences.userThemes,
-			preferences.campaignThemes
-		)
+	const isPartStoryPage = $derived(Boolean(page.params.partId));
+
+	const routeCampaignId = $derived(
+		page.params.campaignId ?? parseCampaignIdFromPath(page.url.pathname)
 	);
+
+	const activeTheme = $derived(
+		ready.current
+			? resolveActiveTheme(
+					workspace.currentUserId,
+					contextualCampaignId,
+					preferences.userThemes,
+					preferences.campaignThemes
+				)
+			: resolveStoredActiveTheme(workspace.currentUserId, routeCampaignId)
+	);
+
+	$effect(() => {
+		if (!ready.current) return;
+
+		void syncThemesWithDatabase(workspace.currentUserId);
+	});
 
 	$effect(() => {
 		document.documentElement.dataset.theme = activeTheme;
@@ -53,10 +83,10 @@
 		<a href={resolve('/')} class="brand">DM Deputy</a>
 		<nav class="app-nav">
 			<a href={resolve('/')} aria-current={page.url.pathname === '/' ? 'page' : undefined}>Home</a>
+			<LibraryNavMenu />
 			<a
 				href={resolve('/account/settings')}
-				aria-current={page.url.pathname === '/account/settings' ? 'page' : undefined}
-				>Settings</a
+				aria-current={page.url.pathname === '/account/settings' ? 'page' : undefined}>Settings</a
 			>
 			<a href={resolve('/login')} aria-current={page.url.pathname === '/login' ? 'page' : undefined}
 				>Login</a
@@ -64,7 +94,49 @@
 		</nav>
 	</header>
 
-	<main class="app-main">
+	<main class="app-main" class:app-main--canvas={isPartStoryPage}>
+		{#if $dbStatus === 'error'}
+			<section class="db-error-banner page-stack" role="alert">
+				<h1>Database error</h1>
+				<p>{$dbError}</p>
+				<p class="hint">
+					If this persists, clear site data for this origin and reload. OPFS storage also requires
+					HTTPS with COOP/COEP headers when deployed.
+				</p>
+			</section>
+		{/if}
+
 		{@render children()}
 	</main>
 </div>
+
+<style>
+	.db-error-banner {
+		margin-bottom: 1rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--color-danger, #b42318);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--color-danger, #b42318) 8%, transparent);
+	}
+
+	.db-error-banner h1 {
+		margin: 0 0 0.35rem;
+		font-size: 1rem;
+	}
+
+	:global(.app-nav-menu-trigger) {
+		padding: 0;
+		border: none;
+		background: none;
+		font: inherit;
+		cursor: pointer;
+		text-decoration: none;
+		color: var(--color-text-muted);
+	}
+
+	:global(.app-nav-menu-trigger:hover),
+	:global(.app-nav-menu-trigger[aria-current='page']),
+	:global(.app-nav-menu-trigger[data-state='open']) {
+		color: var(--color-accent);
+	}
+</style>
