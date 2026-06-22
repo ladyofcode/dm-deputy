@@ -73,6 +73,9 @@ export default defineConfig({
 			},
 			workbox: {
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,woff2}'],
+				// Module workers must load from the network with COOP/COEP/CORP headers;
+				// precaching them causes "ServiceWorker intercepted…unexpected error" in production.
+				globIgnores: ['**/_app/immutable/workers/**'],
 				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024
 			},
 			devOptions: {
