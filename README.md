@@ -78,11 +78,48 @@ Once you have real data, export backups from Settings and store them outside the
 | `pnpm lint`         | Lint                                                              |
 | `pnpm format`       | Format                                                            |
 
-## PWA / phone install
+## PWA / tablet install
 
-Build and serve over HTTPS (or use `pnpm preview --host` on your LAN for testing). Install from Chrome → “Add to Home screen”. See DevTools → Application to verify manifest and service worker.
+You do **not** open the repo or unzip `build/` on the tablet. The tablet needs a **URL in Chrome** — the app is a website that gets installed like an app.
 
-The app uses `@sqlite.org/sqlite-wasm` in a web worker. Deployed hosts need COOP/COEP headers (configured in `vite.config.ts` and `src/hooks.server.ts` for dev/preview/production).
+### On your computer (build once)
+
+```sh
+pnpm install
+pnpm build
+pnpm preview --host
+```
+
+Vite prints a network URL (for example `http://192.168.1.10:4173`).
+
+### On the tablet
+
+1. Connect the tablet to the **same Wi‑Fi** as your computer.
+2. Open **Chrome** and go to that network URL.
+3. Menu → **Add to Home screen** (or **Install app**).
+
+That creates a home-screen icon that opens DM Deputy full-screen.
+
+### Important limits
+
+- **HTTPS required for full PWA behavior on a tablet.** Service workers, offline caching, and OPFS database storage only work in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts). `localhost` counts; a LAN IP over plain `http://` usually does **not**. For a real tablet install with persistence and offline, serve the `build/` folder over **HTTPS** (Netlify, Cloudflare Pages, nginx with a cert, etc.).
+- **`pnpm preview --host`** is fine for checking layout on the tablet over Wi‑Fi, but expect DB/offline features to fail until you use HTTPS.
+- **Do not** copy `build/` to the tablet and open `index.html` from Files — `file://` will not work.
+
+### Deploying for everyday use
+
+1. Run `pnpm build` — output is the `build/` folder (static HTML/JS/assets).
+2. Upload **`build/` contents** to any static host with **HTTPS** and these response headers on every file:
+
+   - `Cross-Origin-Opener-Policy: same-origin`
+   - `Cross-Origin-Embedder-Policy: require-corp`
+   - `Cross-Origin-Resource-Policy: same-origin`
+
+   `vite.config.ts` sets these for dev/preview; a static host must configure them separately (`hooks.server.ts` does not run for a plain static deploy).
+
+3. Open the HTTPS URL on the tablet and add to home screen.
+
+See Chrome DevTools → Application to verify the manifest and service worker.
 
 ## What is committed vs local
 

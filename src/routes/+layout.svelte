@@ -13,15 +13,23 @@
 	import { syncThemesWithDatabase } from '$lib/data/writes';
 	import { installCampaignDbInspect } from '$lib/debug/campaign-db-inspect';
 	import LibraryNavMenu from '$lib/components/LibraryNavMenu.svelte';
+	import { pwaInfo } from 'virtual:pwa-info';
 	import '../app.css';
 
 	let { children } = $props();
 
 	const ready = fromStore(dbIsReady);
+	const webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 
 	onMount(() => {
 		installCampaignDbInspect(() => workspace.currentUserId);
 		void database.init();
+
+		if (pwaInfo) {
+			void import('virtual:pwa-register').then(({ registerSW }) => {
+				registerSW({ immediate: true });
+			});
+		}
 	});
 
 	const recentCampaign = $derived(
@@ -69,6 +77,7 @@
 </script>
 
 <svelte:head>
+	{@html webManifestLink}
 	<link rel="icon" href={favicon} />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
