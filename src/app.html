@@ -2,7 +2,26 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<script>
+			(function () {
+				try {
+					var userId = 'usr-local';
+					var theme = localStorage.getItem('dm-deputy:theme:user:' + userId) || 'default';
+					var match = location.pathname.match(/\/campaigns\/([^/]+)/);
+					if (match) {
+						var campaignTheme = localStorage.getItem('dm-deputy:theme:campaign:' + match[1]);
+						if (campaignTheme && campaignTheme !== 'default') theme = campaignTheme;
+					}
+					if (theme === 'default' || theme === 'medieval') {
+						document.documentElement.dataset.theme = theme;
+					}
+				} catch (e) {}
+			})();
+		</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#1a1410" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="text-scale" content="scale" />
 		%sveltekit.head%
 	</head>
