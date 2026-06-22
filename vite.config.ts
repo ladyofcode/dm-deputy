@@ -38,6 +38,7 @@ export default defineConfig({
 		sveltekit(),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
+			useCredentials: true,
 			manifest: {
 				name: 'DM Deputy',
 				short_name: 'DM Deputy',
@@ -69,7 +70,8 @@ export default defineConfig({
 				]
 			},
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,woff2}']
+				globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,woff2}'],
+				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024
 			},
 			devOptions: {
 				enabled: false

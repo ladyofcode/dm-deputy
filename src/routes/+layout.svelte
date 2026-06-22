@@ -13,6 +13,7 @@
 	import { syncThemesWithDatabase } from '$lib/data/writes';
 	import { installCampaignDbInspect } from '$lib/debug/campaign-db-inspect';
 	import LibraryNavMenu from '$lib/components/LibraryNavMenu.svelte';
+	import AuthGate from '$lib/components/AuthGate.svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import '../app.css';
 
@@ -86,6 +87,8 @@
 		rel="stylesheet"
 	/>
 </svelte:head>
+
+<AuthGate />
 
 <div class="shell">
 	<header class="app-header">

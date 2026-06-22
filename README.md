@@ -82,7 +82,19 @@ Once you have real data, export backups from Settings and store them outside the
 
 You do **not** open the repo or unzip `build/` on the tablet. The tablet needs a **URL in Chrome** — the app is a website that gets installed like an app.
 
-### On your computer (build once)
+### Deploy to Coolify (recommended)
+
+Same pattern as **kitchen-bitchin**: Docker + Coolify HTTP auth.
+
+1. Create a **Dockerfile** resource in Coolify pointing at this repo (Coolify detects the root `Dockerfile`).
+2. Enable **HTTP Basic Auth** (or your Coolify access protection) on the resource — that keeps strangers off the URL.
+3. The app’s `AuthGate` calls `/api/auth/check`; if Coolify auth succeeds, you tap **Begin** and the PWA loads.
+
+The Node server (`adapter-node`) also sends the **COOP/COEP headers** required for SQLite in the browser (`src/hooks.server.ts`).
+
+On the tablet: open your Coolify HTTPS URL in Chrome → sign in when prompted → **Add to Home screen**.
+
+### Local preview
 
 ```sh
 pnpm install
@@ -90,34 +102,13 @@ pnpm build
 pnpm preview --host
 ```
 
-Vite prints a network URL (for example `http://192.168.1.10:4173`).
-
-### On the tablet
-
-1. Connect the tablet to the **same Wi‑Fi** as your computer.
-2. Open **Chrome** and go to that network URL.
-3. Menu → **Add to Home screen** (or **Install app**).
-
-That creates a home-screen icon that opens DM Deputy full-screen.
+Open the network URL on the tablet (same Wi‑Fi). Auth gate is skipped in dev; use Coolify auth in production.
 
 ### Important limits
 
-- **HTTPS required for full PWA behavior on a tablet.** Service workers, offline caching, and OPFS database storage only work in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts). `localhost` counts; a LAN IP over plain `http://` usually does **not**. For a real tablet install with persistence and offline, serve the `build/` folder over **HTTPS** (Netlify, Cloudflare Pages, nginx with a cert, etc.).
-- **`pnpm preview --host`** is fine for checking layout on the tablet over Wi‑Fi, but expect DB/offline features to fail until you use HTTPS.
-- **Do not** copy `build/` to the tablet and open `index.html` from Files — `file://` will not work.
-
-### Deploying for everyday use
-
-1. Run `pnpm build` — output is the `build/` folder (static HTML/JS/assets).
-2. Upload **`build/` contents** to any static host with **HTTPS** and these response headers on every file:
-
-   - `Cross-Origin-Opener-Policy: same-origin`
-   - `Cross-Origin-Embedder-Policy: require-corp`
-   - `Cross-Origin-Resource-Policy: same-origin`
-
-   `vite.config.ts` sets these for dev/preview; a static host must configure them separately (`hooks.server.ts` does not run for a plain static deploy).
-
-3. Open the HTTPS URL on the tablet and add to home screen.
+- **HTTPS** is required on the tablet for service workers, offline caching, and OPFS database storage.
+- Campaign data lives **in each browser** (OPFS). Export backups from Settings if you switch devices.
+- Coolify auth protects the **site URL**, not individual campaigns inside the app.
 
 See Chrome DevTools → Application to verify the manifest and service worker.
 
