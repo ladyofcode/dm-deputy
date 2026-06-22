@@ -8,24 +8,26 @@ const crossOriginIsolationHeaders = {
 	'Cross-Origin-Resource-Policy': 'same-origin'
 };
 
+function applyCrossOriginIsolationHeaders(
+	setHeader: (name: string, value: string) => void
+): void {
+	for (const [name, value] of Object.entries(crossOriginIsolationHeaders)) {
+		setHeader(name, value);
+	}
+}
+
 function crossOriginIsolationPlugin(): Plugin {
 	return {
 		name: 'cross-origin-isolation',
 		configureServer(server) {
 			server.middlewares.use((_request, response, next) => {
-				for (const [name, value] of Object.entries(crossOriginIsolationHeaders)) {
-					response.setHeader(name, value);
-				}
-
+				applyCrossOriginIsolationHeaders(response.setHeader.bind(response));
 				next();
 			});
 		},
 		configurePreviewServer(server) {
 			server.middlewares.use((_request, response, next) => {
-				for (const [name, value] of Object.entries(crossOriginIsolationHeaders)) {
-					response.setHeader(name, value);
-				}
-
+				applyCrossOriginIsolationHeaders(response.setHeader.bind(response));
 				next();
 			});
 		}

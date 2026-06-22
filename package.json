@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"postbuild": "node scripts/patch-adapter-node-headers.mjs",
 		"preview": "vite preview",
 		"build:db": "node --experimental-strip-types scripts/build-app-db.ts",
 		"predev": "pnpm run build:db",
