@@ -1,48 +1,30 @@
-import type {
-	OnboardingAdventureDraft,
-	OnboardingCampaignDraft,
-	SessionScenario
-} from '$lib/types/convenience-schema';
-import type { Part } from '$lib/types/schema';
+import { LOCAL_USER_ID } from '$lib/constants/user';
 
-const defaultCampaignDraft = (): OnboardingCampaignDraft => ({
-	campaign_name: '',
-	description: '',
-	game_schema: 'dnd5e'
-});
+const CURRENT_USER_STORAGE_KEY = 'dm-deputy:current-user-id';
 
-const defaultAdventureDraft = (): OnboardingAdventureDraft => ({
-	name: '',
-	overview: '',
-	adventure_hook: '',
-	can_promote_to_campaign: false
-});
+function readStoredUserId(): string {
+	if (typeof localStorage === 'undefined') return LOCAL_USER_ID;
+
+	const stored = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+	if (!stored || stored === 'usr-returning-gm' || stored === 'usr-new-gm') {
+		return LOCAL_USER_ID;
+	}
+
+	return stored;
+}
+
+function persistUserId(userId: string): void {
+	if (typeof localStorage === 'undefined') return;
+	localStorage.setItem(CURRENT_USER_STORAGE_KEY, userId);
+}
 
 class WorkspaceState {
-	scenario = $state<SessionScenario>('returning');
-	currentUserId = $state('usr-returning-gm');
+	currentUserId = $state(readStoredUserId());
 
-	campaignDraft = $state<OnboardingCampaignDraft>(defaultCampaignDraft());
-	adventureDraft = $state<OnboardingAdventureDraft>(defaultAdventureDraft());
-
-	createdCampaignId = $state<string | null>(null);
-	createdAdventureId = $state<string | null>(null);
-	onboardingParts = $state<Part[]>([]);
-
-	setScenario(scenario: SessionScenario, userId: string) {
-		this.scenario = scenario;
+	setCurrentUser(userId: string) {
 		this.currentUserId = userId;
-		this.resetOnboarding();
+		persistUserId(userId);
 	}
-
-	resetOnboarding() {
-		this.campaignDraft = defaultCampaignDraft();
-		this.adventureDraft = defaultAdventureDraft();
-		this.createdCampaignId = null;
-		this.createdAdventureId = null;
-		this.onboardingParts = [];
-	}
-
 }
 
 export const workspace = new WorkspaceState();
