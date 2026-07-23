@@ -1,0 +1,202 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { Button, Tooltip } from 'bits-ui';
+	import { fromStore } from 'svelte/store';
+	import SessionZeroCategorySections from '$lib/components/campaign/SessionZeroCategorySections.svelte';
+	import SessionZeroQuestionLabel from '$lib/components/campaign/SessionZeroQuestionLabel.svelte';
+	import SessionZeroQuestionsModal from '$lib/components/campaign/SessionZeroQuestionsModal.svelte';
+	import {
+		createEmptySessionZeroState,
+		defaultActiveQuestionIds,
+		emptySessionZeroAnswers,
+		groupActiveQuestionsBySection,
+		groupSectionsByCategory,
+		sortSessionZeroQuestionIds
+	} from '$lib/domain/session-zero-questions';
+	import { getCampaignById, getSessionZeroForCampaign } from '$lib/data';
+	import { persistSessionZero } from '$lib/data/writes';
+	import { resolveCampaignHref } from '$lib/navigation/hrefs';
+	import { dbIsReady } from '$lib/stores/database.svelte';
+
+	const AUTOSAVE_DELAY_MS = 400;
+
+	const dbReady = fromStore(dbIsReady);
+
+	const campaignId = $derived(page.params.campaignId ?? '');
+
+	const campaign = $derived.by(() => {
+		if (!dbReady.current) return undefined;
+		return getCampaignById(campaignId);
+	});
+
+	let answers = $state<Record<string, string>>(emptySessionZeroAnswers());
+	let activeQuestionIds = $state<string[]>(defaultActiveQuestionIds());
+	let saving = $state(false);
+	let error = $state<string | null>(null);
+	let initializedForCampaignId = $state<string | null>(null);
+	let saveTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	const visibleQuestionBlocks = $derived(
+		groupSectionsByCategory(groupActiveQuestionsBySection(activeQuestionIds))
+	);
+	const visibleQuestionCount = $derived(
+		visibleQuestionBlocks.reduce(
+			(count, block) =>
+				count + block.sections.reduce((sectionCount, section) => sectionCount + section.questions.length, 0),
+			0
+		)
+	);
+
+	$effect(() => {
+		if (!dbReady.current || !campaignId || initializedForCampaignId === campaignId) return;
+
+		const stored = getSessionZeroForCampaign(campaignId);
+		const emptyState = createEmptySessionZeroState();
+
+		answers = {
+			...emptyState.answers,
+			...(stored?.answers ?? {})
+		};
+		activeQuestionIds = stored?.activeQuestionIds?.length
+			? sortSessionZeroQuestionIds(stored.activeQuestionIds)
+			: emptyState.activeQuestionIds;
+		initializedForCampaignId = campaignId;
+	});
+
+	async function saveSessionZero() {
+		if (saving || !campaignId) return;
+
+		saving = true;
+		error = null;
+
+		try {
+			await persistSessionZero(campaignId, {
+				answers,
+				activeQuestionIds: sortSessionZeroQuestionIds(activeQuestionIds)
+			});
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : 'Could not save Session 0';
+		} finally {
+			saving = false;
+		}
+	}
+
+	function scheduleAutosave() {
+		if (saveTimer) {
+			clearTimeout(saveTimer);
+		}
+
+		saveTimer = setTimeout(() => {
+			saveTimer = null;
+			void saveSessionZero();
+		}, AUTOSAVE_DELAY_MS);
+	}
+
+	function handleAnswerInput() {
+		scheduleAutosave();
+	}
+
+	function handleQuestionsChange() {
+		void saveSessionZero();
+	}
+
+	function completePage() {
+		activeQuestionIds = activeQuestionIds.filter((id) => answers[id]?.trim());
+		void saveSessionZero();
+	}
+</script>
+
+<svelte:head>
+	<title>Session 0 · {campaign?.campaign_name ?? 'Campaign'} · DM Deputy</title>
+</svelte:head>
+
+{#if dbReady.current && !campaign}
+	<section class="page-stack page-stack--compact">
+		<h1>Campaign not found</h1>
+		<Button.Root href={resolve('/')}>Back to home</Button.Root>
+	</section>
+{:else}
+	<section class="page-stack page-stack--compact">
+		<nav aria-label="Back to campaign">
+			<Button.Root href={resolveCampaignHref(campaignId)}>←</Button.Root>
+		</nav>
+
+		<header class="session-zero-header">
+			<div class="session-zero-header-row">
+				<div>
+					<p class="eyebrow">{campaign?.campaign_name ?? ''}</p>
+					<h1>Session 0</h1>
+				</div>
+				<SessionZeroQuestionsModal
+					bind:activeQuestionIds
+					onchange={handleQuestionsChange}
+				/>
+			</div>
+			<p class="hint">
+				Work through these questions together before the first session. Answers autosave as you
+				type.
+			</p>
+		</header>
+
+		<form class="session-zero-form page-stack--compact" onsubmit={(event) => event.preventDefault()}>
+			<Tooltip.Provider delayDuration={200}>
+				<SessionZeroCategorySections
+					blocks={visibleQuestionBlocks}
+					idPrefix="session-zero-page-category"
+				>
+					{#snippet children({ section })}
+						{#each section.questions as question (question.id)}
+							<div class="field">
+								<SessionZeroQuestionLabel {question} />
+								<input
+									id={`session-zero-${question.id}`}
+									bind:value={answers[question.id]}
+									placeholder="Your answer"
+									oninput={handleAnswerInput}
+								/>
+							</div>
+						{/each}
+					{/snippet}
+				</SessionZeroCategorySections>
+			</Tooltip.Provider>
+
+			{#if visibleQuestionCount === 0}
+				<p class="hint">No questions on the page. Use Questions to add some back.</p>
+			{/if}
+
+			{#if error}
+				<p class="hint">{error}</p>
+			{/if}
+
+			{#if saving}
+				<p class="hint">Saving…</p>
+			{/if}
+
+			<div class="actions-row form-submit">
+				<Button.Root type="button" data-variant="primary" onclick={completePage}>
+					Complete page
+				</Button.Root>
+			</div>
+		</form>
+	</section>
+{/if}
+
+<style>
+	.session-zero-header h1 {
+		margin: 0;
+	}
+
+	.session-zero-header-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.session-zero-form {
+		display: grid;
+		gap: 1.5rem;
+		max-width: 42rem;
+	}
+</style>

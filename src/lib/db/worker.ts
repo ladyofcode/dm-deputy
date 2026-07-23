@@ -27,6 +27,7 @@ import type {
 	PromoteAdventureResult,
 	UpdateCampaignCharacterInput,
 	UpdateCampaignDetailsInput,
+	UpdateSessionZeroAnswersInput,
 	UpdateCharacterStatCacheInput,
 	WorkerRequest,
 	WorkerResponse
@@ -39,10 +40,16 @@ import {
 } from '$lib/domain/promote-adventure';
 import { isRewardGroupId } from '$lib/domain/story-item-reward';
 import {
+	parseSessionZeroJson,
+	serializeSessionZeroJson,
+	trimSessionZeroAnswers
+} from '$lib/domain/session-zero-questions';
+import {
 	isNpcCharacterKind,
 	normalizeCharacterKind,
 	type Armor,
 	type CampaignMap,
+	type CampaignSessionZero,
 	type CampaignNpc,
 	type Character,
 	type CharacterStatEvent,
@@ -834,8 +841,26 @@ function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 		kind: normalizeCharacterKind(character.kind)
 	}));
 	const maps = loadCampaignMapsMetadata(database);
+	const sessionZero = loadCampaignSessionZero(database);
 
-	return { users, campaigns, campaignMembers, campaignNpcs, adventures, parts, characters, maps };
+	return { users, campaigns, campaignMembers, campaignNpcs, adventures, parts, characters, maps, sessionZero };
+}
+
+function loadCampaignSessionZero(database: AppDb): CampaignSessionZero[] {
+	return selectObjects<{
+		campaign_id: string;
+		answers_json: string;
+		date_updated: string;
+	}>(database, 'SELECT campaign_id, answers_json, date_updated FROM campaign_session_zero').map((row) => {
+		const state = parseSessionZeroJson(row.answers_json);
+
+		return {
+			campaign_id: row.campaign_id,
+			answers: state.answers,
+			activeQuestionIds: state.activeQuestionIds,
+			date_updated: row.date_updated
+		};
+	});
 }
 
 function loadCampaignMapsMetadata(database: AppDb): CampaignMap[] {
@@ -2161,6 +2186,45 @@ function updateCampaignDetails(
 	};
 }
 
+function updateSessionZeroAnswers(
+	database: AppDb,
+	input: UpdateSessionZeroAnswersInput
+): CampaignSessionZero {
+	const rows = selectObjects<import('$lib/types/schema').Campaign>(
+		database,
+		`SELECT campaign_id FROM campaigns WHERE campaign_id = $campaign_id LIMIT 1`,
+		{ campaign_id: input.campaign_id }
+	);
+
+	if (!rows[0]) {
+		throw new Error('Campaign not found');
+	}
+
+	const answers = trimSessionZeroAnswers(input.answers);
+	const activeQuestionIds = input.activeQuestionIds;
+	const dateUpdated = new Date().toISOString();
+
+	execSql(database, {
+		sql: `INSERT INTO campaign_session_zero (campaign_id, answers_json, date_updated)
+			VALUES ($campaign_id, $answers_json, $date_updated)
+			ON CONFLICT(campaign_id) DO UPDATE SET
+				answers_json = excluded.answers_json,
+				date_updated = excluded.date_updated`,
+		bind: {
+			campaign_id: input.campaign_id,
+			answers_json: serializeSessionZeroJson({ answers, activeQuestionIds }),
+			date_updated: dateUpdated
+		}
+	});
+
+	return {
+		campaign_id: input.campaign_id,
+		answers,
+		activeQuestionIds,
+		date_updated: dateUpdated
+	};
+}
+
 function syncAdventureParts(database: AppDb, adventureId: string, parts: Part[]): void {
 	const existing = selectObjects<{ part_id: string }>(
 		database,
@@ -2714,6 +2778,10 @@ async function handleRequest(request: WorkerRequest): Promise<WorkerResponse> {
 			case 'updateCampaignDetails': {
 				const campaign = updateCampaignDetails(getDb(), request.args[0]);
 				return { id: request.id, result: campaign };
+			}
+			case 'updateSessionZeroAnswers': {
+				const sessionZero = updateSessionZeroAnswers(getDb(), request.args[0]);
+				return { id: request.id, result: sessionZero };
 			}
 			case 'touchCampaign': {
 				touchCampaign(getDb(), request.args[0], request.args[1]);

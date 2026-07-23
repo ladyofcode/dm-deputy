@@ -5,6 +5,7 @@ import {
 	getCachedCampaigns,
 	getCachedCharacters,
 	getCachedCampaignMaps,
+	getCachedSessionZero,
 	getCachedParts,
 	getCachedUsers,
 	isDatabaseCacheReady
@@ -20,6 +21,7 @@ import type {
 	Campaign,
 	CampaignMap,
 	CampaignMember,
+	CampaignSessionZero,
 	Character,
 	Part,
 	User
@@ -236,6 +238,10 @@ export function getCampaignMapsForCampaign(campaignId: string): CampaignMap[] {
 
 export function getCampaignMapById(mapId: string): CampaignMap | undefined {
 	return getCachedCampaignMaps().find((map) => map.map_id === mapId);
+}
+
+export function getSessionZeroForCampaign(campaignId: string): CampaignSessionZero | undefined {
+	return getCachedSessionZero().find((entry) => entry.campaign_id === campaignId);
 }
 
 export function getAdventureById(adventureId: string): Adventure | undefined {

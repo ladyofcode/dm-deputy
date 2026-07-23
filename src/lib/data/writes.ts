@@ -14,6 +14,7 @@ import {
 	touchCampaignInCache,
 	updateAdventureInCache,
 	updateCampaignInCache,
+	updateSessionZeroInCache,
 	updateUserInCache
 } from '$lib/db/cache';
 import {
@@ -37,6 +38,7 @@ import {
 	updateAdventurePromoteInDb,
 	updateCampaignCharacterInDb,
 	updateCampaignDetailsInDb,
+	updateSessionZeroAnswersInDb,
 	updateCampaignThemeInDb,
 	updateUserThemeInDb
 } from '$lib/db/client';
@@ -49,6 +51,7 @@ import type {
 	Campaign,
 	CampaignMap,
 	CampaignMember,
+	CampaignSessionZero,
 	Character,
 	CharacterKind,
 	Part
@@ -225,6 +228,20 @@ export async function persistCampaignDetails(
 
 	updateCampaignInCache(campaignId, { campaign_name, description });
 	return campaign;
+}
+
+export async function persistSessionZero(
+	campaignId: string,
+	state: { answers: Record<string, string>; activeQuestionIds: string[] }
+): Promise<CampaignSessionZero> {
+	const sessionZero = await updateSessionZeroAnswersInDb({
+		campaign_id: campaignId,
+		answers: state.answers,
+		activeQuestionIds: state.activeQuestionIds
+	});
+
+	updateSessionZeroInCache(sessionZero);
+	return sessionZero;
 }
 
 export async function syncThemesWithDatabase(userId: string): Promise<void> {

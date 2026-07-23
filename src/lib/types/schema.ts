@@ -35,6 +35,13 @@ export type CampaignNpc = {
 	date_added: string;
 };
 
+export type CampaignSessionZero = {
+	campaign_id: string;
+	answers: Record<string, string>;
+	activeQuestionIds: string[];
+	date_updated: string;
+};
+
 export type Adventure = {
 	adventure_id: string;
 	campaign_id: string;

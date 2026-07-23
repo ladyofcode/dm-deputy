@@ -4,6 +4,7 @@ import type {
 	CampaignMap,
 	CampaignMember,
 	CampaignNpc,
+	CampaignSessionZero,
 	Character,
 	Part,
 	User
@@ -36,7 +37,8 @@ export function setCampaignSnapshot(snapshot: CampaignSnapshot): void {
 		...snapshot,
 		characters: snapshot.characters ?? [],
 		campaignNpcs: snapshot.campaignNpcs ?? [],
-		maps: snapshot.maps ?? []
+		maps: snapshot.maps ?? [],
+		sessionZero: snapshot.sessionZero ?? []
 	};
 }
 
@@ -113,6 +115,23 @@ export function getCachedCharacters(): Character[] {
 
 export function getCachedCampaignMaps(): CampaignMap[] {
 	return campaignSnapshot?.maps ?? [];
+}
+
+export function getCachedSessionZero(): CampaignSessionZero[] {
+	return campaignSnapshot?.sessionZero ?? [];
+}
+
+export function updateSessionZeroInCache(sessionZero: CampaignSessionZero): void {
+	if (!campaignSnapshot) return;
+
+	const existing = campaignSnapshot.sessionZero ?? [];
+	campaignSnapshot = {
+		...campaignSnapshot,
+		sessionZero: [
+			...existing.filter((entry) => entry.campaign_id !== sessionZero.campaign_id),
+			sessionZero
+		]
+	};
 }
 
 export function mergeCampaignMapIntoCache(map: CampaignMap): void {

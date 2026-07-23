@@ -277,6 +277,12 @@ export async function updateCampaignDetailsInDb(
 	return callWorker('updateCampaignDetails', [input]);
 }
 
+export async function updateSessionZeroAnswersInDb(
+	input: import('./types').UpdateSessionZeroAnswersInput
+): Promise<import('$lib/types/schema').CampaignSessionZero> {
+	return callWorker('updateSessionZeroAnswers', [input]);
+}
+
 export async function touchCampaignInDb(userId: string, campaignId: string): Promise<void> {
 	await callWorker('touchCampaign', [userId, campaignId]);
 }

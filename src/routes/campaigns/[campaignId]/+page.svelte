@@ -8,6 +8,7 @@
 	import CampaignSettingsModal from '$lib/components/campaign/CampaignSettingsModal.svelte';
 	import { fromStore } from 'svelte/store';
 	import { getAdventuresForCampaign } from '$lib/data';
+	import { resolveSessionZeroHref } from '$lib/navigation/hrefs';
 	import { getReactiveCampaignById } from '$lib/stores/campaign-list.svelte';
 	import { dbIsReady } from '$lib/stores/database.svelte';
 
@@ -42,13 +43,18 @@
 		<header class="campaign-page-header">
 			<div class="campaign-page-header-row">
 				<h1>{campaign?.campaign_name ?? ''}</h1>
-				{#if campaign}
-					<CampaignSettingsModal
-						campaignId={campaign.campaign_id}
-						campaignName={campaign.campaign_name}
-						description={campaign.description ?? ''}
-					/>
-				{/if}
+				<div class="campaign-page-header-actions">
+					<Button.Root href={resolveSessionZeroHref(campaignId)} data-variant="ghost">
+						Session 0
+					</Button.Root>
+					{#if campaign}
+						<CampaignSettingsModal
+							campaignId={campaign.campaign_id}
+							campaignName={campaign.campaign_name}
+							description={campaign.description ?? ''}
+						/>
+					{/if}
+				</div>
 			</div>
 			{#if campaign?.description}
 				<p class="campaign-description">{campaign.description}</p>
@@ -103,6 +109,13 @@
 
 	.campaign-page-header-row h1 {
 		min-width: 0;
+	}
+
+	.campaign-page-header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-shrink: 0;
 	}
 
 	.campaign-description {

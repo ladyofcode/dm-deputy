@@ -112,6 +112,10 @@ Open the network URL on the tablet (same Wi‑Fi). Auth gate is skipped in dev; 
 
 See Chrome DevTools → Application to verify the manifest and service worker.
 
+## Credits
+
+- **Session 0 question inspiration:** [Session 0 topic checklist and guide](https://www.reddit.com/r/dndnext/comments/601awb/session0_topic_checklist_and_guide/) (r/dndnext)
+
 ## What is committed vs local
 
 | Committed                         | Local only (`ignorable/` or generated)           |

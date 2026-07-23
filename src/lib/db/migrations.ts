@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -359,7 +359,14 @@ export const MIGRATIONS: Record<number, string> = {
 	15: ``,
 	16: ``,
 	17: ``,
-	18: ``
+	18: ``,
+	19: `
+		CREATE TABLE IF NOT EXISTS campaign_session_zero (
+			campaign_id TEXT PRIMARY KEY NOT NULL,
+			answers_json TEXT NOT NULL DEFAULT '{}',
+			date_updated TEXT NOT NULL
+		);
+	`
 };
 
 export const REPAIR_MIGRATION_VERSIONS = [1, 3, 5, 6, 8, 9] as const;

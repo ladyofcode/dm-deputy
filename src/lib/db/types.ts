@@ -23,6 +23,7 @@ export type CampaignSnapshot = {
 	parts: import('$lib/types/schema').Part[];
 	characters: import('$lib/types/schema').Character[];
 	maps: import('$lib/types/schema').CampaignMap[];
+	sessionZero: import('$lib/types/schema').CampaignSessionZero[];
 };
 
 export type PartStorySnapshot = {
@@ -188,6 +189,12 @@ export type UpdateCampaignDetailsInput = {
 	description: string | null;
 };
 
+export type UpdateSessionZeroAnswersInput = {
+	campaign_id: string;
+	answers: Record<string, string>;
+	activeQuestionIds: string[];
+};
+
 export type LoadCampaignMapBlobArgs = [string, 'thumb' | 'full'];
 
 export type CatalogKind = import('$lib/domain/catalog').CatalogKind;
@@ -219,6 +226,7 @@ export type WorkerRequest =
 			args: [string, import('$lib/types/schema').Campaign['theme']];
 	  }
 	| { id: number; method: 'updateCampaignDetails'; args: [UpdateCampaignDetailsInput] }
+	| { id: number; method: 'updateSessionZeroAnswers'; args: [UpdateSessionZeroAnswersInput] }
 	| { id: number; method: 'touchCampaign'; args: [string, string] }
 	| { id: number; method: 'exportDatabase'; args: [] }
 	| { id: number; method: 'importDatabase'; args: [ArrayBuffer] }
