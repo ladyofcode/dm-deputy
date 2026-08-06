@@ -41,7 +41,7 @@
 	});
 </script>
 
-<div bind:this={element} class="reward-group" data-dimmed={dimmed ? 'true' : undefined}>
+<div bind:this={element} class="reward-group" data-story-draggable data-dimmed={dimmed ? 'true' : undefined}>
 	<div class="reward-group-header">
 		<RewardIcon size={15} />
 		<span>Reward</span>

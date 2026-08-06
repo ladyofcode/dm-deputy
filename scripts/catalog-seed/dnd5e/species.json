@@ -1,0 +1,88 @@
+{
+	"species": [
+		{
+			"species_id": "species-dwarf",
+			"species_name": "Dwarf",
+			"creature_type": "Humanoid",
+			"size": "Medium (4–5 ft.)",
+			"speed": "30 ft.",
+			"description": "Raised from the earth in the elder days by a deity of the forge (Moradin, Reorx, and others), dwarves have an affinity for stone, metal, and life underground. Resilient as the mountains, with a lifespan of about 350 years.\n\nSquat and often bearded, the first dwarves carved cities and strongholds into mountainsides and under the earth. Their oldest legends tell of conflicts with mountaintop giants and Underdark horrors—inspiring songs of the little overcoming the mighty.\n\nOn some worlds, the earliest dwarf settlements were in hills or mountains; families tracing ancestry to those places call themselves hill dwarves or mountain dwarves.",
+			"traits": [
+				{
+					"trait_id": "trait-dwarf-darkvision",
+					"trait_name": "Darkvision",
+					"description": "You have Darkvision with a range of 120 feet.",
+					"sort_order": 0,
+					"effects": [
+						{
+							"effect_id": "effect-dwarf-darkvision",
+							"effect_kind": "darkvision",
+							"target": null,
+							"value": "120",
+							"notes": "feet"
+						}
+					]
+				},
+				{
+					"trait_id": "trait-dwarf-resilience",
+					"trait_name": "Dwarven Resilience",
+					"description": "You have Resistance to Poison damage. You also have Advantage on saving throws you make to avoid or end the Poisoned condition.",
+					"sort_order": 1,
+					"effects": [
+						{
+							"effect_id": "effect-dwarf-poison-resistance",
+							"effect_kind": "damage_resistance",
+							"target": "poison",
+							"value": null,
+							"notes": null
+						},
+						{
+							"effect_id": "effect-dwarf-poison-save-adv",
+							"effect_kind": "save_advantage",
+							"target": "cond-poisoned",
+							"value": null,
+							"notes": "Avoid or end Poisoned"
+						}
+					]
+				},
+				{
+					"trait_id": "trait-dwarf-toughness",
+					"trait_name": "Dwarven Toughness",
+					"description": "Your Hit Point maximum increases by 1, and it increases by 1 again whenever you gain a level.",
+					"sort_order": 2,
+					"effects": [
+						{
+							"effect_id": "effect-dwarf-hp-bonus",
+							"effect_kind": "hp_max_bonus",
+							"target": null,
+							"value": "1",
+							"notes": "Per level (including 1st)"
+						}
+					]
+				},
+				{
+					"trait_id": "trait-dwarf-stonecunning",
+					"trait_name": "Stonecunning",
+					"description": "Whenever you make an Intelligence (History) check related to the origin of stonework, you are considered proficient in the History skill and add double your proficiency bonus to the check, instead of your normal proficiency bonus.",
+					"sort_order": 3,
+					"effects": [
+						{
+							"effect_id": "effect-dwarf-stonecunning-prof",
+							"effect_kind": "skill_proficiency",
+							"target": "skill-history",
+							"value": null,
+							"notes": "Stonework origin checks"
+						},
+						{
+							"effect_id": "effect-dwarf-stonecunning-expertise",
+							"effect_kind": "skill_expertise",
+							"target": "skill-history",
+							"value": null,
+							"notes": "Stonework origin checks"
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -19,11 +19,15 @@ import {
 } from '$lib/db/client';
 import { normalizeStoryItem, isPersistedStoryItem, storyItemSize } from '$lib/domain/story-item';
 import {
-	canvasAttachableItems,
 	estimateRewardGroupSize,
 	isRewardGroupId,
 	isStoryItemReward
 } from '$lib/domain/story-item-reward';
+import {
+	estimateNodeSummarySize,
+	isNodeSummaryId,
+	partCanvasAttachables
+} from '$lib/domain/story-node-summary';
 
 export type NodePosition = {
 	x: number;
@@ -597,10 +601,18 @@ export function spreadItemsAroundParent(
 
 export function estimatedAttachableSizes(
 	attachables: StoryItem[],
-	allItems: StoryItem[]
+	allItems: StoryItem[],
+	nodes: StoryNode[] = []
 ): Record<string, ItemSize> {
+	const nodesById = new Map(nodes.map((node) => [node.node_id, node]));
+
 	return Object.fromEntries(
 		attachables.map((item) => {
+			if (isNodeSummaryId(item.item_id)) {
+				const node = nodesById.get(item.parent_node_id);
+				return [item.item_id, estimateNodeSummarySize(node?.summary ?? '')];
+			}
+
 			if (isRewardGroupId(item.item_id)) {
 				const rewards = allItems.filter(
 					(candidate) =>
@@ -617,7 +629,8 @@ export function estimatedAttachableSizes(
 function filterStackedSavedItemLayout(
 	saved: PartItemLayout | null,
 	attachables: StoryItem[],
-	allItems: StoryItem[]
+	allItems: StoryItem[],
+	nodes: StoryNode[] = []
 ): PartItemLayout | null {
 	if (!saved) return null;
 
@@ -632,7 +645,9 @@ function filterStackedSavedItemLayout(
 	let changed = false;
 
 	for (const parentItems of Object.values(itemsByParent)) {
-		if (itemsLayoutOverlaps(parentItems, saved, estimatedAttachableSizes(parentItems, allItems))) {
+		if (
+			itemsLayoutOverlaps(parentItems, saved, estimatedAttachableSizes(parentItems, allItems, nodes))
+		) {
 			for (const item of parentItems) {
 				delete usable[item.item_id];
 				changed = true;
@@ -855,9 +870,10 @@ function layoutParentAttachables(
 	saved: PartItemLayout | null,
 	allItems: StoryItem[],
 	nodeLayout: PartNodeLayout,
-	edges: StoryEdge[]
+	edges: StoryEdge[],
+	nodes: StoryNode[] = []
 ): PartItemLayout {
-	const sizes = estimatedAttachableSizes(parentItems, allItems);
+	const sizes = estimatedAttachableSizes(parentItems, allItems, nodes);
 	const savedLayout: PartItemLayout = {};
 	const layoutOptions: ItemLayoutOptions = { parentNodeId, nodeLayout, edges };
 
@@ -923,10 +939,11 @@ export function resolvePartItemLayout(
 	nodeLayout: PartNodeLayout,
 	nodeSize: number,
 	liveNodeLayout?: PartNodeLayout,
-	edges: StoryEdge[] = []
+	edges: StoryEdge[] = [],
+	nodes: StoryNode[] = []
 ): PartItemLayout {
-	const attachables = canvasAttachableItems(items);
-	const saved = filterStackedSavedItemLayout(loadPartItemLayout(partId), attachables, items);
+	const attachables = partCanvasAttachables(nodes, items);
+	const saved = filterStackedSavedItemLayout(loadPartItemLayout(partId), attachables, items, nodes);
 	const resolvedNodeLayout = liveNodeLayout ?? nodeLayout;
 	const itemsByParent = attachables.reduce<Record<string, StoryItem[]>>((groups, item) => {
 		const group = groups[item.parent_node_id] ?? [];
@@ -950,7 +967,8 @@ export function resolvePartItemLayout(
 					saved,
 					items,
 					resolvedNodeLayout,
-					edges
+					edges,
+					nodes
 				)
 			};
 		},

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
+	import MonsterTemplatesSection from '$lib/components/library/MonsterTemplatesSection.svelte';
 	import { fromStore } from 'svelte/store';
 	import { getAllNpcLibraryRows, getAllPlayerRows } from '$lib/data';
 	import { softDeleteNpcFromLibrary, softDeletePlayerFromPlayerbase } from '$lib/data/writes';
@@ -194,6 +195,8 @@
 				<p class="hint">No NPCs yet. Add them from a campaign page.</p>
 			{/if}
 		</section>
+
+		<MonsterTemplatesSection />
 
 		{#if error}
 			<p class="hint error">{error}</p>

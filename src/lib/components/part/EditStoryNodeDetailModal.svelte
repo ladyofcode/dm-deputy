@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { Button, Dialog, Label } from 'bits-ui';
-	import { parentTitlesForNode, wouldCreateParentCycle } from '$lib/domain/story-node-tree';
-	import { STORY_NODE_KIND_LABELS, type StoryNode } from '$lib/types/schema';
+	import { normalizeStoryNode } from '$lib/data/part-story';
+	import { wouldCreateParentCycle } from '$lib/domain/story-node-tree';
+	import {
+		STORY_NODE_KIND_LABELS,
+		type StoryNode,
+		type StoryNodeKind
+	} from '$lib/types/schema';
 
 	type Props = {
 		open?: boolean;
@@ -12,8 +17,10 @@
 
 	let { open = $bindable(false), node, allNodes, onSave }: Props = $props();
 
+	let title = $state('');
+	let kind = $state<StoryNodeKind>('exploration');
 	let summary = $state('');
-	let parentIds = $state<string[]>([]);
+	let previousNodeId = $state('');
 	let difficulty = $state('');
 	let error = $state<string | null>(null);
 
@@ -24,36 +31,39 @@
 	$effect(() => {
 		if (!open || !node) return;
 
+		title = node.title;
+		kind = node.kind;
 		summary = node.summary;
-		parentIds = [...(node.parent_node_ids ?? [])];
+		previousNodeId = node.parent_node_ids?.[0] ?? '';
 		difficulty = node.difficulty ?? '';
 		error = null;
 	});
-
-	function toggleParent(parentId: string, checked: boolean) {
-		parentIds = checked
-			? [...new Set([...parentIds, parentId])]
-			: parentIds.filter((id) => id !== parentId);
-	}
 
 	function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (!node) return;
 
-		if (wouldCreateParentCycle(allNodes, node.node_id, parentIds)) {
-			error = 'Those parents would create a cycle in the story tree.';
+		const trimmedTitle = title.trim();
+		if (!trimmedTitle) {
+			error = 'Name is required.';
 			return;
 		}
 
-		const nextNode: StoryNode = {
-			...node,
-			summary: summary.trim(),
-			parent_node_ids: [...parentIds]
-		};
+		const parentNodeIds = previousNodeId ? [previousNodeId] : [];
 
-		if (node.kind === 'encounter') {
-			nextNode.difficulty = difficulty.trim() || null;
+		if (wouldCreateParentCycle(allNodes, node.node_id, parentNodeIds)) {
+			error = 'That sequence would create a loop.';
+			return;
 		}
+
+		const nextNode = normalizeStoryNode({
+			...node,
+			title: trimmedTitle,
+			kind,
+			summary: summary.trim(),
+			parent_node_ids: parentNodeIds,
+			difficulty: kind === 'encounter' ? difficulty.trim() || null : null
+		});
 
 		onSave?.(nextNode);
 		open = false;
@@ -64,15 +74,21 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="dialog-stacked-overlay" />
 		<Dialog.Content class="dialog-wide dialog-stacked">
-			<Dialog.Title>{node?.title ?? 'Story node'}</Dialog.Title>
-			<Dialog.Description>
-				{#if node}
-					{STORY_NODE_KIND_LABELS[node.kind]} node details and branch connections.
-				{/if}
-			</Dialog.Description>
+			<Dialog.Title>Edit story node</Dialog.Title>
+			<Dialog.Description>Update this node&apos;s details and place in the sequence.</Dialog.Description>
 
 			{#if node}
 				<form onsubmit={handleSubmit}>
+					<div class="field">
+						<Label.Root for="edit_story_node_title">Name</Label.Root>
+						<input
+							id="edit_story_node_title"
+							bind:value={title}
+							placeholder="Node title"
+							required
+						/>
+					</div>
+
 					<div class="field">
 						<Label.Root for="edit_story_node_summary">Summary</Label.Root>
 						<textarea
@@ -84,46 +100,27 @@
 					</div>
 
 					<div class="field">
-						<Label.Root>Parent nodes</Label.Root>
-						<p class="hint">
-							Select one or more parents to branch this node. Leave empty to make it a root node.
-						</p>
-						{#if parentOptions.length === 0}
-							<p class="hint">No other nodes are available as parents yet.</p>
-						{:else}
-							<ul class="parent-options list-plain">
-								{#each parentOptions as parent (parent.node_id)}
-									<li class="parent-option">
-										<label>
-											<input
-												type="checkbox"
-												checked={parentIds.includes(parent.node_id)}
-												onchange={(event) =>
-													toggleParent(
-														parent.node_id,
-														(event.currentTarget as HTMLInputElement).checked
-													)}
-											/>
-											<span class="parent-option-label">
-												<span class="node-kind">{STORY_NODE_KIND_LABELS[parent.kind]}</span>
-												{parent.title}
-											</span>
-										</label>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-						{#if parentIds.length > 1}
-							<p class="hint branch-hint">
-								This node branches from {parentTitlesForNode(
-									{ ...node, parent_node_ids: parentIds },
-									allNodes
-								).join(' and ')}.
-							</p>
-						{/if}
+						<Label.Root for="edit_story_node_kind">Type</Label.Root>
+						<select id="edit_story_node_kind" bind:value={kind}>
+							<option value="exploration">{STORY_NODE_KIND_LABELS.exploration}</option>
+							<option value="encounter">{STORY_NODE_KIND_LABELS.encounter}</option>
+						</select>
 					</div>
 
-					{#if node.kind === 'encounter'}
+					<div class="field">
+						<Label.Root for="edit_story_node_previous">Comes after</Label.Root>
+						<p class="hint">Choose the previous node in the sequence.</p>
+						<select id="edit_story_node_previous" bind:value={previousNodeId}>
+							<option value="">Start of sequence (first node)</option>
+							{#each parentOptions as parent (parent.node_id)}
+								<option value={parent.node_id}>
+									{STORY_NODE_KIND_LABELS[parent.kind]} · {parent.title}
+								</option>
+							{/each}
+						</select>
+					</div>
+
+					{#if kind === 'encounter'}
 						<div class="field">
 							<Label.Root for="edit_story_node_difficulty">Difficulty</Label.Root>
 							<input
@@ -140,7 +137,7 @@
 
 					<div class="dialog-footer">
 						<Button.Root type="button" onclick={() => (open = false)}>Cancel</Button.Root>
-						<Button.Root type="submit" data-variant="primary">Save details</Button.Root>
+						<Button.Root type="submit" data-variant="primary">Save</Button.Root>
 					</div>
 				</form>
 			{/if}
@@ -152,43 +149,5 @@
 	form {
 		display: grid;
 		gap: var(--space-section);
-	}
-
-	.parent-options {
-		display: grid;
-		gap: 0.5rem;
-		max-height: 12rem;
-		overflow: auto;
-		padding: 0.75rem;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-	}
-
-	.parent-option label {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.65rem;
-		cursor: pointer;
-	}
-
-	.parent-option input {
-		margin-top: 0.2rem;
-	}
-
-	.parent-option-label {
-		display: grid;
-		gap: 0.15rem;
-	}
-
-	.node-kind {
-		font-size: 0.62rem;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--color-text-muted);
-	}
-
-	.branch-hint {
-		margin-top: 0.35rem;
 	}
 </style>

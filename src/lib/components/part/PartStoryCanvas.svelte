@@ -9,16 +9,17 @@
 		type Draggable
 	} from 'animejs';
 	import StoryItem from '$lib/components/part/StoryItem.svelte';
+	import StoryNodeSummary from '$lib/components/part/StoryNodeSummary.svelte';
 	import StoryRewardGroup from '$lib/components/part/StoryRewardGroup.svelte';
 	import StoryNode, {
 		STORY_NODE_SIZE,
 		type StoryNodeCanvasContext
 	} from '$lib/components/part/StoryNode.svelte';
 	import {
-		canvasAttachableItems,
 		groupRewardItemsByParent,
 		isStoryItemReward
 	} from '$lib/domain/story-item-reward';
+	import { isNodeSummaryId, partCanvasAttachables } from '$lib/domain/story-node-summary';
 	import {
 		buildStoryEdges,
 		getPartStoryCanvasWidth,
@@ -36,6 +37,11 @@
 		type NodePosition,
 		type PartNodeLayout
 	} from '$lib/data/part-story';
+	import {
+		centerPanForBounds,
+		loadPartCanvasPan,
+		savePartCanvasPan
+	} from '$lib/data/part-canvas-pan';
 	import type { StoryItem as StoryItemData, StoryNode as StoryNodeData } from '$lib/types/schema';
 
 	type Props = {
@@ -70,7 +76,8 @@
 		onStoryItemUpdate
 	}: Props = $props();
 
-	const canvasAttachables = $derived(canvasAttachableItems(storyItems));
+	const canvasAttachables = $derived(partCanvasAttachables(nodes, storyItems));
+	const summaryNodes = $derived(nodes.filter((node) => node.summary.trim()));
 	const looseItems = $derived(storyItems.filter((item) => !isStoryItemReward(item)));
 	const rewardGroupEntries = $derived([...groupRewardItemsByParent(storyItems).entries()]);
 	const completedNodeIds = $derived(
@@ -92,10 +99,225 @@
 	const ITEM_RELEASE_STIFFNESS = 180;
 	const ITEM_RELEASE_DAMPING = 16;
 	const ITEM_RELEASE_MASS = 1.1;
+	const WORLD_PADDING = 64;
 	let layoutBoundsTick = $state(0);
+	let viewportEl = $state<HTMLDivElement | undefined>();
+	let panX = $state(0);
+	let panY = $state(0);
+	let isPanning = $state(false);
+	let panPending = $state(false);
+	let panInitialized = $state(false);
+	let panPointerId = $state<number | null>(null);
+	let panStart = $state<{ x: number; y: number; panX: number; panY: number } | null>(null);
+
+	const PAN_DRAG_THRESHOLD_SQ = 36;
+
+	function clearPanWindowListeners() {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointerup', handleWindowPointerEnd);
+		window.removeEventListener('pointercancel', handleWindowPointerEnd);
+	}
+
+	function endPan() {
+		if (!isPanning && !panPending) return;
+
+		const capturedId = panPointerId;
+		isPanning = false;
+		panPending = false;
+		panPointerId = null;
+		panStart = null;
+
+		if (capturedId !== null && viewportEl?.hasPointerCapture(capturedId)) {
+			try {
+				viewportEl.releasePointerCapture(capturedId);
+			} catch {
+				// Pointer capture may already be released.
+			}
+		}
+
+		clearPanWindowListeners();
+		document.body.style.removeProperty('cursor');
+		persistPan();
+	}
+
+	function handleWindowPointerEnd() {
+		endPan();
+	}
+
+	function isPanExcludedTarget(target: EventTarget | null) {
+		return Boolean(
+			target instanceof Element &&
+				target.closest('[data-story-draggable], button, input, textarea, select, a, label')
+		);
+	}
+
+	function handlePanPointerDown(event: PointerEvent) {
+		if (event.button !== 0 || isPanExcludedTarget(event.target)) return;
+
+		panPending = true;
+		panPointerId = event.pointerId;
+		panStart = { x: event.clientX, y: event.clientY, panX, panY };
+
+		try {
+			viewportEl?.setPointerCapture(event.pointerId);
+		} catch {
+			// Some browsers reject capture on certain targets.
+		}
+
+		window.addEventListener('pointerup', handleWindowPointerEnd);
+		window.addEventListener('pointercancel', handleWindowPointerEnd);
+		event.preventDefault();
+	}
+
+	function handlePanPointerMove(event: PointerEvent) {
+		if ((!panPending && !isPanning) || !panStart || event.pointerId !== panPointerId) return;
+
+		const dx = event.clientX - panStart.x;
+		const dy = event.clientY - panStart.y;
+
+		if (!isPanning && dx * dx + dy * dy < PAN_DRAG_THRESHOLD_SQ) return;
+
+		if (!isPanning) {
+			isPanning = true;
+			document.body.style.cursor = 'grabbing';
+		}
+
+		panX = panStart.panX + dx;
+		panY = panStart.panY + dy;
+		event.preventDefault();
+	}
+
+	function handleLostPointerCapture() {
+		endPan();
+	}
+
+	function dragContainerBounds(): [number, number, number, number] {
+		void layoutBoundsTick;
+		const pad = WORLD_PADDING * 6;
+		const bounds = contentBounds;
+		const width = worldSize.width;
+		const height = worldSize.height;
+
+		if (!bounds) {
+			return [-width, width * 2, height * 2, -width];
+		}
+
+		return [bounds.minY - pad, bounds.maxX + pad, bounds.maxY + pad, bounds.minX - pad];
+	}
 
 	function refreshCanvasBounds() {
 		layoutBoundsTick += 1;
+	}
+
+	function viewportWidth() {
+		return viewportEl?.clientWidth ?? getPartStoryCanvasWidth();
+	}
+
+	function viewportHeight() {
+		return viewportEl?.clientHeight ?? (typeof window !== 'undefined' ? window.innerHeight : 800);
+	}
+
+	function computeContentBounds() {
+		void layoutBoundsTick;
+
+		if (!nodes.length) return null;
+
+		let minX = Infinity;
+		let minY = Infinity;
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+
+		const bump = (x: number, y: number, width: number, height: number) => {
+			minX = Math.min(minX, x);
+			minY = Math.min(minY, y);
+			maxX = Math.max(maxX, x + width);
+			maxY = Math.max(maxY, y + height);
+		};
+
+		const nodeLayout = resolvePartNodeLayout(
+			partId,
+			nodes.map((node) => node.node_id),
+			viewportWidth(),
+			viewportHeight(),
+			STORY_NODE_SIZE
+		);
+		const sizeEstimates = estimatedAttachableSizes(canvasAttachables, storyItems, nodes);
+		const itemLayout = resolvePartItemLayout(
+			partId,
+			storyItems,
+			nodeLayout,
+			STORY_NODE_SIZE,
+			getLiveNodeLayout(),
+			edges,
+			nodes
+		);
+
+		for (const node of nodes) {
+			const position = getNodePosition(node.node_id) ?? nodeLayout[node.node_id];
+			if (!position) continue;
+			bump(position.x, position.y, STORY_NODE_SIZE, STORY_NODE_SIZE);
+		}
+
+		for (const attachable of canvasAttachables) {
+			const position = getItemPosition(attachable.item_id) ?? itemLayout[attachable.item_id];
+			if (!position) continue;
+
+			const element = itemElements.get(attachable.item_id);
+			const size = element
+				? { width: element.offsetWidth, height: element.offsetHeight }
+				: (sizeEstimates[attachable.item_id] ?? { width: 150, height: 68 });
+			bump(position.x, position.y, size.width, size.height);
+		}
+
+		if (!Number.isFinite(minX)) return null;
+
+		return { minX, minY, maxX, maxY };
+	}
+
+	const contentBounds = $derived.by(() => computeContentBounds());
+
+	const worldSize = $derived.by(() => {
+		void layoutBoundsTick;
+		const bounds = contentBounds;
+		const width = viewportWidth();
+		const height = Math.max(viewportHeight(), canvasMinHeight);
+
+		if (!bounds) {
+			return { width, height };
+		}
+
+		return {
+			width: Math.max(width, bounds.maxX - bounds.minX + WORLD_PADDING * 2),
+			height: Math.max(height, bounds.maxY - bounds.minY + WORLD_PADDING * 2)
+		};
+	});
+
+	function persistPan() {
+		savePartCanvasPan(partId, { x: panX, y: panY });
+	}
+
+	function centerContentInViewport() {
+		const bounds = contentBounds;
+		if (!bounds || !viewportEl) return;
+
+		const nextPan = centerPanForBounds(viewportEl.clientWidth, viewportEl.clientHeight, bounds);
+		panX = nextPan.x;
+		panY = nextPan.y;
+		persistPan();
+	}
+
+	function initializePan() {
+		if (panInitialized || !viewportEl) return;
+
+		const saved = loadPartCanvasPan(partId);
+		if (saved) {
+			panX = saved.x;
+			panY = saved.y;
+		} else {
+			centerContentInViewport();
+		}
+
+		panInitialized = true;
 	}
 
 	async function updateCanvasDuringDrag() {
@@ -135,8 +357,8 @@
 
 		if (nodes.length === 0) return 0;
 
-		const canvasWidth = canvasEl?.clientWidth ?? getPartStoryCanvasWidth();
-		const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+		const canvasWidth = viewportWidth();
+		const canvasViewportHeight = viewportHeight();
 		const liveNodeLayout = getLiveNodeLayout();
 		const nodeLayout =
 			Object.keys(liveNodeLayout).length === nodes.length
@@ -145,7 +367,7 @@
 						partId,
 						nodes.map((node) => node.node_id),
 						canvasWidth,
-						viewportHeight,
+						canvasViewportHeight,
 						STORY_NODE_SIZE
 					);
 		const liveItemLayout = getLiveItemLayout();
@@ -159,7 +381,8 @@
 						nodeLayout,
 						STORY_NODE_SIZE,
 						liveNodeLayout,
-						edges
+						edges,
+						nodes
 					);
 		const itemHeights = Object.fromEntries(
 			canvasAttachables.map((item) => [
@@ -208,6 +431,7 @@
 			void onStoryItemUpdate?.(item);
 		},
 		requestConnectorSync() {
+			refreshCanvasBounds();
 			syncConnectors();
 		}
 	};
@@ -711,12 +935,7 @@
 		}
 	}
 
-	function syncConnectors({ applyConstraints = true } = {}) {
-		if (applyConstraints && isAnyItemDragActive()) {
-			constrainAttachedItems();
-			separateAllSiblingItems();
-		}
-
+	function syncConnectors() {
 		const nextPaths: Record<string, string> = {};
 
 		for (const edge of edges) {
@@ -808,8 +1027,8 @@
 		const layout = resolvePartNodeLayout(
 			partId,
 			nodes.map((node) => node.node_id),
-			canvasEl.clientWidth,
-			canvasEl.clientHeight,
+			viewportWidth(),
+			viewportHeight(),
 			STORY_NODE_SIZE
 		);
 
@@ -821,7 +1040,7 @@
 
 			const saved = layout[node.node_id];
 			const draggable = createDraggable(element, {
-				container: canvasEl,
+				container: dragContainerBounds,
 				x: true,
 				y: true,
 				releaseStiffness: NODE_RELEASE_STIFFNESS,
@@ -833,8 +1052,7 @@
 					void updateCanvasDuringDrag();
 				},
 				onRelease: () => {
-					finalizeAttachedItemsForParent(node.node_id, { animate: true });
-					syncConnectors({ applyConstraints: false });
+					syncConnectors();
 				},
 				onSettle: () => {
 					refreshCanvasBounds();
@@ -857,8 +1075,8 @@
 		const nodeLayout = resolvePartNodeLayout(
 			partId,
 			nodes.map((node) => node.node_id),
-			canvasEl.clientWidth,
-			canvasEl.clientHeight,
+			viewportWidth(),
+			viewportHeight(),
 			STORY_NODE_SIZE
 		);
 		const itemLayout = resolvePartItemLayout(
@@ -867,7 +1085,8 @@
 			nodeLayout,
 			STORY_NODE_SIZE,
 			getLiveNodeLayout(),
-			edges
+			edges,
+			nodes
 		);
 
 		for (const attachable of canvasAttachables) {
@@ -880,7 +1099,7 @@
 			const dragHandle =
 				attachable.kind === 'map' ? element.querySelector<HTMLElement>('[data-drag-handle]') : null;
 			const draggable = createDraggable(element, {
-				container: canvasEl,
+				container: dragContainerBounds,
 				x: true,
 				y: true,
 				trigger: dragHandle ?? element,
@@ -891,9 +1110,8 @@
 					void updateCanvasDuringDrag();
 				},
 				onSettle: () => {
-					finalizeAttachedItem(attachable, { animate: true });
 					refreshCanvasBounds();
-					syncConnectors({ applyConstraints: false });
+					syncConnectors();
 					persistLayout();
 				}
 			});
@@ -910,7 +1128,7 @@
 	function setupDraggables() {
 		setupNodeDraggables();
 		setupItemDraggables();
-		syncConnectors({ applyConstraints: false });
+		syncConnectors();
 	}
 
 	function scheduleSetup() {
@@ -926,9 +1144,9 @@
 				if (canSetupNodes() && canSetupItems()) {
 					await tick();
 					await tick();
-					settleAllSiblingItems();
-					syncConnectors({ applyConstraints: false });
+					syncConnectors();
 					persistLayout();
+					initializePan();
 					return;
 				}
 			}
@@ -951,19 +1169,34 @@
 		if (canvasEl) {
 			resizeObserver.observe(canvasEl);
 		}
+		if (viewportEl) {
+			resizeObserver.observe(viewportEl);
+		}
 
 		scheduleSetup();
 
 		return () => {
 			mounted = false;
+			endPan();
 			resizeObserver?.disconnect();
 			teardownAllDraggables();
 		};
 	});
 
 	$effect(() => {
+		partId;
+		panInitialized = false;
+		const saved = loadPartCanvasPan(partId);
+		if (saved) {
+			panX = saved.x;
+			panY = saved.y;
+			panInitialized = true;
+		}
+	});
+
+	$effect(() => {
 		const nodeSignature = nodes
-			.map((node) => `${node.node_id}:${node.parent_node_ids.join('+')}`)
+			.map((node) => `${node.node_id}:${node.parent_node_ids.join('+')}:${node.summary.trim()}`)
 			.join(',');
 		const attachableSignature = canvasAttachables.map((item) => item.item_id).join(',');
 		if (!mounted || !nodeSignature) return;
@@ -986,58 +1219,90 @@
 </script>
 
 <div
-	bind:this={canvasEl}
-	style={`--part-canvas-height: ${canvasMinHeight}px; --story-node-size: ${STORY_NODE_SIZE}px;`}
+	class="canvas-viewport"
+	class:is-panning={isPanning}
+	bind:this={viewportEl}
+	onpointerdown={handlePanPointerDown}
+	onpointermove={handlePanPointerMove}
+	onpointerup={endPan}
+	onpointercancel={endPan}
+	onlostpointercapture={handleLostPointerCapture}
 >
-	<svg aria-hidden="true">
-		{#each edges as edge (edge.id)}
-			<path
-				data-kind="main"
-				data-dimmed={isEdgeDimmed(edge) ? 'true' : undefined}
-				d={connectorPaths[edge.id] ?? ''}
+	<div
+		class="canvas-world"
+		bind:this={canvasEl}
+		style={`transform: translate(${panX}px, ${panY}px); width: ${worldSize.width}px; min-height: ${worldSize.height}px; --story-node-size: ${STORY_NODE_SIZE}px;`}
+	>
+		<svg aria-hidden="true">
+			{#each edges as edge (edge.id)}
+				<path
+					data-kind="main"
+					data-dimmed={isEdgeDimmed(edge) ? 'true' : undefined}
+					d={connectorPaths[edge.id] ?? ''}
+				/>
+			{/each}
+			{#each canvasAttachables as attachable (attachable.item_id)}
+				<path
+					data-kind={isNodeSummaryId(attachable.item_id) ? 'summary' : attachable.kind}
+					data-dimmed={isConnectorDimmed(attachable.parent_node_id) ? 'true' : undefined}
+					d={itemConnectorPaths[attachable.item_id] ?? ''}
+				/>
+			{/each}
+		</svg>
+
+		{#each nodes as node (node.node_id)}
+			<StoryNode
+				{node}
+				hasArms={storyItems.some((item) => item.parent_node_id === node.node_id)}
+				onActivate={onActivateNode}
+				onManageArms={onManageNodeArms}
+				onToggleComplete={onToggleNodeComplete}
 			/>
 		{/each}
-		{#each canvasAttachables as attachable (attachable.item_id)}
-			<path
-				data-kind={attachable.kind}
-				data-dimmed={isConnectorDimmed(attachable.parent_node_id) ? 'true' : undefined}
-				d={itemConnectorPaths[attachable.item_id] ?? ''}
+
+		{#each summaryNodes as node (node.node_id)}
+			<StoryNodeSummary {node} dimmed={completedNodeIds.has(node.node_id)} />
+		{/each}
+
+		{#each rewardGroupEntries as [parentNodeId, items] (parentNodeId)}
+			<StoryRewardGroup
+				{parentNodeId}
+				{items}
+				xpAwarded={xpAwardedNodeIds.has(parentNodeId)}
+				onAssignRewardXp={onAssignRewardXp}
+				dimmed={completedNodeIds.has(parentNodeId)}
 			/>
 		{/each}
-	</svg>
 
-	{#each nodes as node (node.node_id)}
-		<StoryNode
-			{node}
-			hasArms={storyItems.some((item) => item.parent_node_id === node.node_id)}
-			onActivate={onActivateNode}
-			onManageArms={onManageNodeArms}
-			onToggleComplete={onToggleNodeComplete}
-		/>
-	{/each}
-
-	{#each rewardGroupEntries as [parentNodeId, items] (parentNodeId)}
-		<StoryRewardGroup
-			{parentNodeId}
-			{items}
-			xpAwarded={xpAwardedNodeIds.has(parentNodeId)}
-			onAssignRewardXp={onAssignRewardXp}
-			dimmed={completedNodeIds.has(parentNodeId)}
-		/>
-	{/each}
-
-	{#each looseItems as storyItem (storyItem.item_id)}
-		<StoryItem item={storyItem} dimmed={completedNodeIds.has(storyItem.parent_node_id)} />
-	{/each}
+		{#each looseItems as storyItem (storyItem.item_id)}
+			<StoryItem item={storyItem} dimmed={completedNodeIds.has(storyItem.parent_node_id)} />
+		{/each}
+	</div>
 </div>
 
 <style>
-	div {
+	.canvas-viewport {
 		position: relative;
-		min-height: var(--part-canvas-height, 0);
 		width: 100%;
-		max-width: 100%;
-		overflow-x: clip;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+		touch-action: none;
+		cursor: grab;
+		background:
+			radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 6%, transparent), transparent 55%),
+			var(--color-bg);
+	}
+
+	.canvas-viewport.is-panning {
+		cursor: grabbing;
+	}
+
+	.canvas-world {
+		position: relative;
+		overflow: visible;
+		touch-action: none;
+		will-change: transform;
 	}
 
 	svg {

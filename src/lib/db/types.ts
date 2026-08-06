@@ -45,11 +45,15 @@ export type CatalogSnapshot = {
 	weapons: import('$lib/types/schema').Weapon[];
 	armor: import('$lib/types/schema').Armor[];
 	items: import('$lib/types/schema').Item[];
+	conditions: import('$lib/types/schema').Condition[];
+	skills: import('$lib/types/schema').Skill[];
+	species: import('$lib/types/schema').Species[];
 };
 
 export type CreateCampaignPlayerInput = {
 	user_id: string;
 	username: string;
+	display_name: string;
 	player_id: string;
 	character_id: string;
 };
@@ -107,7 +111,7 @@ export type CharacterLoadout = {
 	weapon_ids: string[];
 	armor_ids: string[];
 	item_ids: string[];
-	spell_ids: string[];
+	spells: import('$lib/types/schema').CharacterSpellEntry[];
 };
 
 export type CreateCampaignCharacterInput = {
@@ -119,9 +123,52 @@ export type CreateCampaignCharacterInput = {
 	notes?: string | null;
 	presentation?: string | null;
 	race?: string | null;
+	creature_type?: string | null;
 	alignment?: string | null;
 	age?: string | null;
 	class_name?: string | null;
+	armor_class?: number | null;
+	armor_class_notes?: string | null;
+	speed?: string | null;
+	hp_dice?: string | null;
+	ability_str?: number | null;
+	ability_dex?: number | null;
+	ability_con?: number | null;
+	ability_int?: number | null;
+	ability_wis?: number | null;
+	ability_cha?: number | null;
+	skills?: string | null;
+	senses?: string | null;
+	languages?: string | null;
+	challenge_rating?: string | null;
+	traits?: string | null;
+	actions?: string | null;
+	is_spellcaster?: number | null;
+	spellcasting_class?: string | null;
+	spellcasting_ability?: string | null;
+	spell_slots_total_json?: string | null;
+	spell_slots_expended_json?: string | null;
+	background?: string | null;
+	height?: string | null;
+	weight?: string | null;
+	eyes?: string | null;
+	skin?: string | null;
+	hair?: string | null;
+	inspiration?: number | null;
+	initiative?: number | null;
+	temp_hp?: number | null;
+	hit_dice_remaining?: string | null;
+	death_save_successes?: number | null;
+	death_save_failures?: number | null;
+	personality_traits?: string | null;
+	ideals?: string | null;
+	bonds?: string | null;
+	flaws?: string | null;
+	backstory?: string | null;
+	allies?: string | null;
+	features?: string | null;
+	proficiencies?: string | null;
+	treasure?: string | null;
 	level?: number;
 	experience?: number;
 	hp_max?: number;
@@ -139,9 +186,56 @@ export type UpdateCampaignCharacterInput = {
 	notes?: string | null;
 	presentation?: string | null;
 	race?: string | null;
+	creature_type?: string | null;
 	alignment?: string | null;
 	age?: string | null;
 	class_name?: string | null;
+	armor_class?: number | null;
+	armor_class_notes?: string | null;
+	speed?: string | null;
+	hp_dice?: string | null;
+	ability_str?: number | null;
+	ability_dex?: number | null;
+	ability_con?: number | null;
+	ability_int?: number | null;
+	ability_wis?: number | null;
+	ability_cha?: number | null;
+	skills?: string | null;
+	senses?: string | null;
+	languages?: string | null;
+	challenge_rating?: string | null;
+	traits?: string | null;
+	actions?: string | null;
+	is_spellcaster?: number | null;
+	spellcasting_class?: string | null;
+	spellcasting_ability?: string | null;
+	spell_slots_total_json?: string | null;
+	spell_slots_expended_json?: string | null;
+	background?: string | null;
+	height?: string | null;
+	weight?: string | null;
+	eyes?: string | null;
+	skin?: string | null;
+	hair?: string | null;
+	inspiration?: number | null;
+	initiative?: number | null;
+	temp_hp?: number | null;
+	hit_dice_remaining?: string | null;
+	death_save_successes?: number | null;
+	death_save_failures?: number | null;
+	personality_traits?: string | null;
+	ideals?: string | null;
+	bonds?: string | null;
+	flaws?: string | null;
+	backstory?: string | null;
+	allies?: string | null;
+	features?: string | null;
+	proficiencies?: string | null;
+	treasure?: string | null;
+	level?: number;
+	experience?: number;
+	hp_max?: number;
+	hp_current?: number;
 	reputation?: string | null;
 	loadout?: CharacterLoadout;
 };
@@ -172,6 +266,7 @@ export type AddCampaignPlayerInput = {
 	date_created: string;
 	user_id: string;
 	username: string;
+	display_name: string;
 	player_id: string;
 	character_id: string;
 };
@@ -242,6 +337,7 @@ export type WorkerRequest =
 			method: 'updateUserTheme';
 			args: [string, import('$lib/types/schema').User['theme']];
 	  }
+	| { id: number; method: 'updateUserUsername'; args: [string, string] }
 	| { id: number; method: 'softDeletePlayer'; args: [string] }
 	| { id: number; method: 'softDeleteNpc'; args: [string] }
 	| { id: number; method: 'softDeleteCampaign'; args: [string] }
@@ -291,7 +387,11 @@ export type WorkerRequest =
 	| { id: number; method: 'upsertArmor'; args: [import('$lib/types/schema').Armor] }
 	| { id: number; method: 'deleteArmor'; args: [string] }
 	| { id: number; method: 'upsertItem'; args: [import('$lib/types/schema').Item] }
-	| { id: number; method: 'deleteItem'; args: [string] };
+	| { id: number; method: 'deleteItem'; args: [string] }
+	| { id: number; method: 'upsertCondition'; args: [import('$lib/types/schema').Condition] }
+	| { id: number; method: 'deleteCondition'; args: [string] }
+	| { id: number; method: 'upsertSpecies'; args: [import('$lib/types/schema').Species] }
+	| { id: number; method: 'deleteSpecies'; args: [string] };
 
 export type WorkerResponse =
 	| { id: number; result: unknown; buffer?: ArrayBuffer }

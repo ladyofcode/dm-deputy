@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button, Label } from 'bits-ui';
 	import { tick } from 'svelte';
+	import { getCampaignMembers, getUserById } from '$lib/data';
 	import { resolveCharacterHref } from '$lib/navigation/hrefs';
 	import {
 		addCampaignPcToCampaign,
@@ -12,11 +13,11 @@
 		getReactivePcsForCampaign
 	} from '$lib/stores/campaign-characters.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
+	import type { CampaignPlayerDraft } from '$lib/types/convenience-schema';
 	import type { Character } from '$lib/types/schema';
 
-	type PlayerDraftLine = {
+	type PlayerDraftLine = CampaignPlayerDraft & {
 		id: string;
-		name: string;
 	};
 
 	type Props = {
@@ -25,7 +26,9 @@
 
 	let { campaignId }: Props = $props();
 
-	let draftLines = $state<PlayerDraftLine[]>([{ id: crypto.randomUUID(), name: '' }]);
+	let draftLines = $state<PlayerDraftLine[]>([
+		{ id: crypto.randomUUID(), player_name: '', character_name: '' }
+	]);
 	let saving = $state(false);
 	let removingCharacterId = $state<string | null>(null);
 	let addingExistingCharacterId = $state<string | null>(null);
@@ -35,14 +38,18 @@
 	const pcs = $derived(getReactivePcsForCampaign(campaignId));
 	const availablePcs = $derived(getReactiveAvailablePcsForCampaign(campaignId));
 
+	function createDraftLine(): PlayerDraftLine {
+		return { id: crypto.randomUUID(), player_name: '', character_name: '' };
+	}
+
 	function addDraftLine() {
-		draftLines = [...draftLines, { id: crypto.randomUUID(), name: '' }];
+		draftLines = [...draftLines, createDraftLine()];
 	}
 
 	function removeDraftLine(lineId: string) {
 		draftLines = draftLines.filter((line) => line.id !== lineId);
 		if (draftLines.length === 0) {
-			draftLines = [{ id: crypto.randomUUID(), name: '' }];
+			draftLines = [createDraftLine()];
 		}
 	}
 
@@ -54,13 +61,25 @@
 		await tick();
 
 		const inputs = document.querySelectorAll<HTMLInputElement>('.pc-draft-line input[type="text"]');
-		inputs[inputs.length - 1]?.focus();
+		inputs[inputs.length - 2]?.focus();
+	}
+
+	function playerNameForPc(pc: Character): string | null {
+		const member = getCampaignMembers().find(
+			(entry) =>
+				entry.campaign_id === campaignId &&
+				entry.character_id === pc.character_id &&
+				entry.role === 'player'
+		);
+		if (!member) return null;
+
+		return getUserById(member.user_id)?.username ?? null;
 	}
 
 	function pcSummary(pc: Character): string | null {
 		const parts: string[] = [];
 
-		if (pc.level !== 1) parts.push(`Level ${pc.level}`);
+		if (pc.level > 0) parts.push(`Level ${pc.level}`);
 		if (pc.hp_max > 0) parts.push(`HP ${pc.hp_current}/${pc.hp_max}`);
 		if (pc.experience > 0) parts.push(`${pc.experience} XP`);
 		if (pc.reputation) parts.push(pc.reputation);
@@ -68,19 +87,28 @@
 		return parts.length ? parts.join(' · ') : null;
 	}
 
+	function draftHasContent(line: PlayerDraftLine): boolean {
+		return Boolean(line.player_name.trim() || line.character_name.trim());
+	}
+
 	async function saveNewPlayers(event: SubmitEvent) {
 		event.preventDefault();
 		if (saving) return;
 
-		const names = draftLines.map((line) => line.name.trim()).filter(Boolean);
-		if (names.length === 0) return;
+		const players = draftLines
+			.map((line) => ({
+				player_name: line.player_name.trim(),
+				character_name: line.character_name.trim()
+			}))
+			.filter((line) => line.player_name && line.character_name);
+		if (players.length === 0) return;
 
 		saving = true;
 		error = null;
 
 		try {
-			await persistCampaignPlayers(campaignId, workspace.currentUserId, names);
-			draftLines = [{ id: crypto.randomUUID(), name: '' }];
+			await persistCampaignPlayers(campaignId, workspace.currentUserId, players);
+			draftLines = [createDraftLine()];
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not save players';
 		} finally {
@@ -128,16 +156,20 @@
 	<h2 id="campaign-pcs-heading">Player characters</h2>
 
 	<p class="hint">
-		Click a player to open their sheet. Remove players from this campaign without deleting their
+		Click a character to open their sheet. Remove players from this campaign without deleting their
 		character, or link an existing character below.
 	</p>
 
 	{#if pcs.length}
 		<ul class="pc-list list-plain">
 			{#each pcs as pc (pc.character_id)}
+				{@const playerName = playerNameForPc(pc)}
 				<li class="pc-list-item">
 					<a class="pc-main" href={resolveCharacterHref(campaignId, pc.character_id)}>
 						<span class="pc-name">{pc.display_name}</span>
+						{#if playerName}
+							<p class="pc-player-name">Player: {playerName}</p>
+						{/if}
 						{#if pcSummary(pc)}
 							<p class="pc-summary">{pcSummary(pc)}</p>
 						{/if}
@@ -190,18 +222,26 @@
 	<form class="pcs-form" onsubmit={saveNewPlayers}>
 		<div class="field">
 			<Label.Root>{pcs.length === 0 ? 'Add players' : 'Add more players'}</Label.Root>
-			<p class="hint">Enter a name, then press Enter to add another row.</p>
+			<p class="hint">
+				Enter the player and character names, then press Enter in the last field to add another row.
+			</p>
 			<ul class="pc-draft-lines list-plain">
 				{#each draftLines as line, index (line.id)}
 					<li class="pc-draft-line">
 						<input
 							type="text"
-							bind:value={line.name}
+							bind:value={line.player_name}
 							placeholder="Player name"
 							aria-label="Player name"
+						/>
+						<input
+							type="text"
+							bind:value={line.character_name}
+							placeholder="Character name"
+							aria-label="Character name"
 							onkeydown={handleDraftKeydown}
 						/>
-						{#if draftLines.length > 1 || line.name.trim()}
+						{#if draftLines.length > 1 || draftHasContent(line)}
 							<Button.Root
 								type="button"
 								data-variant="icon"
@@ -216,7 +256,7 @@
 								type="button"
 								data-variant="icon"
 								aria-label="Add player row"
-								onclick={() => addDraftLine}
+								onclick={addDraftLine}
 							>
 								+
 							</Button.Root>
@@ -279,6 +319,12 @@
 
 	.pc-name {
 		font-weight: 600;
+	}
+
+	.pc-player-name {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
 	}
 
 	.pc-summary {

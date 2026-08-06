@@ -413,7 +413,10 @@ export function updateAdventureInCache(
 	};
 }
 
-export function updateUserInCache(userId: string, patch: Pick<User, 'theme'>): void {
+export function updateUserInCache(
+	userId: string,
+	patch: Partial<Pick<User, 'theme' | 'username'>>
+): void {
 	if (!campaignSnapshot) return;
 
 	campaignSnapshot = {
@@ -499,6 +502,7 @@ export function touchCampaignInCache(userId: string, campaignId: string): void {
 				: member
 		)
 	};
+	bumpCampaignListRevision();
 }
 
 export async function reloadDatabaseCache(

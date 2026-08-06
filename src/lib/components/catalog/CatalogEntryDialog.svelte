@@ -5,6 +5,7 @@
 		ARMOR_DEX_LABELS,
 		COST_CURRENCY_LABELS,
 		createArmorDraft,
+		createConditionDraft,
 		createItemDraft,
 		createSpellDraft,
 		createWeaponDraft,
@@ -14,13 +15,19 @@
 		WEAPON_CATEGORY_LABELS,
 		type CatalogKind
 	} from '$lib/domain/catalog';
-	import { persistArmor, persistItem, persistSpell, persistWeapon } from '$lib/data/catalog-writes';
-	import type { Armor, Item, Spell, Weapon } from '$lib/types/schema';
+	import {
+		persistArmor,
+		persistCondition,
+		persistItem,
+		persistSpell,
+		persistWeapon
+	} from '$lib/data/catalog-writes';
+	import type { Armor, Condition, Item, Spell, Weapon } from '$lib/types/schema';
 
 	type Props = {
 		open?: boolean;
 		kind: CatalogKind;
-		entry?: Spell | Weapon | Armor | Item | null;
+		entry?: Spell | Weapon | Armor | Item | Condition | null;
 		onSaved?: () => void;
 	};
 
@@ -32,6 +39,7 @@
 	let weaponDraft = $state<Weapon>(createWeaponDraft());
 	let armorDraft = $state<Armor>(createArmorDraft());
 	let itemDraft = $state<Item>(createItemDraft());
+	let conditionDraft = $state<Condition>(createConditionDraft());
 
 	const isEdit = $derived(entry !== null);
 
@@ -43,7 +51,9 @@
 					? 'weapon'
 					: kind === 'armor'
 						? 'armor'
-						: 'item';
+						: kind === 'items'
+							? 'item'
+							: 'condition';
 		return `${isEdit ? 'Edit' : 'Add'} ${label}`;
 	});
 
@@ -58,8 +68,10 @@
 			weaponDraft = createWeaponDraft(entry as Weapon | null);
 		} else if (kind === 'armor') {
 			armorDraft = createArmorDraft(entry as Armor | null);
-		} else {
+		} else if (kind === 'items') {
 			itemDraft = createItemDraft(entry as Item | null);
+		} else {
+			conditionDraft = createConditionDraft(entry as Condition | null);
 		}
 	});
 
@@ -86,11 +98,19 @@
 					throw new Error('Armor name is required');
 				}
 				await persistArmor({ ...armorDraft, armor_name: armorDraft.armor_name.trim() });
-			} else {
+			} else if (kind === 'items') {
 				if (!itemDraft.item_name.trim()) {
 					throw new Error('Item name is required');
 				}
 				await persistItem({ ...itemDraft, item_name: itemDraft.item_name.trim() });
+			} else {
+				if (!conditionDraft.condition_name.trim()) {
+					throw new Error('Condition name is required');
+				}
+				await persistCondition({
+					...conditionDraft,
+					condition_name: conditionDraft.condition_name.trim()
+				});
 			}
 
 			open = false;
@@ -269,7 +289,7 @@
 							<input id="body_location" bind:value={armorDraft.body_location} />
 						</div>
 					</div>
-				{:else}
+				{:else if kind === 'items'}
 					<div class="form-grid">
 						<div class="field">
 							<Label.Root for="item_name">Name</Label.Root>
@@ -316,6 +336,21 @@
 						<div class="field">
 							<Label.Root for="carrying_capacity">Carrying capacity</Label.Root>
 							<input id="carrying_capacity" bind:value={itemDraft.carrying_capacity} />
+						</div>
+					</div>
+				{:else}
+					<div class="form-grid">
+						<div class="field field-wide">
+							<Label.Root for="condition_name">Name</Label.Root>
+							<input id="condition_name" bind:value={conditionDraft.condition_name} required />
+						</div>
+						<div class="field field-wide">
+							<Label.Root for="condition_description">Effects</Label.Root>
+							<textarea
+								id="condition_description"
+								rows="8"
+								bind:value={conditionDraft.description}
+							></textarea>
 						</div>
 					</div>
 				{/if}

@@ -8,11 +8,10 @@
 	import { persistCampaign } from '$lib/data/writes';
 	import { dbIsReady } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
-	import type { OnboardingCampaignDraft } from '$lib/types/convenience-schema';
+	import type { CampaignPlayerDraft, OnboardingCampaignDraft } from '$lib/types/convenience-schema';
 
-	type PlayerLine = {
+	type PlayerLine = CampaignPlayerDraft & {
 		id: string;
-		name: string;
 	};
 
 	const dbReady = fromStore(dbIsReady);
@@ -21,12 +20,18 @@
 	let campaignName = $state('');
 	let description = $state('');
 	let gameSchema = $state('dnd5e');
-	let playerLines = $state<PlayerLine[]>([{ id: crypto.randomUUID(), name: '' }]);
+	let playerLines = $state<PlayerLine[]>([
+		{ id: crypto.randomUUID(), player_name: '', character_name: '' }
+	]);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
+	function createPlayerLine(): PlayerLine {
+		return { id: crypto.randomUUID(), player_name: '', character_name: '' };
+	}
+
 	function addPlayerLine() {
-		playerLines = [...playerLines, { id: crypto.randomUUID(), name: '' }];
+		playerLines = [...playerLines, createPlayerLine()];
 	}
 
 	async function handlePlayerKeydown(event: KeyboardEvent) {
@@ -37,7 +42,7 @@
 		await tick();
 
 		const inputs = document.querySelectorAll<HTMLInputElement>('.player-line input');
-		inputs[inputs.length - 1]?.focus();
+		inputs[inputs.length - 2]?.focus();
 	}
 
 	async function handleCreateCampaign(event: SubmitEvent) {
@@ -51,7 +56,10 @@
 			campaign_name: campaignName,
 			description,
 			game_schema: gameSchema,
-			player_names: playerLines.map((line) => line.name)
+			players: playerLines.map((line) => ({
+				player_name: line.player_name,
+				character_name: line.character_name
+			}))
 		};
 
 		try {
@@ -103,15 +111,21 @@
 		<div class="field">
 			<Label.Root>Players</Label.Root>
 			<p class="hint">
-				Add each player by name. A user and character slot is created for each one.
+				Add each player and their character. A user account and character sheet is created for each
+				row.
 			</p>
 			<ul class="player-lines list-plain">
 				{#each playerLines as line, index (line.id)}
 					<li class="player-line">
 						<input
-							bind:value={line.name}
+							bind:value={line.player_name}
 							placeholder="Player name"
 							aria-label="Player name"
+						/>
+						<input
+							bind:value={line.character_name}
+							placeholder="Character name"
+							aria-label="Character name"
 							onkeydown={handlePlayerKeydown}
 						/>
 						{#if index === playerLines.length - 1}
@@ -143,3 +157,21 @@
 		</div>
 	</form>
 </section>
+
+<style>
+	.player-lines {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.player-line {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.player-line input {
+		flex: 1;
+		min-width: 0;
+	}
+</style>

@@ -114,6 +114,37 @@ export const NPC_CHARACTER_KINDS = [
 
 export type NpcCharacterKind = (typeof NPC_CHARACTER_KINDS)[number];
 
+export type AbilityScores = {
+	str: number;
+	dex: number;
+	con: number;
+	int: number;
+	wis: number;
+	cha: number;
+};
+
+export const DEFAULT_ABILITY_SCORES: AbilityScores = {
+	str: 10,
+	dex: 10,
+	con: 10,
+	int: 10,
+	wis: 10,
+	cha: 10
+};
+
+export type SpellcastingAbilityKey = keyof AbilityScores;
+
+export type SpellSlotLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+export type SpellSlotsByLevel = Partial<Record<SpellSlotLevel, number>>;
+
+export type CharacterSpellEntry = {
+	spell_id: string;
+	prepared: boolean;
+};
+
+export const SPELL_SLOT_LEVELS: SpellSlotLevel[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 export type Character = {
 	character_id: string;
 	campaign_id: string;
@@ -132,9 +163,52 @@ export type Character = {
 	notes: string | null;
 	presentation: string | null;
 	race: string | null;
+	creature_type: string | null;
 	alignment: string | null;
 	age: string | null;
 	class_name: string | null;
+	background: string | null;
+	height: string | null;
+	weight: string | null;
+	eyes: string | null;
+	skin: string | null;
+	hair: string | null;
+	inspiration: boolean;
+	initiative: number | null;
+	temp_hp: number | null;
+	hit_dice_remaining: string | null;
+	death_save_successes: number;
+	death_save_failures: number;
+	personality_traits: string | null;
+	ideals: string | null;
+	bonds: string | null;
+	flaws: string | null;
+	backstory: string | null;
+	allies: string | null;
+	features: string | null;
+	proficiencies: string | null;
+	treasure: string | null;
+	armor_class: number | null;
+	armor_class_notes: string | null;
+	speed: string | null;
+	hp_dice: string | null;
+	ability_str: number | null;
+	ability_dex: number | null;
+	ability_con: number | null;
+	ability_int: number | null;
+	ability_wis: number | null;
+	ability_cha: number | null;
+	skills: string | null;
+	senses: string | null;
+	languages: string | null;
+	challenge_rating: string | null;
+	traits: string | null;
+	actions: string | null;
+	is_spellcaster: boolean;
+	spellcasting_class: string | null;
+	spellcasting_ability: SpellcastingAbilityKey | null;
+	spell_slots_total: SpellSlotsByLevel | null;
+	spell_slots_expended: SpellSlotsByLevel | null;
 	mime_type: string | null;
 	portrait_width: number | null;
 	portrait_height: number | null;
@@ -314,4 +388,57 @@ export type Spell = {
 	components: string;
 	duration: string;
 	description: string;
+};
+
+export type Condition = {
+	condition_id: string;
+	condition_name: string;
+	description: string;
+};
+
+export type Skill = {
+	skill_id: string;
+	skill_name: string;
+	ability: string;
+};
+
+export type SpeciesTraitEffectKind =
+	| 'darkvision'
+	| 'damage_resistance'
+	| 'damage_immunity'
+	| 'save_advantage'
+	| 'save_disadvantage'
+	| 'hp_max_bonus'
+	| 'bonus_action_sense'
+	| 'skill_proficiency'
+	| 'skill_expertise'
+	| 'skill_advantage'
+	| 'tool_proficiency'
+	| 'language'
+	| 'ability_score_increase';
+
+export type SpeciesTraitEffect = {
+	effect_id: string;
+	effect_kind: SpeciesTraitEffectKind;
+	target: string | null;
+	value: string | null;
+	notes: string | null;
+};
+
+export type SpeciesTrait = {
+	trait_id: string;
+	trait_name: string;
+	description: string;
+	sort_order: number;
+	effects: SpeciesTraitEffect[];
+};
+
+export type Species = {
+	species_id: string;
+	species_name: string;
+	creature_type: string;
+	size: string;
+	speed: string;
+	description: string;
+	traits: SpeciesTrait[];
 };

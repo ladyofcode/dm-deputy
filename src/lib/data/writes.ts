@@ -46,10 +46,12 @@ import {
 	updateCampaignDetailsInDb,
 	updateSessionZeroAnswersInDb,
 	updateCampaignThemeInDb,
-	updateUserThemeInDb
+	updateUserThemeInDb,
+	updateUserUsernameInDb
 } from '$lib/db/client';
 import type {
 	OnboardingAdventureDraft,
+	CampaignPlayerDraft,
 	OnboardingCampaignDraft
 } from '$lib/types/convenience-schema';
 import type {
@@ -76,7 +78,7 @@ import {
 	getStoredCampaignTheme,
 	getStoredUserTheme
 } from '$lib/themes/storage';
-import { getCampaignById, getCampaigns, getCharacterById, getUserById } from '$lib/data';
+import { getCampaignById, getCampaigns, getCharacterById, getPlayerUsernameForCharacter, getPlayerUserIdForCharacter, getUserById } from '$lib/data';
 import { persistCharacterSheetStatChanges } from '$lib/data/character-stats-persistence';
 import { workspace } from '$lib/stores/workspace.svelte';
 import { processMapUpload } from '$lib/domain/map-image';
@@ -92,6 +94,12 @@ import {
 	type NpcDraftLine,
 	type NpcExtrasDraft
 } from '$lib/domain/npc-draft';
+import { spellcastingDraftToDbFields } from '$lib/domain/spellcasting';
+import {
+	physicalDraftToDbFields,
+	roleplayDraftToDbFields,
+	vitalityDraftToDbFields
+} from '$lib/domain/pc-sheet';
 import type { PromoteAdventureOptions } from '$lib/domain/promote-adventure';
 
 export async function persistCampaign(
@@ -123,13 +131,19 @@ export async function persistCampaign(
 		last_played_at: null
 	};
 
-	const playerNames = draft.player_names.map((name) => name.trim()).filter(Boolean);
-	const players = playerNames.map((username) => ({
-		user_id: `usr-${crypto.randomUUID()}`,
-		username,
-		player_id: `mbr-${crypto.randomUUID()}`,
-		character_id: `chr-${crypto.randomUUID()}`
-	}));
+	const players = draft.players
+		.map((entry) => ({
+			player_name: entry.player_name.trim(),
+			character_name: entry.character_name.trim()
+		}))
+		.filter((entry) => entry.player_name && entry.character_name)
+		.map((entry) => ({
+			user_id: `usr-${crypto.randomUUID()}`,
+			username: entry.player_name,
+			display_name: entry.character_name,
+			player_id: `mbr-${crypto.randomUUID()}`,
+			character_id: `chr-${crypto.randomUUID()}`
+		}));
 
 	await createCampaignInDb({
 		campaign_id: campaign.campaign_id,
@@ -356,10 +370,38 @@ export async function removeCampaignMap(mapId: string): Promise<void> {
 function identityDraftToDbFields(identity: CharacterIdentityDraft) {
 	return {
 		race: identity.race.trim() || null,
+		creature_type: identity.creature_type.trim() || null,
 		alignment: identity.alignment.trim() || null,
 		age: identity.age.trim() || null,
 		class_name: identity.class_name.trim() || null,
 		presentation: identity.presentation.trim() || null
+	};
+}
+
+function extrasDraftToDbFields(extras: NpcExtrasDraft) {
+	const { abilities, combat, spellcasting, physical, roleplay, vitality } = extras;
+
+	return {
+		armor_class: combat.armor_class > 0 ? combat.armor_class : null,
+		armor_class_notes: combat.armor_class_notes.trim() || null,
+		speed: combat.speed.trim() || null,
+		hp_dice: combat.hp_dice.trim() || null,
+		ability_str: abilities.str,
+		ability_dex: abilities.dex,
+		ability_con: abilities.con,
+		ability_int: abilities.int,
+		ability_wis: abilities.wis,
+		ability_cha: abilities.cha,
+		skills: combat.skills.trim() || null,
+		senses: combat.senses.trim() || null,
+		languages: combat.languages.trim() || null,
+		challenge_rating: combat.challenge_rating.trim() || null,
+		traits: combat.traits.trim() || null,
+		actions: combat.actions.trim() || null,
+		...spellcastingDraftToDbFields(spellcasting),
+		...physicalDraftToDbFields(physical),
+		...roleplayDraftToDbFields(roleplay),
+		...vitalityDraftToDbFields(vitality)
 	};
 }
 
@@ -380,6 +422,7 @@ function npcDraftToCreateInput(
 		display_name: line.name.trim(),
 		notes: line.description.trim() || null,
 		...identityDraftToDbFields(line.identity),
+		...extrasDraftToDbFields(line.extras),
 		level: line.extras.level,
 		experience: line.extras.experience,
 		hp_max: hpMax,
@@ -465,7 +508,7 @@ function npcExtrasToLoadout(extras: NpcExtrasDraft) {
 		weapon_ids: extras.loadout.weapons.filter(Boolean),
 		armor_ids: extras.loadout.armor ? [extras.loadout.armor] : [],
 		item_ids: extras.loadout.items.filter(Boolean),
-		spell_ids: extras.loadout.spells.filter(Boolean)
+		spells: extras.loadout.spells.filter((entry) => entry.spell_id)
 	};
 }
 
@@ -480,6 +523,7 @@ function npcDraftToUpdateInput(
 		display_name: line.name.trim(),
 		notes: line.description.trim() || null,
 		...identityDraftToDbFields(line.identity),
+		...extrasDraftToDbFields(line.extras),
 		reputation: line.extras.reputation.trim() || null,
 		loadout: npcExtrasToLoadout(line.extras)
 	};
@@ -490,6 +534,7 @@ export async function updateCampaignCharacter(
 	kind: CharacterKind,
 	payload: {
 		name: string;
+		playerName?: string;
 		description?: string;
 		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
@@ -498,6 +543,24 @@ export async function updateCampaignCharacter(
 	const existing = getCharacterById(characterId);
 	if (!existing) {
 		throw new Error('Character not found');
+	}
+
+	if (kind === 'pc' && payload.playerName !== undefined) {
+		const userId = getPlayerUserIdForCharacter(characterId);
+		if (!userId) {
+			throw new Error('Player account not found for this character');
+		}
+
+		const username = payload.playerName.trim();
+		if (!username) {
+			throw new Error('Player name is required');
+		}
+
+		const currentUser = getUserById(userId);
+		if (currentUser && currentUser.username !== username) {
+			await updateUserUsernameInDb(userId, username);
+			updateUserInCache(userId, { username });
+		}
 	}
 
 	const hpMax = payload.extras.hp_max;
@@ -544,6 +607,7 @@ export async function updateCampaignCharacter(
 export async function loadCharacterSheetDraft(character: Character): Promise<{
 	kind: CharacterKind;
 	name: string;
+	playerName: string;
 	description: string;
 	identity: CharacterIdentityDraft;
 	extras: NpcExtrasDraft;
@@ -553,6 +617,10 @@ export async function loadCharacterSheetDraft(character: Character): Promise<{
 	return {
 		kind: character.kind,
 		name: character.display_name,
+		playerName:
+			character.kind === 'pc'
+				? (getPlayerUsernameForCharacter(character.character_id) ?? '')
+				: '',
 		description: character.notes ?? '',
 		identity: characterToIdentityDraft(character),
 		extras: characterToNpcExtrasDraft(character, loadout)
@@ -600,14 +668,15 @@ export async function addCampaignPcToCampaign(
 export async function persistCampaignPlayers(
 	campaignId: string,
 	ownerUserId: string,
-	names: string[]
+	players: CampaignPlayerDraft[]
 ): Promise<Character[]> {
 	const now = new Date().toISOString();
 	const saved: Character[] = [];
 
-	for (const name of names) {
-		const username = name.trim();
-		if (!username) continue;
+	for (const entry of players) {
+		const username = entry.player_name.trim();
+		const displayName = entry.character_name.trim();
+		if (!username || !displayName) continue;
 
 		const result = await addCampaignPlayerInDb({
 			campaign_id: campaignId,
@@ -615,6 +684,7 @@ export async function persistCampaignPlayers(
 			date_created: now,
 			user_id: `usr-${crypto.randomUUID()}`,
 			username,
+			display_name: displayName,
 			player_id: `mbr-${crypto.randomUUID()}`,
 			character_id: `chr-${crypto.randomUUID()}`
 		});

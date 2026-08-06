@@ -3,10 +3,13 @@
 	import { Button } from 'bits-ui';
 	import { fromStore } from 'svelte/store';
 	import CatalogEntryDialog from '$lib/components/catalog/CatalogEntryDialog.svelte';
+	import SpeciesEntryDialog from '$lib/components/catalog/SpeciesEntryDialog.svelte';
 	import {
 		loadCatalogIfNeeded,
 		removeArmor,
+		removeCondition,
 		removeItem,
+		removeSpecies,
 		removeSpell,
 		removeWeapon
 	} from '$lib/data/catalog-writes';
@@ -14,6 +17,7 @@
 		ARMOR_CATEGORY_LABELS,
 		CATALOG_KIND_LABELS,
 		formatItemCost,
+		formatSpeciesTraitNames,
 		formatWeaponCost,
 		SPELL_SCHOOL_LABELS,
 		type CatalogKind
@@ -21,12 +25,14 @@
 	import { isCatalogCacheReady } from '$lib/db/catalog-cache';
 	import {
 		getReactiveCatalogArmor,
+		getReactiveCatalogConditions,
 		getReactiveCatalogItems,
+		getReactiveCatalogSpecies,
 		getReactiveCatalogSpells,
 		getReactiveCatalogWeapons
 	} from '$lib/stores/catalog.svelte';
 	import { dbIsReady } from '$lib/stores/database.svelte';
-	import type { Armor, Item, Spell, Weapon } from '$lib/types/schema';
+	import type { Armor, Condition, Item, Species, Spell, Weapon } from '$lib/types/schema';
 
 	const dbReady = fromStore(dbIsReady);
 
@@ -34,13 +40,17 @@
 	let catalogLoading = $state(false);
 	let catalogError = $state<string | null>(null);
 	let dialogOpen = $state(false);
-	let editingEntry = $state<Spell | Weapon | Armor | Item | null>(null);
+	let speciesDialogOpen = $state(false);
+	let editingEntry = $state<Spell | Weapon | Armor | Item | Condition | null>(null);
+	let editingSpecies = $state<Species | null>(null);
 	let deletingId = $state<string | null>(null);
 
 	const spells = $derived(dbReady.current ? getReactiveCatalogSpells() : []);
 	const weapons = $derived(dbReady.current ? getReactiveCatalogWeapons() : []);
 	const armor = $derived(dbReady.current ? getReactiveCatalogArmor() : []);
 	const items = $derived(dbReady.current ? getReactiveCatalogItems() : []);
+	const conditions = $derived(dbReady.current ? getReactiveCatalogConditions() : []);
+	const species = $derived(dbReady.current ? getReactiveCatalogSpecies() : []);
 
 	const catalogReady = $derived(dbReady.current && isCatalogCacheReady());
 
@@ -60,13 +70,24 @@
 	});
 
 	function openCreateDialog() {
+		if (activeTab === 'species') {
+			editingSpecies = null;
+			speciesDialogOpen = true;
+			return;
+		}
+
 		editingEntry = null;
 		dialogOpen = true;
 	}
 
-	function openEditDialog(entry: Spell | Weapon | Armor | Item) {
+	function openEditDialog(entry: Spell | Weapon | Armor | Item | Condition) {
 		editingEntry = entry;
 		dialogOpen = true;
+	}
+
+	function openSpeciesDialog(entry: Species) {
+		editingSpecies = entry;
+		speciesDialogOpen = true;
 	}
 
 	async function handleDelete(id: string) {
@@ -83,14 +104,24 @@
 				await removeWeapon(id);
 			} else if (activeTab === 'armor') {
 				await removeArmor(id);
-			} else {
+			} else if (activeTab === 'items') {
 				await removeItem(id);
+			} else if (activeTab === 'conditions') {
+				await removeCondition(id);
+			} else {
+				await removeSpecies(id);
 			}
 		} catch (cause) {
 			catalogError = cause instanceof Error ? cause.message : 'Could not delete entry';
 		} finally {
 			deletingId = null;
 		}
+	}
+
+	function previewDescription(description: string, maxLength = 120): string {
+		const normalized = description.replace(/\s+/g, ' ').trim();
+		if (normalized.length <= maxLength) return normalized;
+		return `${normalized.slice(0, maxLength).trimEnd()}…`;
 	}
 </script>
 
@@ -105,7 +136,7 @@
 
 	<header class="library-header">
 		<h1>Rules library</h1>
-		<p class="hint">Add and edit spells, weapons, armor, and items in your local D&D 5e catalog.</p>
+		<p class="hint">Add and edit spells, weapons, armor, items, conditions, and species in your local D&D 5e catalog.</p>
 	</header>
 
 	{#if dbReady.current}
@@ -125,7 +156,7 @@
 			</div>
 
 			<Button.Root type="button" data-variant="primary" onclick={openCreateDialog}>
-				Add {CATALOG_KIND_LABELS[activeTab].slice(0, -1).toLowerCase()}
+				Add {activeTab === 'species' ? 'species' : CATALOG_KIND_LABELS[activeTab].slice(0, -1).toLowerCase()}
 			</Button.Root>
 		</div>
 
@@ -268,52 +299,143 @@
 			{:else}
 				<p class="hint">No armor yet.</p>
 			{/if}
-		{:else if items.length}
-			<div class="table-wrap">
-				<table class="data-table">
-					<thead>
-						<tr>
-							<th scope="col">Name</th>
-							<th scope="col">Category</th>
-							<th scope="col">Cost</th>
-							<th scope="col" class="actions-col">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each items as entry (entry.item_id)}
+		{:else if activeTab === 'items'}
+			{#if items.length}
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead>
 							<tr>
-								<td class="name-cell">{entry.item_name}</td>
-								<td>{entry.item_subcategory ?? entry.item_category}</td>
-								<td>{formatItemCost(entry)}</td>
-								<td class="actions-col">
-									<Button.Root
-										type="button"
-										data-variant="ghost"
-										onclick={() => openEditDialog(entry)}
-									>
-										Edit
-									</Button.Root>
-									<Button.Root
-										type="button"
-										data-variant="ghost"
-										disabled={deletingId === entry.item_id}
-										onclick={() => handleDelete(entry.item_id)}
-									>
-										Delete
-									</Button.Root>
-								</td>
+								<th scope="col">Name</th>
+								<th scope="col">Category</th>
+								<th scope="col">Cost</th>
+								<th scope="col" class="actions-col">Actions</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{:else}
-			<p class="hint">No items yet.</p>
+						</thead>
+						<tbody>
+							{#each items as entry (entry.item_id)}
+								<tr>
+									<td class="name-cell">{entry.item_name}</td>
+									<td>{entry.item_subcategory ?? entry.item_category}</td>
+									<td>{formatItemCost(entry)}</td>
+									<td class="actions-col">
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											onclick={() => openEditDialog(entry)}
+										>
+											Edit
+										</Button.Root>
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											disabled={deletingId === entry.item_id}
+											onclick={() => handleDelete(entry.item_id)}
+										>
+											Delete
+										</Button.Root>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<p class="hint">No items yet.</p>
+			{/if}
+		{:else if activeTab === 'conditions'}
+			{#if conditions.length}
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead>
+							<tr>
+								<th scope="col">Name</th>
+								<th scope="col">Effects</th>
+								<th scope="col" class="actions-col">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each conditions as entry (entry.condition_id)}
+								<tr>
+									<td class="name-cell">{entry.condition_name}</td>
+									<td class="description-cell">{previewDescription(entry.description)}</td>
+									<td class="actions-col">
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											onclick={() => openEditDialog(entry)}
+										>
+											Edit
+										</Button.Root>
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											disabled={deletingId === entry.condition_id}
+											onclick={() => handleDelete(entry.condition_id)}
+										>
+											Delete
+										</Button.Root>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<p class="hint">No conditions yet.</p>
+			{/if}
+		{:else if activeTab === 'species'}
+			{#if species.length}
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead>
+							<tr>
+								<th scope="col">Name</th>
+								<th scope="col">Size</th>
+								<th scope="col">Speed</th>
+								<th scope="col">Traits</th>
+								<th scope="col" class="actions-col">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each species as entry (entry.species_id)}
+								<tr>
+									<td class="name-cell">{entry.species_name}</td>
+									<td>{entry.size}</td>
+									<td>{entry.speed}</td>
+									<td class="description-cell">{formatSpeciesTraitNames(entry)}</td>
+									<td class="actions-col">
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											onclick={() => openSpeciesDialog(entry)}
+										>
+											Edit
+										</Button.Root>
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											disabled={deletingId === entry.species_id}
+											onclick={() => handleDelete(entry.species_id)}
+										>
+											Delete
+										</Button.Root>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<p class="hint">No species yet.</p>
+			{/if}
 		{/if}
 	{/if}
 </section>
 
-<CatalogEntryDialog bind:open={dialogOpen} kind={activeTab} entry={editingEntry} />
+{#if activeTab !== 'species'}
+	<CatalogEntryDialog bind:open={dialogOpen} kind={activeTab} entry={editingEntry} />
+{/if}
+<SpeciesEntryDialog bind:open={speciesDialogOpen} entry={editingSpecies} />
 
 <style>
 	.library-header h1 {
@@ -385,6 +507,11 @@
 
 	.name-cell {
 		font-weight: 600;
+	}
+
+	.description-cell {
+		max-width: 36rem;
+		color: var(--color-text-muted, inherit);
 	}
 
 	.actions-col {

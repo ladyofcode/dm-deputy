@@ -61,6 +61,7 @@
 	let error = $state<string | null>(null);
 	let sheetKind = $state<NpcCharacterKind>('npc_general');
 	let sheetName = $state('');
+	let sheetPlayerName = $state('');
 	let sheetDescription = $state('');
 	let sheetIdentity = $state<CharacterIdentityDraft>(createDefaultCharacterIdentity());
 	let sheetExtras = $state<NpcExtrasDraft>(createDefaultNpcExtras());
@@ -87,6 +88,7 @@
 
 				sheetKind = sheet.kind as NpcCharacterKind;
 				sheetName = sheet.name;
+				sheetPlayerName = sheet.playerName;
 				sheetDescription = sheet.description;
 				sheetIdentity = cloneCharacterIdentity(sheet.identity);
 				sheetExtras = cloneNpcExtras(sheet.extras);
@@ -123,6 +125,7 @@
 		try {
 			await updateCampaignCharacter(character.character_id, kind, {
 				name: sheetName.trim(),
+				playerName: sheetMode === 'pc' ? sheetPlayerName.trim() : undefined,
 				description: sheetDescription.trim(),
 				identity: cloneCharacterIdentity(sheetIdentity),
 				extras
@@ -186,6 +189,7 @@
 					mode={sheetMode}
 					bind:kind={sheetKind}
 					bind:name={sheetName}
+					bind:playerName={sheetPlayerName}
 					bind:description={sheetDescription}
 					bind:identity={sheetIdentity}
 					bind:extras={sheetExtras}

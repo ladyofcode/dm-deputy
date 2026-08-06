@@ -22,7 +22,19 @@
 		isCatalogCacheReady
 	} from '$lib/db/catalog-cache';
 	import {
+		formatArmorSelectLabel,
+		formatItemSelectLabel,
+		formatWeaponSelectLabel,
+		groupArmorByCategory,
+		groupItemsByCategory,
+		groupWeaponsByCategory,
+		inferItemCategoryForCatalogId,
+		ITEM_CATEGORY_ORDER
+	} from '$lib/domain/catalog-select';
+	import { ITEM_CATEGORY_LABELS } from '$lib/domain/catalog';
+	import {
 		STORY_ITEM_KIND_LABELS,
+		type ItemCategory,
 		type StoryItem,
 		type StoryItemCatalogType,
 		type StoryItemKind
@@ -49,6 +61,7 @@
 	let armLines = $state<StoryArmLine[]>([createEmptyArmLine()]);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
+	let itemCategoryFilters = $state<Record<string, ItemCategory | ''>>({});
 
 	const npcs = $derived(getNpcsForCampaign(campaignId));
 	const generalNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_general'));
@@ -59,25 +72,34 @@
 	const weapons = $derived(isCatalogCacheReady() ? getCachedWeapons() : []);
 	const armor = $derived(isCatalogCacheReady() ? getCachedArmor() : []);
 	const gear = $derived(isCatalogCacheReady() ? getCachedItems() : []);
+	const weaponGroups = $derived(groupWeaponsByCategory(weapons));
+	const armorGroups = $derived(groupArmorByCategory(armor));
 
-	function getCatalogEntries(
-		catalogType: StoryItemCatalogType | ''
-	): { id: string; name: string }[] {
+	function itemCategoryFilterForLine(lineId: string, catalogId: string): ItemCategory | '' {
+		return itemCategoryFilters[lineId] ?? inferItemCategoryForCatalogId(gear, catalogId);
+	}
+
+	function itemGroupsForLine(lineId: string, catalogId: string) {
+		return groupItemsByCategory(gear, itemCategoryFilterForLine(lineId, catalogId));
+	}
+
+	function getCatalogName(catalogType: StoryItemCatalogType | '', catalogId: string): string | null {
+		if (!catalogType || !catalogId) return null;
+
 		switch (catalogType) {
 			case 'weapon':
-				return weapons.map((entry) => ({ id: entry.weapon_id, name: entry.weapon_name }));
+				return weapons.find((entry) => entry.weapon_id === catalogId)?.weapon_name ?? null;
 			case 'armor':
-				return armor.map((entry) => ({ id: entry.armor_id, name: entry.armor_name }));
+				return armor.find((entry) => entry.armor_id === catalogId)?.armor_name ?? null;
 			case 'item':
-				return gear.map((entry) => ({ id: entry.item_id, name: entry.item_name }));
+				return gear.find((entry) => entry.item_id === catalogId)?.item_name ?? null;
 			default:
-				return [];
+				return null;
 		}
 	}
 
 	function catalogNameForLine(line: StoryArmLine): string | null {
-		const entries = getCatalogEntries(line.catalog_type);
-		return entries.find((entry) => entry.id === line.catalog_id)?.name ?? null;
+		return getCatalogName(line.catalog_type, line.catalog_id);
 	}
 
 	function mapNameForLine(line: StoryArmLine): string | null {
@@ -150,6 +172,17 @@
 	function handleCatalogTypeChange(line: StoryArmLine, catalogType: StoryItemCatalogType | '') {
 		armLines = armLines.map((entry) =>
 			entry.id === line.id ? { ...entry, catalog_type: catalogType, catalog_id: '' } : entry
+		);
+		if (catalogType !== 'item') {
+			const { [line.id]: _removed, ...rest } = itemCategoryFilters;
+			itemCategoryFilters = rest;
+		}
+	}
+
+	function handleItemCategoryFilterChange(line: StoryArmLine, category: ItemCategory | '') {
+		itemCategoryFilters = { ...itemCategoryFilters, [line.id]: category };
+		armLines = armLines.map((entry) =>
+			entry.id === line.id ? { ...entry, catalog_id: '' } : entry
 		);
 	}
 
@@ -316,21 +349,70 @@
 											<option value="">Choose…</option>
 											<option value="weapon">Weapon</option>
 											<option value="armor">Armor</option>
-											<option value="item">Other item</option>
+											<option value="item">Gear, mounts & services</option>
 										</select>
 									</div>
+									{#if line.catalog_type === 'item'}
+										<div class="field arm-line-value">
+											<Label.Root for={`arm_item_category_${line.id}`}>Gear type</Label.Root>
+											<select
+												id={`arm_item_category_${line.id}`}
+												value={itemCategoryFilterForLine(line.id, line.catalog_id)}
+												onkeydown={handleArmKeydown}
+												onchange={(event) =>
+													handleItemCategoryFilterChange(
+														line,
+														(event.currentTarget as HTMLSelectElement).value as ItemCategory | ''
+													)}
+											>
+												<option value="">All categories</option>
+												{#each ITEM_CATEGORY_ORDER as category (category)}
+													<option value={category}>{ITEM_CATEGORY_LABELS[category]}</option>
+												{/each}
+											</select>
+										</div>
+									{/if}
 									<div class="field arm-line-value arm-line-value-wide">
 										<Label.Root for={`arm_catalog_id_${line.id}`}>Item</Label.Root>
 										<select
 											id={`arm_catalog_id_${line.id}`}
+											class="catalog-select"
 											bind:value={line.catalog_id}
 											disabled={!line.catalog_type}
 											onkeydown={handleArmKeydown}
 										>
 											<option value="">Choose…</option>
-											{#each getCatalogEntries(line.catalog_type) as entry (entry.id)}
-												<option value={entry.id}>{entry.name}</option>
-											{/each}
+											{#if line.catalog_type === 'weapon'}
+												{#each weaponGroups as group (group.label)}
+													<optgroup label={group.label}>
+														{#each group.entries as entry (entry.weapon_id)}
+															<option value={entry.weapon_id}>
+																{formatWeaponSelectLabel(entry)}
+															</option>
+														{/each}
+													</optgroup>
+												{/each}
+											{:else if line.catalog_type === 'armor'}
+												{#each armorGroups as group (group.label)}
+													<optgroup label={group.label}>
+														{#each group.entries as entry (entry.armor_id)}
+															<option value={entry.armor_id}>
+																{formatArmorSelectLabel(entry)}
+															</option>
+														{/each}
+													</optgroup>
+												{/each}
+											{:else if line.catalog_type === 'item'}
+												{#each itemGroupsForLine(line.id, line.catalog_id) as group (group.label)}
+													<optgroup label={group.label}>
+														{#each group.entries as entry (entry.item_id)}
+															<option value={entry.item_id}>
+																{formatItemSelectLabel(entry)}
+															</option>
+														{/each}
+													</optgroup>
+												{/each}
+											{/if}
 										</select>
 									</div>
 									<label

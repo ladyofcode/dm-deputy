@@ -1,41 +1,8 @@
-import {
-	getCachedAdventures,
-	getCachedCampaignMembers,
-	getCachedCampaigns,
-	getCachedPartStory,
-	getCachedParts
-} from '$lib/db/cache';
-import { getStoredPartOrder, sortPartsByOrder } from '$lib/data/part-order-storage';
+import { getCachedCampaignMembers, getCachedCampaigns } from '$lib/db/cache';
 import type { Campaign } from '$lib/types/schema';
 
 function getCampaignById(campaignId: string): Campaign | undefined {
 	return getCachedCampaigns().find((campaign) => campaign.campaign_id === campaignId);
-}
-
-function getPartsForAdventure(adventureId: string) {
-	const parts = sortPartsByOrder(
-		getCachedParts().filter((part) => part.adventure_id === adventureId)
-	);
-	const storedOrder = getStoredPartOrder(adventureId);
-
-	if (!storedOrder?.length) {
-		return parts;
-	}
-
-	const orderIndex = new Map(storedOrder.map((partId, index) => [partId, index]));
-	return [...parts].sort((left, right) => {
-		const leftIndex = orderIndex.get(left.part_id);
-		const rightIndex = orderIndex.get(right.part_id);
-
-		if (leftIndex === undefined && rightIndex === undefined) {
-			return left.sort_order - right.sort_order;
-		}
-
-		if (leftIndex === undefined) return 1;
-		if (rightIndex === undefined) return -1;
-
-		return leftIndex - rightIndex;
-	});
 }
 
 export type CampaignActivity = {
@@ -50,23 +17,17 @@ export type CampaignListEntry = {
 
 export function getCampaignActivity(campaignId: string): CampaignActivity {
 	const campaign = getCampaignById(campaignId);
-	let latestActivation: string | null = null;
+	let latestPlayed: string | null = null;
 
-	for (const adventure of getCachedAdventures().filter(
-		(entry) => entry.campaign_id === campaignId
-	)) {
-		for (const part of getPartsForAdventure(adventure.adventure_id)) {
-			const nodes = getCachedPartStory(part.part_id)?.nodes ?? [];
-			for (const node of nodes) {
-				if (node.activated_at && (!latestActivation || node.activated_at > latestActivation)) {
-					latestActivation = node.activated_at;
-				}
-			}
+	for (const member of getCachedCampaignMembers()) {
+		if (member.campaign_id !== campaignId || !member.last_played_at) continue;
+		if (!latestPlayed || member.last_played_at > latestPlayed) {
+			latestPlayed = member.last_played_at;
 		}
 	}
 
-	if (latestActivation) {
-		return { label: 'Last played', at: latestActivation };
+	if (latestPlayed) {
+		return { label: 'Last played', at: latestPlayed };
 	}
 
 	return { label: 'Created', at: campaign?.date_created ?? '' };

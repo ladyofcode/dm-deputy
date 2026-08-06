@@ -2,23 +2,46 @@ import type {
 	Armor,
 	ArmorCategory,
 	ArmorClassDexterity,
+	Condition,
 	CostCurrency,
 	DamageType,
 	Item,
 	ItemCategory,
+	Skill,
+	Species,
+	SpeciesTraitEffect,
+	SpeciesTraitEffectKind,
 	Spell,
 	SpellSchool,
 	Weapon,
 	WeaponCategory
 } from '$lib/types/schema';
 
-export type CatalogKind = 'spells' | 'weapons' | 'armor' | 'items';
+export type CatalogKind = 'spells' | 'weapons' | 'armor' | 'items' | 'conditions' | 'species';
 
 export const CATALOG_KIND_LABELS: Record<CatalogKind, string> = {
 	spells: 'Spells',
 	weapons: 'Weapons',
 	armor: 'Armor',
-	items: 'Items'
+	items: 'Items',
+	conditions: 'Conditions',
+	species: 'Species'
+};
+
+export const SPECIES_EFFECT_KIND_LABELS: Record<SpeciesTraitEffectKind, string> = {
+	darkvision: 'Darkvision',
+	damage_resistance: 'Damage resistance',
+	damage_immunity: 'Damage immunity',
+	save_advantage: 'Save advantage',
+	save_disadvantage: 'Save disadvantage',
+	hp_max_bonus: 'HP maximum bonus',
+	bonus_action_sense: 'Bonus action sense',
+	skill_proficiency: 'Skill proficiency',
+	skill_expertise: 'Skill expertise',
+	skill_advantage: 'Skill advantage',
+	tool_proficiency: 'Tool proficiency',
+	language: 'Language',
+	ability_score_increase: 'Ability score increase'
 };
 
 export const SPELL_SCHOOL_LABELS: Record<SpellSchool, string> = {
@@ -126,6 +149,66 @@ export function createItemDraft(partial?: Partial<Item> | null): Item {
 		speed: partial?.speed ?? null,
 		carrying_capacity: partial?.carrying_capacity ?? null
 	};
+}
+
+export function createConditionDraft(partial?: Partial<Condition> | null): Condition {
+	return {
+		condition_id: partial?.condition_id ?? `cond-${crypto.randomUUID()}`,
+		condition_name: partial?.condition_name ?? '',
+		description: partial?.description ?? ''
+	};
+}
+
+export function createSpeciesDraft(partial?: Partial<Species> | null): Species {
+	return {
+		species_id: partial?.species_id ?? `species-${crypto.randomUUID()}`,
+		species_name: partial?.species_name ?? '',
+		creature_type: partial?.creature_type ?? 'Humanoid',
+		size: partial?.size ?? 'Medium',
+		speed: partial?.speed ?? '30 ft.',
+		description: partial?.description ?? '',
+		traits: partial?.traits ?? []
+	};
+}
+
+export function formatSpeciesTraitNames(species: Species): string {
+	return species.traits.map((trait) => trait.trait_name).join(', ') || '—';
+}
+
+export function formatTraitEffect(
+	effect: SpeciesTraitEffect,
+	skills: Skill[] = []
+): string {
+	const kind = SPECIES_EFFECT_KIND_LABELS[effect.effect_kind] ?? effect.effect_kind;
+	const skillName =
+		effect.target?.startsWith('skill-') ?
+			skills.find((skill) => skill.skill_id === effect.target)?.skill_name ?? effect.target
+		:	effect.target;
+
+	switch (effect.effect_kind) {
+		case 'darkvision':
+			return `${kind} ${effect.value ?? ''} ${effect.notes ?? 'ft.'}`.trim();
+		case 'damage_resistance':
+		case 'damage_immunity':
+			return `${kind}: ${skillName ?? '—'}`;
+		case 'save_advantage':
+		case 'save_disadvantage':
+			return `${kind}${skillName ? `: ${skillName}` : ''}${effect.notes ? ` (${effect.notes})` : ''}`;
+		case 'hp_max_bonus':
+			return `${kind} +${effect.value ?? '0'}${effect.notes ? ` (${effect.notes})` : ''}`;
+		case 'bonus_action_sense':
+			return `${kind}: ${effect.target ?? 'sense'} ${effect.value ?? ''} ft.${effect.notes ? ` — ${effect.notes}` : ''}`;
+		case 'skill_proficiency':
+		case 'skill_expertise':
+		case 'skill_advantage':
+			return `${kind}: ${skillName ?? '—'}${effect.notes ? ` (${effect.notes})` : ''}`;
+		case 'tool_proficiency':
+		case 'language':
+		case 'ability_score_increase':
+			return `${kind}: ${skillName ?? effect.value ?? '—'}`;
+		default:
+			return kind;
+	}
 }
 
 export function formatWeaponCost(weapon: Weapon): string {

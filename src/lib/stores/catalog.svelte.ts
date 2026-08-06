@@ -1,11 +1,13 @@
 import {
 	getCachedArmor,
+	getCachedConditions,
 	getCachedItems,
+	getCachedSpecies,
 	getCachedSpells,
 	getCachedWeapons,
 	isCatalogCacheReady
 } from '$lib/db/catalog-cache';
-import type { Armor, Item, Spell, Weapon } from '$lib/types/schema';
+import type { Armor, Condition, Item, Species, Spell, Weapon } from '$lib/types/schema';
 
 class CatalogState {
 	revision = $state(0);
@@ -33,6 +35,16 @@ class CatalogState {
 		void this.revision;
 		return isCatalogCacheReady() ? getCachedItems() : [];
 	}
+
+	conditions(): Condition[] {
+		void this.revision;
+		return isCatalogCacheReady() ? getCachedConditions() : [];
+	}
+
+	species(): Species[] {
+		void this.revision;
+		return isCatalogCacheReady() ? getCachedSpecies() : [];
+	}
 }
 
 export const catalogState = new CatalogState();
@@ -55,4 +67,12 @@ export function getReactiveCatalogArmor(): Armor[] {
 
 export function getReactiveCatalogItems(): Item[] {
 	return catalogState.items();
+}
+
+export function getReactiveCatalogConditions(): Condition[] {
+	return catalogState.conditions();
+}
+
+export function getReactiveCatalogSpecies(): Species[] {
+	return catalogState.species();
 }

@@ -156,10 +156,6 @@
 		<Dialog.Overlay />
 		<Dialog.Content class="dialog-wide">
 			<Dialog.Title>Scan text from image</Dialog.Title>
-			<Dialog.Description>
-				Upload a photo or image file. Tesseract will extract text you can copy into your form.
-			</Dialog.Description>
-
 			<form
 				class="ocr-form"
 				onsubmit={(event) => {

@@ -4,10 +4,16 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const seedDir = join(root, 'ignorable/catalog-seed/dnd5e');
+const committedSeedDir = join(root, 'scripts/catalog-seed/dnd5e');
 
-export const CATALOG_VERSION = '1';
+export const CATALOG_VERSION = '3';
 
 function readSeed(filename) {
+	const committedPath = join(committedSeedDir, filename);
+	if (existsSync(committedPath)) {
+		return JSON.parse(readFileSync(committedPath, 'utf8'));
+	}
+
 	const path = join(seedDir, filename);
 	if (!existsSync(path)) {
 		return null;
@@ -21,6 +27,9 @@ export function seedCatalogDatabase(db) {
 	const weapons = readSeed('weapons.json');
 	const armor = readSeed('armor.json');
 	const items = readSeed('items.json');
+	const conditions = readSeed('conditions.json');
+	const skills = readSeed('skills.json');
+	const species = readSeed('species.json');
 
 	db.exec({
 		sql: `INSERT INTO catalog_meta (key, value) VALUES ('game_schema', 'dnd5e')`
@@ -109,16 +118,89 @@ export function seedCatalogDatabase(db) {
 		});
 	}
 
+	for (const condition of conditions?.conditions ?? []) {
+		db.exec({
+			sql: `INSERT OR IGNORE INTO conditions (
+				condition_id, condition_name, description
+			) VALUES (?, ?, ?)`,
+			bind: [condition.condition_id, condition.condition_name, condition.description]
+		});
+	}
+
+	for (const skill of skills?.skills ?? []) {
+		db.exec({
+			sql: `INSERT OR IGNORE INTO skills (skill_id, skill_name, ability) VALUES (?, ?, ?)`,
+			bind: [skill.skill_id, skill.skill_name, skill.ability]
+		});
+	}
+
+	for (const entry of species?.species ?? []) {
+		db.exec({
+			sql: `INSERT OR IGNORE INTO species (
+				species_id, species_name, creature_type, size, speed, description
+			) VALUES (?, ?, ?, ?, ?, ?)`,
+			bind: [
+				entry.species_id,
+				entry.species_name,
+				entry.creature_type,
+				entry.size,
+				entry.speed,
+				entry.description
+			]
+		});
+
+		for (const trait of entry.traits ?? []) {
+			db.exec({
+				sql: `INSERT OR IGNORE INTO species_traits (
+					trait_id, species_id, trait_name, description, sort_order
+				) VALUES (?, ?, ?, ?, ?)`,
+				bind: [
+					trait.trait_id,
+					entry.species_id,
+					trait.trait_name,
+					trait.description,
+					trait.sort_order ?? 0
+				]
+			});
+
+			for (const effect of trait.effects ?? []) {
+				db.exec({
+					sql: `INSERT OR IGNORE INTO species_trait_effects (
+						effect_id, trait_id, effect_kind, target, value, notes
+					) VALUES (?, ?, ?, ?, ?, ?)`,
+					bind: [
+						effect.effect_id,
+						trait.trait_id,
+						effect.effect_kind,
+						effect.target,
+						effect.value,
+						effect.notes
+					]
+				});
+			}
+		}
+	}
+
 	const counts = {
 		spellCount: spells?.spells?.length ?? 0,
 		weaponCount: weapons?.weapons?.length ?? 0,
 		armorCount: armor?.armor?.length ?? 0,
-		itemCount: items?.items?.length ?? 0
+		itemCount: items?.items?.length ?? 0,
+		conditionCount: conditions?.conditions?.length ?? 0,
+		skillCount: skills?.skills?.length ?? 0,
+		speciesCount: species?.species?.length ?? 0
 	};
 
 	return {
 		...counts,
 		seededFromJson:
-			counts.spellCount + counts.weaponCount + counts.armorCount + counts.itemCount > 0
+			counts.spellCount +
+				counts.weaponCount +
+				counts.armorCount +
+				counts.itemCount +
+				counts.conditionCount +
+				counts.skillCount +
+				counts.speciesCount >
+			0
 	};
 }

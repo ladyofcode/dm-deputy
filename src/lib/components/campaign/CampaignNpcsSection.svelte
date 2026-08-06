@@ -85,6 +85,7 @@
 			npcDraftLineHasStats(line.extras) ||
 			Boolean(line.portraitFile) ||
 			Boolean(line.identity.race.trim()) ||
+			Boolean(line.identity.creature_type.trim()) ||
 			Boolean(line.identity.alignment.trim()) ||
 			Boolean(line.identity.age.trim()) ||
 			Boolean(line.identity.class_name.trim()) ||

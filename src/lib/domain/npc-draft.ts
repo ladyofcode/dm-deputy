@@ -1,19 +1,57 @@
 import type { CharacterLoadout } from '$lib/db/types';
-import type { Character, NpcCharacterKind } from '$lib/types/schema';
+import type { AbilityScores, Character, NpcCharacterKind } from '$lib/types/schema';
+import { DEFAULT_ABILITY_SCORES as defaultAbilityScores } from '$lib/types/schema';
+import {
+	characterToSpellcastingDraft,
+	createDefaultCharacterSpellcasting,
+	createEmptyCharacterSpellDraft,
+	type CharacterSpellcastingDraft,
+	type CharacterSpellDraft
+} from '$lib/domain/spellcasting';
+import {
+	characterToPhysicalDraft,
+	characterToRoleplayDraft,
+	characterToVitalityDraft,
+	createDefaultCharacterPhysical,
+	createDefaultCharacterRoleplay,
+	createDefaultCharacterVitality,
+	type CharacterPhysicalDraft,
+	type CharacterRoleplayDraft,
+	type CharacterVitalityDraft
+} from '$lib/domain/pc-sheet';
+
+export type { CharacterSpellcastingDraft, CharacterSpellDraft };
+export type { CharacterPhysicalDraft, CharacterRoleplayDraft, CharacterVitalityDraft };
 
 export type NpcLoadoutDraft = {
 	weapons: string[];
 	armor: string;
 	items: string[];
-	spells: string[];
+	spells: CharacterSpellDraft[];
 };
 
 export type CharacterIdentityDraft = {
 	race: string;
+	creature_type: string;
 	alignment: string;
 	age: string;
 	class_name: string;
 	presentation: string;
+};
+
+export type CharacterAbilitiesDraft = AbilityScores;
+
+export type CharacterCombatDraft = {
+	armor_class: number;
+	armor_class_notes: string;
+	speed: string;
+	hp_dice: string;
+	skills: string;
+	senses: string;
+	languages: string;
+	challenge_rating: string;
+	traits: string;
+	actions: string;
 };
 
 export type NpcExtrasDraft = {
@@ -22,6 +60,12 @@ export type NpcExtrasDraft = {
 	hp_max: number;
 	hp_current: number;
 	reputation: string;
+	abilities: CharacterAbilitiesDraft;
+	combat: CharacterCombatDraft;
+	spellcasting: CharacterSpellcastingDraft;
+	physical: CharacterPhysicalDraft;
+	roleplay: CharacterRoleplayDraft;
+	vitality: CharacterVitalityDraft;
 	loadout: NpcLoadoutDraft;
 };
 
@@ -36,9 +80,29 @@ export type NpcDraftLine = {
 	portraitImageSource: string | null;
 };
 
+export function createDefaultCharacterAbilities(): CharacterAbilitiesDraft {
+	return { ...defaultAbilityScores };
+}
+
+export function createDefaultCharacterCombat(): CharacterCombatDraft {
+	return {
+		armor_class: 0,
+		armor_class_notes: '',
+		speed: '',
+		hp_dice: '',
+		skills: '',
+		senses: '',
+		languages: '',
+		challenge_rating: '',
+		traits: '',
+		actions: ''
+	};
+}
+
 export function createDefaultCharacterIdentity(): CharacterIdentityDraft {
 	return {
 		race: '',
+		creature_type: '',
 		alignment: '',
 		age: '',
 		class_name: '',
@@ -51,7 +115,7 @@ export function createDefaultNpcLoadout(): NpcLoadoutDraft {
 		weapons: [''],
 		armor: '',
 		items: [''],
-		spells: ['']
+		spells: [createEmptyCharacterSpellDraft()]
 	};
 }
 
@@ -62,6 +126,12 @@ export function createDefaultNpcExtras(): NpcExtrasDraft {
 		hp_max: 0,
 		hp_current: 0,
 		reputation: '',
+		abilities: createDefaultCharacterAbilities(),
+		combat: createDefaultCharacterCombat(),
+		spellcasting: createDefaultCharacterSpellcasting(),
+		physical: createDefaultCharacterPhysical(),
+		roleplay: createDefaultCharacterRoleplay(),
+		vitality: createDefaultCharacterVitality(),
 		loadout: createDefaultNpcLoadout()
 	};
 }
@@ -79,9 +149,18 @@ export function createEmptyNpcDraftLine(): NpcDraftLine {
 	};
 }
 
+export function cloneCharacterAbilities(abilities: CharacterAbilitiesDraft): CharacterAbilitiesDraft {
+	return { ...abilities };
+}
+
+export function cloneCharacterCombat(combat: CharacterCombatDraft): CharacterCombatDraft {
+	return { ...combat };
+}
+
 export function cloneCharacterIdentity(identity: CharacterIdentityDraft): CharacterIdentityDraft {
 	return {
 		race: identity.race,
+		creature_type: identity.creature_type,
 		alignment: identity.alignment,
 		age: identity.age,
 		class_name: identity.class_name,
@@ -96,18 +175,55 @@ export function cloneNpcExtras(extras: NpcExtrasDraft): NpcExtrasDraft {
 		hp_max: extras.hp_max,
 		hp_current: extras.hp_current,
 		reputation: extras.reputation,
+		abilities: cloneCharacterAbilities(extras.abilities),
+		combat: cloneCharacterCombat(extras.combat),
+		spellcasting: {
+			...extras.spellcasting,
+			slots_total: { ...extras.spellcasting.slots_total },
+			slots_expended: { ...extras.spellcasting.slots_expended }
+		},
+		physical: { ...extras.physical },
+		roleplay: { ...extras.roleplay },
+		vitality: { ...extras.vitality },
 		loadout: {
 			weapons: [...extras.loadout.weapons],
 			armor: extras.loadout.armor,
 			items: [...extras.loadout.items],
-			spells: [...extras.loadout.spells]
+			spells: extras.loadout.spells.map((entry) => ({ ...entry }))
 		}
+	};
+}
+
+export function characterToAbilitiesDraft(character: Character): CharacterAbilitiesDraft {
+	return {
+		str: character.ability_str ?? defaultAbilityScores.str,
+		dex: character.ability_dex ?? defaultAbilityScores.dex,
+		con: character.ability_con ?? defaultAbilityScores.con,
+		int: character.ability_int ?? defaultAbilityScores.int,
+		wis: character.ability_wis ?? defaultAbilityScores.wis,
+		cha: character.ability_cha ?? defaultAbilityScores.cha
+	};
+}
+
+export function characterToCombatDraft(character: Character): CharacterCombatDraft {
+	return {
+		armor_class: character.armor_class ?? 0,
+		armor_class_notes: character.armor_class_notes ?? '',
+		speed: character.speed ?? '',
+		hp_dice: character.hp_dice ?? '',
+		skills: character.skills ?? '',
+		senses: character.senses ?? '',
+		languages: character.languages ?? '',
+		challenge_rating: character.challenge_rating ?? '',
+		traits: character.traits ?? '',
+		actions: character.actions ?? ''
 	};
 }
 
 export function characterToIdentityDraft(character: Character): CharacterIdentityDraft {
 	return {
 		race: character.race ?? '',
+		creature_type: character.creature_type ?? '',
 		alignment: character.alignment ?? '',
 		age: character.age ?? '',
 		class_name: character.class_name ?? '',
@@ -120,7 +236,7 @@ export function loadoutToNpcLoadoutDraft(loadout: CharacterLoadout): NpcLoadoutD
 		weapons: loadout.weapon_ids.length ? loadout.weapon_ids : [''],
 		armor: loadout.armor_ids[0] ?? '',
 		items: loadout.item_ids.length ? loadout.item_ids : [''],
-		spells: loadout.spell_ids.length ? loadout.spell_ids : ['']
+		spells: loadout.spells.length ? loadout.spells.map((entry) => ({ ...entry })) : [createEmptyCharacterSpellDraft()]
 	};
 }
 
@@ -134,8 +250,40 @@ export function characterToNpcExtrasDraft(
 		hp_max: character.hp_max,
 		hp_current: character.hp_current,
 		reputation: character.reputation ?? '',
+		abilities: characterToAbilitiesDraft(character),
+		combat: characterToCombatDraft(character),
+		spellcasting: characterToSpellcastingDraft(character),
+		physical: characterToPhysicalDraft(character),
+		roleplay: characterToRoleplayDraft(character),
+		vitality: characterToVitalityDraft(character),
 		loadout: loadoutToNpcLoadoutDraft(loadout)
 	};
+}
+
+function hasNonDefaultAbilities(abilities: CharacterAbilitiesDraft): boolean {
+	return (
+		abilities.str !== defaultAbilityScores.str ||
+		abilities.dex !== defaultAbilityScores.dex ||
+		abilities.con !== defaultAbilityScores.con ||
+		abilities.int !== defaultAbilityScores.int ||
+		abilities.wis !== defaultAbilityScores.wis ||
+		abilities.cha !== defaultAbilityScores.cha
+	);
+}
+
+function hasCombatBlockStats(combat: CharacterCombatDraft): boolean {
+	return (
+		combat.armor_class !== 0 ||
+		combat.armor_class_notes.trim().length > 0 ||
+		combat.speed.trim().length > 0 ||
+		combat.hp_dice.trim().length > 0 ||
+		combat.skills.trim().length > 0 ||
+		combat.senses.trim().length > 0 ||
+		combat.languages.trim().length > 0 ||
+		combat.challenge_rating.trim().length > 0 ||
+		combat.traits.trim().length > 0 ||
+		combat.actions.trim().length > 0
+	);
 }
 
 export function npcDraftLineHasStats(extras: NpcExtrasDraft): boolean {
@@ -145,10 +293,13 @@ export function npcDraftLineHasStats(extras: NpcExtrasDraft): boolean {
 		extras.hp_max !== 0 ||
 		extras.hp_current !== 0 ||
 		extras.reputation.trim().length > 0 ||
+		hasNonDefaultAbilities(extras.abilities) ||
+		hasCombatBlockStats(extras.combat) ||
 		loadout.weapons.some(Boolean) ||
 		Boolean(loadout.armor) ||
 		loadout.items.some(Boolean) ||
-		loadout.spells.some(Boolean)
+		loadout.spells.some((entry) => entry.spell_id) ||
+		extras.spellcasting.enabled
 	);
 }
 

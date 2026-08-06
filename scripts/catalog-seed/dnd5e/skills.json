@@ -1,0 +1,22 @@
+{
+	"skills": [
+		{ "skill_id": "skill-acrobatics", "skill_name": "Acrobatics", "ability": "dex" },
+		{ "skill_id": "skill-animal-handling", "skill_name": "Animal Handling", "ability": "wis" },
+		{ "skill_id": "skill-arcana", "skill_name": "Arcana", "ability": "int" },
+		{ "skill_id": "skill-athletics", "skill_name": "Athletics", "ability": "str" },
+		{ "skill_id": "skill-deception", "skill_name": "Deception", "ability": "cha" },
+		{ "skill_id": "skill-history", "skill_name": "History", "ability": "int" },
+		{ "skill_id": "skill-insight", "skill_name": "Insight", "ability": "wis" },
+		{ "skill_id": "skill-intimidation", "skill_name": "Intimidation", "ability": "cha" },
+		{ "skill_id": "skill-investigation", "skill_name": "Investigation", "ability": "int" },
+		{ "skill_id": "skill-medicine", "skill_name": "Medicine", "ability": "wis" },
+		{ "skill_id": "skill-nature", "skill_name": "Nature", "ability": "int" },
+		{ "skill_id": "skill-perception", "skill_name": "Perception", "ability": "wis" },
+		{ "skill_id": "skill-performance", "skill_name": "Performance", "ability": "cha" },
+		{ "skill_id": "skill-persuasion", "skill_name": "Persuasion", "ability": "cha" },
+		{ "skill_id": "skill-religion", "skill_name": "Religion", "ability": "int" },
+		{ "skill_id": "skill-sleight-of-hand", "skill_name": "Sleight of Hand", "ability": "dex" },
+		{ "skill_id": "skill-stealth", "skill_name": "Stealth", "ability": "dex" },
+		{ "skill_id": "skill-survival", "skill_name": "Survival", "ability": "wis" }
+	]
+}

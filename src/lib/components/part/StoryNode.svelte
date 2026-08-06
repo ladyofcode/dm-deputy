@@ -83,6 +83,7 @@
 	bind:this={element}
 	role="button"
 	tabindex="0"
+	data-story-draggable
 	data-kind={node.kind}
 	data-activated={node.activated_at ? 'true' : undefined}
 	data-completed={isCompleted ? 'true' : undefined}

@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 28;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -389,10 +389,161 @@ export const MIGRATIONS: Record<number, string> = {
 	`,
 	23: `
 		ALTER TABLE characters ADD COLUMN presentation TEXT;
+	`,
+	24: `
+		ALTER TABLE characters ADD COLUMN creature_type TEXT;
+		ALTER TABLE characters ADD COLUMN armor_class INTEGER;
+		ALTER TABLE characters ADD COLUMN armor_class_notes TEXT;
+		ALTER TABLE characters ADD COLUMN speed TEXT;
+		ALTER TABLE characters ADD COLUMN hp_dice TEXT;
+		ALTER TABLE characters ADD COLUMN ability_str INTEGER;
+		ALTER TABLE characters ADD COLUMN ability_dex INTEGER;
+		ALTER TABLE characters ADD COLUMN ability_con INTEGER;
+		ALTER TABLE characters ADD COLUMN ability_int INTEGER;
+		ALTER TABLE characters ADD COLUMN ability_wis INTEGER;
+		ALTER TABLE characters ADD COLUMN ability_cha INTEGER;
+		ALTER TABLE characters ADD COLUMN skills TEXT;
+		ALTER TABLE characters ADD COLUMN senses TEXT;
+		ALTER TABLE characters ADD COLUMN languages TEXT;
+		ALTER TABLE characters ADD COLUMN challenge_rating TEXT;
+		ALTER TABLE characters ADD COLUMN traits TEXT;
+		ALTER TABLE characters ADD COLUMN actions TEXT;
+	`,
+	25: `
+		ALTER TABLE characters ADD COLUMN is_spellcaster INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE characters ADD COLUMN spellcasting_class TEXT;
+		ALTER TABLE characters ADD COLUMN spellcasting_ability TEXT;
+		ALTER TABLE characters ADD COLUMN spell_slots_total_json TEXT;
+		ALTER TABLE characters ADD COLUMN spell_slots_expended_json TEXT;
+	`,
+	26: `
+		CREATE TABLE IF NOT EXISTS conditions (
+			condition_id TEXT PRIMARY KEY NOT NULL,
+			condition_name TEXT NOT NULL,
+			description TEXT NOT NULL
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_conditions_name ON conditions (condition_name);
+
+		INSERT OR IGNORE INTO conditions (condition_id, condition_name, description) VALUES
+			('cond-blinded', 'Blinded', 'A blinded creature can''t see and automatically fails any ability check that requires sight.
+Attack rolls against the creature have advantage, and the creature''s attack rolls have disadvantage.'),
+			('cond-charmed', 'Charmed', 'A charmed creature can''t attack the charmer or target the charmer with harmful abilities or magical effects.
+The charmer has advantage on any ability check to interact socially with the creature.'),
+			('cond-deafened', 'Deafened', 'A deafened creature can''t hear and automatically fails any ability check that requires hearing.'),
+			('cond-frightened', 'Frightened', 'A frightened creature has disadvantage on ability checks and attack rolls while the source of its fear is within line of sight.
+The creature can''t willingly move closer to the source of its fear.'),
+			('cond-grappled', 'Grappled', 'A grappled creature''s speed becomes 0, and it can''t benefit from any bonus to its speed.
+The condition ends if the grappler is incapacitated (see the condition).
+The condition also ends if an effect removes the grappled creature from the reach of the grappler or grappling effect, such as when a creature is hurled away by the thunderwave spell.'),
+			('cond-incapacitated', 'Incapacitated', 'An incapacitated creature can''t take actions or reactions.'),
+			('cond-invisible', 'Invisible', 'An invisible creature is impossible to see without the aid of magic or a special sense. For the purpose of hiding, the creature is heavily obscured. The creature''s location can be detected by any noise it makes or any tracks it leaves.
+Attack rolls against the creature have disadvantage, and the creature''s attack rolls have advantage.'),
+			('cond-paralyzed', 'Paralyzed', 'A paralyzed creature is incapacitated (see the condition) and can''t move or speak.
+The creature automatically fails Strength and Dexterity saving throws.
+Attack rolls against the creature have advantage.
+Any attack that hits the creature is a critical hit if the attacker is within 5 feet of the creature.'),
+			('cond-petrified', 'Petrified', 'A petrified creature is transformed, along with any nonmagical object it is wearing or carrying, into a solid inanimate substance (usually stone). Its weight increases by a factor of ten, and it ceases aging.
+The creature is incapacitated (see the condition), can''t move or speak, and is unaware of its surroundings.
+Attack rolls against the creature have advantage.
+The creature automatically fails Strength and Dexterity saving throws.
+The creature has resistance to all damage.
+The creature is immune to poison and disease, although a poison or disease already in its system is suspended, not neutralized.'),
+			('cond-poisoned', 'Poisoned', 'A poisoned creature has disadvantage on attack rolls and ability checks.'),
+			('cond-prone', 'Prone', 'A prone creature''s only movement option is to crawl, unless it stands up and thereby ends the condition.
+The creature has disadvantage on attack rolls.
+An attack roll against the creature has advantage if the attacker is within 5 feet of the creature. Otherwise, the attack roll has disadvantage.'),
+			('cond-restrained', 'Restrained', 'A restrained creature''s speed becomes 0, and it can''t benefit from any bonus to its speed.
+Attack rolls against the creature have advantage, and the creature''s attack rolls have disadvantage.
+The creature has disadvantage on Dexterity saving throws.'),
+			('cond-stunned', 'Stunned', 'A stunned creature is incapacitated (see the condition), can''t move, and can speak only falteringly.
+The creature automatically fails Strength and Dexterity saving throws.
+Attack rolls against the creature have advantage.'),
+			('cond-unconscious', 'Unconscious', 'An unconscious creature is incapacitated (see the condition), can''t move or speak, and is unaware of its surroundings.
+The creature drops whatever it''s holding and falls prone.
+The creature automatically fails Strength and Dexterity saving throws.
+Attack rolls against the creature have advantage.
+Any attack that hits the creature is a critical hit if the attacker is within 5 feet of the creature.');
+	`,
+	27: `
+		ALTER TABLE characters ADD COLUMN background TEXT;
+		ALTER TABLE characters ADD COLUMN height TEXT;
+		ALTER TABLE characters ADD COLUMN weight TEXT;
+		ALTER TABLE characters ADD COLUMN eyes TEXT;
+		ALTER TABLE characters ADD COLUMN skin TEXT;
+		ALTER TABLE characters ADD COLUMN hair TEXT;
+		ALTER TABLE characters ADD COLUMN inspiration INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE characters ADD COLUMN initiative INTEGER;
+		ALTER TABLE characters ADD COLUMN temp_hp INTEGER;
+		ALTER TABLE characters ADD COLUMN hit_dice_remaining TEXT;
+		ALTER TABLE characters ADD COLUMN death_save_successes INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE characters ADD COLUMN death_save_failures INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE characters ADD COLUMN personality_traits TEXT;
+		ALTER TABLE characters ADD COLUMN ideals TEXT;
+		ALTER TABLE characters ADD COLUMN bonds TEXT;
+		ALTER TABLE characters ADD COLUMN flaws TEXT;
+		ALTER TABLE characters ADD COLUMN backstory TEXT;
+		ALTER TABLE characters ADD COLUMN allies TEXT;
+		ALTER TABLE characters ADD COLUMN features TEXT;
+		ALTER TABLE characters ADD COLUMN proficiencies TEXT;
+		ALTER TABLE characters ADD COLUMN treasure TEXT;
+	`,
+	28: `
+		CREATE TABLE IF NOT EXISTS species (
+			species_id TEXT PRIMARY KEY NOT NULL,
+			species_name TEXT NOT NULL,
+			creature_type TEXT NOT NULL DEFAULT 'Humanoid',
+			size TEXT NOT NULL,
+			speed TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT ''
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_species_name ON species (species_name);
+
+		CREATE TABLE IF NOT EXISTS species_traits (
+			trait_id TEXT PRIMARY KEY NOT NULL,
+			species_id TEXT NOT NULL,
+			trait_name TEXT NOT NULL,
+			description TEXT NOT NULL,
+			sort_order INTEGER NOT NULL DEFAULT 0
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_species_traits_species ON species_traits (species_id);
+
+		CREATE TABLE IF NOT EXISTS species_trait_effects (
+			effect_id TEXT PRIMARY KEY NOT NULL,
+			trait_id TEXT NOT NULL,
+			effect_kind TEXT NOT NULL,
+			target TEXT,
+			value TEXT,
+			notes TEXT
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_species_trait_effects_trait ON species_trait_effects (trait_id);
+
+		INSERT OR IGNORE INTO skills (skill_id, skill_name, ability) VALUES
+			('skill-acrobatics', 'Acrobatics', 'dex'),
+			('skill-animal-handling', 'Animal Handling', 'wis'),
+			('skill-arcana', 'Arcana', 'int'),
+			('skill-athletics', 'Athletics', 'str'),
+			('skill-deception', 'Deception', 'cha'),
+			('skill-history', 'History', 'int'),
+			('skill-insight', 'Insight', 'wis'),
+			('skill-intimidation', 'Intimidation', 'cha'),
+			('skill-investigation', 'Investigation', 'int'),
+			('skill-medicine', 'Medicine', 'wis'),
+			('skill-nature', 'Nature', 'int'),
+			('skill-perception', 'Perception', 'wis'),
+			('skill-performance', 'Performance', 'cha'),
+			('skill-persuasion', 'Persuasion', 'cha'),
+			('skill-religion', 'Religion', 'int'),
+			('skill-sleight-of-hand', 'Sleight of Hand', 'dex'),
+			('skill-stealth', 'Stealth', 'dex'),
+			('skill-survival', 'Survival', 'wis');
 	`
 };
 
-export const REPAIR_MIGRATION_VERSIONS = [1, 3, 5, 6, 8, 9] as const;
+export const REPAIR_MIGRATION_VERSIONS = [1, 3, 5, 6, 8, 9, 26] as const;
 
 export function getFreshInstallSql(): string {
 	return Object.keys(MIGRATIONS)

@@ -289,6 +289,10 @@ export async function updateUserThemeInDb(
 	await callWorker('updateUserTheme', [userId, theme]);
 }
 
+export async function updateUserUsernameInDb(userId: string, username: string): Promise<void> {
+	await callWorker('updateUserUsername', [userId, username]);
+}
+
 export async function updateCampaignThemeInDb(
 	campaignId: string,
 	theme: import('$lib/types/schema').Campaign['theme']
@@ -508,4 +512,24 @@ export async function upsertItemInDb(item: import('$lib/types/schema').Item): Pr
 
 export async function deleteItemInDb(itemId: string): Promise<void> {
 	await callWorker('deleteItem', [itemId]);
+}
+
+export async function upsertConditionInDb(
+	condition: import('$lib/types/schema').Condition
+): Promise<void> {
+	await callWorker('upsertCondition', [condition]);
+}
+
+export async function deleteConditionInDb(conditionId: string): Promise<void> {
+	await callWorker('deleteCondition', [conditionId]);
+}
+
+export async function upsertSpeciesInDb(
+	species: import('$lib/types/schema').Species
+): Promise<void> {
+	await callWorker('upsertSpecies', [species]);
+}
+
+export async function deleteSpeciesInDb(speciesId: string): Promise<void> {
+	await callWorker('deleteSpecies', [speciesId]);
 }

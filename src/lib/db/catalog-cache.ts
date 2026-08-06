@@ -1,10 +1,13 @@
-import type { Armor, Item, Spell, Weapon } from '$lib/types/schema';
+import type { Armor, Condition, Item, Skill, Species, Spell, Weapon } from '$lib/types/schema';
 
 export type CatalogSnapshot = {
 	spells: Spell[];
 	weapons: Weapon[];
 	armor: Armor[];
 	items: Item[];
+	conditions: Condition[];
+	skills: Skill[];
+	species: Species[];
 };
 
 let catalogSnapshot: CatalogSnapshot | null = null;
@@ -35,6 +38,18 @@ export function getCachedArmor(): Armor[] {
 
 export function getCachedItems(): Item[] {
 	return catalogSnapshot?.items ?? [];
+}
+
+export function getCachedConditions(): Condition[] {
+	return catalogSnapshot?.conditions ?? [];
+}
+
+export function getCachedSkills(): Skill[] {
+	return catalogSnapshot?.skills ?? [];
+}
+
+export function getCachedSpecies(): Species[] {
+	return catalogSnapshot?.species ?? [];
 }
 
 function compareSpells(a: Spell, b: Spell): number {
@@ -115,4 +130,46 @@ export function upsertItemInCache(item: Item): void {
 export function removeItemFromCache(itemId: string): void {
 	if (!catalogSnapshot) return;
 	catalogSnapshot.items = catalogSnapshot.items.filter((entry) => entry.item_id !== itemId);
+}
+
+export function upsertConditionInCache(condition: Condition): void {
+	if (!catalogSnapshot) return;
+
+	const index = catalogSnapshot.conditions.findIndex(
+		(entry) => entry.condition_id === condition.condition_id
+	);
+	if (index >= 0) {
+		catalogSnapshot.conditions[index] = condition;
+	} else {
+		catalogSnapshot.conditions.push(condition);
+	}
+
+	catalogSnapshot.conditions.sort((a, b) => compareNames(a.condition_name, b.condition_name));
+}
+
+export function removeConditionFromCache(conditionId: string): void {
+	if (!catalogSnapshot) return;
+	catalogSnapshot.conditions = catalogSnapshot.conditions.filter(
+		(entry) => entry.condition_id !== conditionId
+	);
+}
+
+export function upsertSpeciesInCache(species: Species): void {
+	if (!catalogSnapshot) return;
+
+	const index = catalogSnapshot.species.findIndex((entry) => entry.species_id === species.species_id);
+	if (index >= 0) {
+		catalogSnapshot.species[index] = species;
+	} else {
+		catalogSnapshot.species.push(species);
+	}
+
+	catalogSnapshot.species.sort((a, b) => compareNames(a.species_name, b.species_name));
+}
+
+export function removeSpeciesFromCache(speciesId: string): void {
+	if (!catalogSnapshot) return;
+	catalogSnapshot.species = catalogSnapshot.species.filter(
+		(entry) => entry.species_id !== speciesId
+	);
 }

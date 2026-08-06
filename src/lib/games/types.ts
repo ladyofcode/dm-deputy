@@ -1,8 +1,10 @@
 import type {
 	Armor,
 	ArmorCategory,
+	Condition,
 	Item,
 	ItemCategory,
+	Species,
 	Spell,
 	SpellSchool,
 	Weapon,
@@ -39,6 +41,12 @@ export type Dnd5eRuleset = {
 	getSpellsBySchool: (school: SpellSchool) => Spell[];
 	getCantrips: () => Spell[];
 	getRitualSpells: () => Spell[];
+	getConditionsCatalog: () => Condition[];
+	getConditionById: (conditionId: string) => Condition | undefined;
+	getConditionByName: (conditionName: string) => Condition | undefined;
+	getSpeciesCatalog: () => Species[];
+	getSpeciesById: (speciesId: string) => Species | undefined;
+	getSpeciesByName: (speciesName: string) => Species | undefined;
 };
 
 export type Ruleset = Dnd5eRuleset;

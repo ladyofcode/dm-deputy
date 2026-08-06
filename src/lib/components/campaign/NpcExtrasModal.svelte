@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Dialog } from 'bits-ui';
+	import { Button, Dialog, Tooltip } from 'bits-ui';
 	import CharacterSheetForm from '$lib/components/character/CharacterSheetForm.svelte';
 	import {
 		cloneCharacterIdentity,
@@ -14,6 +14,7 @@
 	type SavePayload = {
 		kind: NpcCharacterKind;
 		name: string;
+		playerName?: string;
 		description: string;
 		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
@@ -26,6 +27,7 @@
 		mode?: 'npc' | 'pc';
 		kind: NpcCharacterKind;
 		name: string;
+		playerName?: string;
 		description?: string;
 		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
@@ -41,6 +43,7 @@
 		mode = 'npc',
 		kind,
 		name,
+		playerName = '',
 		description = '',
 		identity,
 		extras,
@@ -53,6 +56,7 @@
 
 	let modalKind = $state<NpcCharacterKind>('npc_general');
 	let modalName = $state('');
+	let modalPlayerName = $state('');
 	let modalDescription = $state('');
 	let modalIdentity = $state(createDefaultCharacterIdentity());
 	let draft = $state(createDefaultNpcExtras());
@@ -70,6 +74,7 @@
 
 		modalKind = kind;
 		modalName = name;
+		modalPlayerName = playerName;
 		modalDescription = description;
 		modalIdentity = cloneCharacterIdentity(identity);
 		draft = cloneNpcExtras(extras);
@@ -88,6 +93,7 @@
 		const payload = {
 			kind: modalKind,
 			name: modalName.trim(),
+			playerName: mode === 'pc' ? modalPlayerName.trim() : undefined,
 			description: modalDescription.trim(),
 			identity: cloneCharacterIdentity(modalIdentity),
 			extras: cloneNpcExtras(draft),
@@ -106,19 +112,22 @@
 	<Dialog.Portal>
 		<Dialog.Overlay />
 		<Dialog.Content class="dialog-wide">
-			<Dialog.Title>Add NPC</Dialog.Title>
+			<Dialog.Title>{mode === 'pc' ? 'Add player character' : 'Add NPC'}</Dialog.Title>
 
-			<CharacterSheetForm
-				{mode}
-				bind:kind={modalKind}
-				bind:name={modalName}
-				bind:description={modalDescription}
-				bind:identity={modalIdentity}
-				bind:extras={draft}
-				bind:portraitFile={modalPortraitFile}
-				bind:portraitImageSource={modalPortraitImageSource}
-				{loading}
-			/>
+			<Tooltip.Provider delayDuration={200}>
+				<CharacterSheetForm
+					{mode}
+					bind:kind={modalKind}
+					bind:name={modalName}
+					bind:playerName={modalPlayerName}
+					bind:description={modalDescription}
+					bind:identity={modalIdentity}
+					bind:extras={draft}
+					bind:portraitFile={modalPortraitFile}
+					bind:portraitImageSource={modalPortraitImageSource}
+					{loading}
+				/>
+			</Tooltip.Provider>
 
 			<div class="dialog-footer">
 				<Dialog.Close>

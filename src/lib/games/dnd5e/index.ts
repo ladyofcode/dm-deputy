@@ -7,6 +7,16 @@ import {
 	getItemsCatalog
 } from './data/items';
 import {
+	getConditionById,
+	getConditionByName,
+	getConditionsCatalog
+} from './data/conditions';
+import {
+	getSpeciesById,
+	getSpeciesByName,
+	getSpeciesCatalog
+} from './data/species';
+import {
 	getCantrips,
 	getRitualSpells,
 	getSpellById,
@@ -15,6 +25,10 @@ import {
 	getSpellsBySchool,
 	getSpellsCatalog
 } from './data/spells';
+import {
+	getMonsterTemplateById,
+	MONSTER_TEMPLATES
+} from './data/monsters';
 import { getWeaponById, getWeaponsByCategory, getWeaponsCatalog } from './data/weapons';
 import { characterLevels, getLevelForExperience } from './rules/character-levels';
 import { abilityModifier, proficiencyBonus } from './rules/formulae';
@@ -41,7 +55,13 @@ export const dnd5eRuleset: Dnd5eRuleset = {
 	getSpellsByLevel,
 	getSpellsBySchool,
 	getCantrips,
-	getRitualSpells
+	getRitualSpells,
+	getConditionsCatalog,
+	getConditionById,
+	getConditionByName,
+	getSpeciesCatalog,
+	getSpeciesById,
+	getSpeciesByName
 };
 
 export {
@@ -65,5 +85,13 @@ export {
 	getSpellsByLevel,
 	getSpellsBySchool,
 	getCantrips,
-	getRitualSpells
+	getRitualSpells,
+	getConditionsCatalog,
+	getConditionById,
+	getConditionByName,
+	getSpeciesCatalog,
+	getSpeciesById,
+	getSpeciesByName,
+	getMonsterTemplateById,
+	MONSTER_TEMPLATES
 };

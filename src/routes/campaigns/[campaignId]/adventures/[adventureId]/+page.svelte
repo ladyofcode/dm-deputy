@@ -288,13 +288,18 @@
 								</a>
 								<div class="part-session-field">
 									<Label.Root for="session-{part.part_id}">Session time</Label.Root>
-									<textarea
+									<input
 										id="session-{part.part_id}"
+										type="text"
 										bind:value={sessionDurationDrafts[part.part_id]}
-										placeholder="e.g. 3 hours, or two sessions in Jan"
-										rows={2}
+										placeholder="e.g. 3 hours"
 										onblur={() => savePartSessionDuration(part.part_id)}
-									></textarea>
+										onkeydown={(event) => {
+											if (event.key === 'Enter') {
+												event.currentTarget.blur();
+											}
+										}}
+									/>
 								</div>
 							</div>
 							<span
@@ -375,15 +380,24 @@
 	}
 
 	.part-session-field {
-		display: grid;
-		gap: 0.25rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 		margin: 0;
 	}
 
-	.part-session-field textarea {
-		width: 100%;
-		min-height: 3.5rem;
-		resize: vertical;
-		line-height: 1.45;
+	.part-session-field :global(label) {
+		margin: 0;
+		flex-shrink: 0;
+		font-size: 0.9rem;
+	}
+
+	.part-session-field input {
+		flex: 0 1 12rem;
+		min-width: 6rem;
+		max-width: 100%;
+		padding: 0.2rem 0.45rem;
+		font-size: 0.9rem;
 	}
 </style>

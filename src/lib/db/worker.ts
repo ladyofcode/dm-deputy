@@ -45,6 +45,7 @@ import {
 	serializeSessionZeroJson,
 	trimSessionZeroAnswers
 } from '$lib/domain/session-zero-questions';
+import { parseSpellSlotsJson } from '$lib/domain/spellcasting';
 import {
 	isNpcCharacterKind,
 	normalizeCharacterKind,
@@ -54,11 +55,17 @@ import {
 	type CampaignNpc,
 	type Character,
 	type CharacterStatEvent,
+	type Condition,
 	type EncounterResolution,
 	type EncounterXpAward,
 	type Item,
 	type Part,
+	type Skill,
+	type Species,
+	type SpeciesTrait,
+	type SpeciesTraitEffect,
 	type Spell,
+	type SpellcastingAbilityKey,
 	type StatKind,
 	type StoryItem,
 	type StoryNode,
@@ -104,7 +111,11 @@ const REQUIRED_TABLES = [
 	'spells',
 	'weapons',
 	'armor',
-	'items'
+	'items',
+	'conditions',
+	'species',
+	'species_traits',
+	'species_trait_effects'
 ] as const;
 
 function isOpfsAvailable(module: SqliteModule): boolean {
@@ -288,6 +299,69 @@ function repairStoryNodeXpAwardColumn(database: AppDb): void {
 	execSql(database, 'ALTER TABLE story_nodes DROP COLUMN xp_award');
 }
 
+function repairCharacterSheetColumns(database: AppDb): void {
+	if (!tableExists(database, 'characters')) {
+		return;
+	}
+
+	addColumnIfMissing(database, 'characters', 'race', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'alignment', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'age', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'class_name', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'mime_type', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'portrait_width', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'portrait_height', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'thumb_width', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'thumb_height', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'thumb_blob', 'BLOB');
+	addColumnIfMissing(database, 'characters', 'full_blob', 'BLOB');
+	addColumnIfMissing(database, 'characters', 'image_source', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'presentation', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'creature_type', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'armor_class', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'armor_class_notes', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'speed', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'hp_dice', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'ability_str', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'ability_dex', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'ability_con', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'ability_int', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'ability_wis', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'ability_cha', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'skills', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'senses', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'languages', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'challenge_rating', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'traits', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'actions', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'is_spellcaster', 'INTEGER NOT NULL DEFAULT 0');
+	addColumnIfMissing(database, 'characters', 'spellcasting_class', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'spellcasting_ability', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'spell_slots_total_json', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'spell_slots_expended_json', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'background', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'height', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'weight', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'eyes', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'skin', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'hair', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'inspiration', 'INTEGER NOT NULL DEFAULT 0');
+	addColumnIfMissing(database, 'characters', 'initiative', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'temp_hp', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'hit_dice_remaining', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'death_save_successes', 'INTEGER NOT NULL DEFAULT 0');
+	addColumnIfMissing(database, 'characters', 'death_save_failures', 'INTEGER NOT NULL DEFAULT 0');
+	addColumnIfMissing(database, 'characters', 'personality_traits', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'ideals', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'bonds', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'flaws', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'backstory', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'allies', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'features', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'proficiencies', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'treasure', 'TEXT');
+}
+
 function repairSchemaColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'story_nodes', 'activated_at', 'TEXT');
 	addColumnIfMissing(database, 'story_nodes', 'completed_at', 'TEXT');
@@ -300,6 +374,7 @@ function repairSchemaColumns(database: AppDb): void {
 	repairCharactersSoftDeleteColumn(database);
 	repairCharacterStatEventDescriptionColumn(database);
 	repairStoryNodeXpAwardColumn(database);
+	repairCharacterSheetColumns(database);
 }
 
 function applyMigration(database: AppDb, version: number): void {
@@ -477,7 +552,18 @@ function ensureCatalogSeeded(database: AppDb, templateBuffer: ArrayBuffer): void
 	const templateDatabase = deserializeDatabaseFromBuffer(module, templateBuffer);
 
 	try {
-		for (const table of ['catalog_meta', 'spells', 'weapons', 'armor', 'items'] as const) {
+		for (const table of [
+			'catalog_meta',
+			'spells',
+			'weapons',
+			'armor',
+			'items',
+			'conditions',
+			'skills',
+			'species',
+			'species_traits',
+			'species_trait_effects'
+		] as const) {
 			if (!tableExists(templateDatabase, table)) continue;
 			copyCatalogTable(templateDatabase, database, table);
 		}
@@ -654,7 +740,85 @@ function loadCatalogSnapshot(database: AppDb | MemoryDb): CatalogSnapshot {
 		carrying_capacity: row.carrying_capacity
 	}));
 
-	return { spells, weapons, armor, items };
+	const conditions = selectObjects<{
+		condition_id: string;
+		condition_name: string;
+		description: string;
+	}>(database, 'SELECT * FROM conditions ORDER BY condition_name');
+
+	const skills = selectObjects<{
+		skill_id: string;
+		skill_name: string;
+		ability: string;
+	}>(database, 'SELECT * FROM skills ORDER BY skill_name');
+
+	const species = loadSpeciesCatalog(database);
+
+	return { spells, weapons, armor, items, conditions, skills, species };
+}
+
+function loadSpeciesCatalog(database: AppDb | MemoryDb): Species[] {
+	const speciesRows = selectObjects<{
+		species_id: string;
+		species_name: string;
+		creature_type: string;
+		size: string;
+		speed: string;
+		description: string;
+	}>(database, 'SELECT * FROM species ORDER BY species_name');
+
+	const traitRows = selectObjects<{
+		trait_id: string;
+		species_id: string;
+		trait_name: string;
+		description: string;
+		sort_order: number;
+	}>(database, 'SELECT * FROM species_traits ORDER BY sort_order, trait_name');
+
+	const effectRows = selectObjects<{
+		effect_id: string;
+		trait_id: string;
+		effect_kind: SpeciesTraitEffect['effect_kind'];
+		target: string | null;
+		value: string | null;
+		notes: string | null;
+	}>(database, 'SELECT * FROM species_trait_effects');
+
+	const effectsByTrait = new Map<string, SpeciesTraitEffect[]>();
+	for (const row of effectRows) {
+		const effects = effectsByTrait.get(row.trait_id) ?? [];
+		effects.push({
+			effect_id: row.effect_id,
+			effect_kind: row.effect_kind,
+			target: row.target,
+			value: row.value,
+			notes: row.notes
+		});
+		effectsByTrait.set(row.trait_id, effects);
+	}
+
+	const traitsBySpecies = new Map<string, SpeciesTrait[]>();
+	for (const row of traitRows) {
+		const traits = traitsBySpecies.get(row.species_id) ?? [];
+		traits.push({
+			trait_id: row.trait_id,
+			trait_name: row.trait_name,
+			description: row.description,
+			sort_order: row.sort_order,
+			effects: effectsByTrait.get(row.trait_id) ?? []
+		});
+		traitsBySpecies.set(row.species_id, traits);
+	}
+
+	return speciesRows.map((row) => ({
+		species_id: row.species_id,
+		species_name: row.species_name,
+		creature_type: row.creature_type,
+		size: row.size,
+		speed: row.speed,
+		description: row.description,
+		traits: traitsBySpecies.get(row.species_id) ?? []
+	}));
 }
 
 function upsertSpell(database: AppDb, spell: Spell): void {
@@ -813,6 +977,167 @@ function deleteItem(database: AppDb, itemId: string): void {
 	});
 }
 
+function upsertCondition(database: AppDb, condition: Condition): void {
+	execSql(database, {
+		sql: `INSERT INTO conditions (
+			condition_id, condition_name, description
+		) VALUES (
+			$condition_id, $condition_name, $description
+		)
+		ON CONFLICT(condition_id) DO UPDATE SET
+			condition_name = excluded.condition_name,
+			description = excluded.description`,
+		bind: {
+			condition_id: condition.condition_id,
+			condition_name: condition.condition_name.trim(),
+			description: condition.description
+		}
+	});
+}
+
+function deleteCondition(database: AppDb, conditionId: string): void {
+	execSql(database, {
+		sql: `DELETE FROM conditions WHERE condition_id = $condition_id`,
+		bind: { condition_id: conditionId }
+	});
+}
+
+function upsertSpecies(database: AppDb, species: Species): void {
+	execSql(database, {
+		sql: `INSERT INTO species (
+			species_id, species_name, creature_type, size, speed, description
+		) VALUES (
+			$species_id, $species_name, $creature_type, $size, $speed, $description
+		)
+		ON CONFLICT(species_id) DO UPDATE SET
+			species_name = excluded.species_name,
+			creature_type = excluded.creature_type,
+			size = excluded.size,
+			speed = excluded.speed,
+			description = excluded.description`,
+		bind: {
+			species_id: species.species_id,
+			species_name: species.species_name.trim(),
+			creature_type: species.creature_type,
+			size: species.size,
+			speed: species.speed,
+			description: species.description
+		}
+	});
+
+	const traitIds = species.traits.map((trait) => trait.trait_id);
+	if (traitIds.length === 0) {
+		execSql(database, {
+			sql: `DELETE FROM species_trait_effects WHERE trait_id IN (
+				SELECT trait_id FROM species_traits WHERE species_id = $species_id
+			)`,
+			bind: { species_id: species.species_id }
+		});
+		execSql(database, {
+			sql: `DELETE FROM species_traits WHERE species_id = $species_id`,
+			bind: { species_id: species.species_id }
+		});
+		return;
+	}
+
+	const traitPlaceholders = traitIds.map((_, index) => `$trait_${index}`).join(', ');
+	const traitBind = Object.fromEntries(traitIds.map((id, index) => [`trait_${index}`, id]));
+	traitBind.species_id = species.species_id;
+
+	execSql(database, {
+		sql: `DELETE FROM species_trait_effects WHERE trait_id IN (
+			SELECT trait_id FROM species_traits
+			WHERE species_id = $species_id AND trait_id NOT IN (${traitPlaceholders})
+		)`,
+		bind: traitBind
+	});
+	execSql(database, {
+		sql: `DELETE FROM species_traits
+			WHERE species_id = $species_id AND trait_id NOT IN (${traitPlaceholders})`,
+		bind: traitBind
+	});
+
+	for (const trait of species.traits) {
+		execSql(database, {
+			sql: `INSERT INTO species_traits (
+				trait_id, species_id, trait_name, description, sort_order
+			) VALUES (
+				$trait_id, $species_id, $trait_name, $description, $sort_order
+			)
+			ON CONFLICT(trait_id) DO UPDATE SET
+				trait_name = excluded.trait_name,
+				description = excluded.description,
+				sort_order = excluded.sort_order`,
+			bind: {
+				trait_id: trait.trait_id,
+				species_id: species.species_id,
+				trait_name: trait.trait_name,
+				description: trait.description,
+				sort_order: trait.sort_order
+			}
+		});
+
+		const effectIds = trait.effects.map((effect) => effect.effect_id);
+		if (effectIds.length === 0) {
+			execSql(database, {
+				sql: `DELETE FROM species_trait_effects WHERE trait_id = $trait_id`,
+				bind: { trait_id: trait.trait_id }
+			});
+			continue;
+		}
+
+		const effectPlaceholders = effectIds.map((_, index) => `$effect_${index}`).join(', ');
+		const effectBind = Object.fromEntries(effectIds.map((id, index) => [`effect_${index}`, id]));
+		effectBind.trait_id = trait.trait_id;
+
+		execSql(database, {
+			sql: `DELETE FROM species_trait_effects
+				WHERE trait_id = $trait_id AND effect_id NOT IN (${effectPlaceholders})`,
+			bind: effectBind
+		});
+
+		for (const effect of trait.effects) {
+			execSql(database, {
+				sql: `INSERT INTO species_trait_effects (
+					effect_id, trait_id, effect_kind, target, value, notes
+				) VALUES (
+					$effect_id, $trait_id, $effect_kind, $target, $value, $notes
+				)
+				ON CONFLICT(effect_id) DO UPDATE SET
+					effect_kind = excluded.effect_kind,
+					target = excluded.target,
+					value = excluded.value,
+					notes = excluded.notes`,
+				bind: {
+					effect_id: effect.effect_id,
+					trait_id: trait.trait_id,
+					effect_kind: effect.effect_kind,
+					target: effect.target,
+					value: effect.value,
+					notes: effect.notes
+				}
+			});
+		}
+	}
+}
+
+function deleteSpecies(database: AppDb, speciesId: string): void {
+	execSql(database, {
+		sql: `DELETE FROM species_trait_effects WHERE trait_id IN (
+			SELECT trait_id FROM species_traits WHERE species_id = $species_id
+		)`,
+		bind: { species_id: speciesId }
+	});
+	execSql(database, {
+		sql: `DELETE FROM species_traits WHERE species_id = $species_id`,
+		bind: { species_id: speciesId }
+	});
+	execSql(database, {
+		sql: `DELETE FROM species WHERE species_id = $species_id`,
+		bind: { species_id: speciesId }
+	});
+}
+
 function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 	const users = selectObjects<CampaignSnapshot['users'][number]>(database, 'SELECT * FROM users').map(
 		(user) => ({
@@ -843,7 +1168,7 @@ function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 		can_promote_to_campaign: Boolean(adventure.can_promote_to_campaign)
 	}));
 	const parts = selectObjects<CampaignSnapshot['parts'][number]>(database, 'SELECT * FROM parts');
-	const characters = selectObjects<CampaignSnapshot['characters'][number]>(
+	const characters = selectObjects<Parameters<typeof mapCharacterRow>[0]>(
 		database,
 		'SELECT * FROM characters'
 	).map((character) => mapCharacterRow(character));
@@ -972,17 +1297,20 @@ function loadCharacterLoadout(database: AppDb, characterId: string): CharacterLo
 		'SELECT item_id FROM character_items WHERE character_id = $characterId ORDER BY rowid',
 		{ characterId }
 	).map((row) => row.item_id);
-	const spellIds = selectObjects<{ spell_id: string }>(
+	const spellIds = selectObjects<{ spell_id: string; prepared: number }>(
 		database,
-		'SELECT spell_id FROM character_spells WHERE character_id = $characterId ORDER BY rowid',
+		'SELECT spell_id, prepared FROM character_spells WHERE character_id = $characterId ORDER BY rowid',
 		{ characterId }
-	).map((row) => row.spell_id);
+	).map((row) => ({
+		spell_id: row.spell_id,
+		prepared: row.prepared === 1
+	}));
 
 	return {
 		weapon_ids: weaponIds,
 		armor_ids: armorIds,
 		item_ids: itemIds,
-		spell_ids: spellIds
+		spells: spellIds
 	};
 }
 
@@ -1040,7 +1368,7 @@ function attachCharacterLoadout(
 		});
 	}
 
-	for (const spellId of loadout.spell_ids) {
+	for (const spell of loadout.spells) {
 		execSql(database, {
 			sql: `INSERT INTO character_spells (
 				character_spell_id, character_id, spell_id, prepared
@@ -1050,8 +1378,8 @@ function attachCharacterLoadout(
 			bind: {
 				character_spell_id: `csp-${crypto.randomUUID()}`,
 				character_id: characterId,
-				spell_id: spellId,
-				prepared: 1
+				spell_id: spell.spell_id,
+				prepared: spell.prepared ? 1 : 0
 			}
 		});
 	}
@@ -1116,9 +1444,52 @@ function mapCharacterRow(row: {
 	notes: string | null;
 	presentation?: string | null;
 	race?: string | null;
+	creature_type?: string | null;
 	alignment?: string | null;
 	age?: string | null;
 	class_name?: string | null;
+	background?: string | null;
+	height?: string | null;
+	weight?: string | null;
+	eyes?: string | null;
+	skin?: string | null;
+	hair?: string | null;
+	inspiration?: number | null;
+	initiative?: number | null;
+	temp_hp?: number | null;
+	hit_dice_remaining?: string | null;
+	death_save_successes?: number | null;
+	death_save_failures?: number | null;
+	personality_traits?: string | null;
+	ideals?: string | null;
+	bonds?: string | null;
+	flaws?: string | null;
+	backstory?: string | null;
+	allies?: string | null;
+	features?: string | null;
+	proficiencies?: string | null;
+	treasure?: string | null;
+	armor_class?: number | null;
+	armor_class_notes?: string | null;
+	speed?: string | null;
+	hp_dice?: string | null;
+	ability_str?: number | null;
+	ability_dex?: number | null;
+	ability_con?: number | null;
+	ability_int?: number | null;
+	ability_wis?: number | null;
+	ability_cha?: number | null;
+	skills?: string | null;
+	senses?: string | null;
+	languages?: string | null;
+	challenge_rating?: string | null;
+	traits?: string | null;
+	actions?: string | null;
+	is_spellcaster?: number | null;
+	spellcasting_class?: string | null;
+	spellcasting_ability?: string | null;
+	spell_slots_total_json?: string | null;
+	spell_slots_expended_json?: string | null;
 	mime_type?: string | null;
 	portrait_width?: number | null;
 	portrait_height?: number | null;
@@ -1145,9 +1516,52 @@ function mapCharacterRow(row: {
 		notes: row.notes,
 		presentation: row.presentation ?? null,
 		race: row.race ?? null,
+		creature_type: row.creature_type ?? null,
 		alignment: row.alignment ?? null,
 		age: row.age ?? null,
 		class_name: row.class_name ?? null,
+		background: row.background ?? null,
+		height: row.height ?? null,
+		weight: row.weight ?? null,
+		eyes: row.eyes ?? null,
+		skin: row.skin ?? null,
+		hair: row.hair ?? null,
+		inspiration: row.inspiration === 1,
+		initiative: row.initiative ?? null,
+		temp_hp: row.temp_hp ?? null,
+		hit_dice_remaining: row.hit_dice_remaining ?? null,
+		death_save_successes: row.death_save_successes ?? 0,
+		death_save_failures: row.death_save_failures ?? 0,
+		personality_traits: row.personality_traits ?? null,
+		ideals: row.ideals ?? null,
+		bonds: row.bonds ?? null,
+		flaws: row.flaws ?? null,
+		backstory: row.backstory ?? null,
+		allies: row.allies ?? null,
+		features: row.features ?? null,
+		proficiencies: row.proficiencies ?? null,
+		treasure: row.treasure ?? null,
+		armor_class: row.armor_class ?? null,
+		armor_class_notes: row.armor_class_notes ?? null,
+		speed: row.speed ?? null,
+		hp_dice: row.hp_dice ?? null,
+		ability_str: row.ability_str ?? null,
+		ability_dex: row.ability_dex ?? null,
+		ability_con: row.ability_con ?? null,
+		ability_int: row.ability_int ?? null,
+		ability_wis: row.ability_wis ?? null,
+		ability_cha: row.ability_cha ?? null,
+		skills: row.skills ?? null,
+		senses: row.senses ?? null,
+		languages: row.languages ?? null,
+		challenge_rating: row.challenge_rating ?? null,
+		traits: row.traits ?? null,
+		actions: row.actions ?? null,
+		is_spellcaster: row.is_spellcaster === 1,
+		spellcasting_class: row.spellcasting_class ?? null,
+		spellcasting_ability: (row.spellcasting_ability as SpellcastingAbilityKey | null) ?? null,
+		spell_slots_total: parseSpellSlotsJson(row.spell_slots_total_json),
+		spell_slots_expended: parseSpellSlotsJson(row.spell_slots_expended_json),
 		mime_type: row.mime_type ?? null,
 		portrait_width: row.portrait_width ?? null,
 		portrait_height: row.portrait_height ?? null,
@@ -1179,12 +1593,30 @@ function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacter
 			character_id, campaign_id, kind, created_by_user_id, cloned_from_character_id,
 			display_name, experience_base, experience, level,
 			hp_max_base, hp_current_base, hp_current, hp_max, reputation, notes,
-			race, alignment, age, class_name, presentation
+			race, creature_type, alignment, age, class_name, presentation,
+			background, height, weight, eyes, skin, hair,
+			inspiration, initiative, temp_hp, hit_dice_remaining,
+			death_save_successes, death_save_failures,
+			personality_traits, ideals, bonds, flaws, backstory, allies, features, proficiencies, treasure,
+			armor_class, armor_class_notes, speed, hp_dice,
+			ability_str, ability_dex, ability_con, ability_int, ability_wis, ability_cha,
+			skills, senses, languages, challenge_rating, traits, actions,
+			is_spellcaster, spellcasting_class, spellcasting_ability,
+			spell_slots_total_json, spell_slots_expended_json
 		) VALUES (
 			$character_id, $campaign_id, $kind, $created_by_user_id, $cloned_from_character_id,
 			$display_name, $experience_base, $experience, $level,
 			$hp_max_base, $hp_current_base, $hp_current, $hp_max, $reputation, $notes,
-			$race, $alignment, $age, $class_name, $presentation
+			$race, $creature_type, $alignment, $age, $class_name, $presentation,
+			$background, $height, $weight, $eyes, $skin, $hair,
+			$inspiration, $initiative, $temp_hp, $hit_dice_remaining,
+			$death_save_successes, $death_save_failures,
+			$personality_traits, $ideals, $bonds, $flaws, $backstory, $allies, $features, $proficiencies, $treasure,
+			$armor_class, $armor_class_notes, $speed, $hp_dice,
+			$ability_str, $ability_dex, $ability_con, $ability_int, $ability_wis, $ability_cha,
+			$skills, $senses, $languages, $challenge_rating, $traits, $actions,
+			$is_spellcaster, $spellcasting_class, $spellcasting_ability,
+			$spell_slots_total_json, $spell_slots_expended_json
 		)`,
 		bind: {
 			character_id: input.character_id,
@@ -1203,10 +1635,53 @@ function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacter
 			reputation: input.reputation ?? null,
 			notes: input.notes ?? null,
 			race: input.race ?? null,
+			creature_type: input.creature_type ?? null,
 			alignment: input.alignment ?? null,
 			age: input.age ?? null,
 			class_name: input.class_name ?? null,
-			presentation: input.presentation ?? null
+			presentation: input.presentation ?? null,
+			background: input.background ?? null,
+			height: input.height ?? null,
+			weight: input.weight ?? null,
+			eyes: input.eyes ?? null,
+			skin: input.skin ?? null,
+			hair: input.hair ?? null,
+			inspiration: input.inspiration ?? 0,
+			initiative: input.initiative ?? null,
+			temp_hp: input.temp_hp ?? null,
+			hit_dice_remaining: input.hit_dice_remaining ?? null,
+			death_save_successes: input.death_save_successes ?? 0,
+			death_save_failures: input.death_save_failures ?? 0,
+			personality_traits: input.personality_traits ?? null,
+			ideals: input.ideals ?? null,
+			bonds: input.bonds ?? null,
+			flaws: input.flaws ?? null,
+			backstory: input.backstory ?? null,
+			allies: input.allies ?? null,
+			features: input.features ?? null,
+			proficiencies: input.proficiencies ?? null,
+			treasure: input.treasure ?? null,
+			armor_class: input.armor_class ?? null,
+			armor_class_notes: input.armor_class_notes ?? null,
+			speed: input.speed ?? null,
+			hp_dice: input.hp_dice ?? null,
+			ability_str: input.ability_str ?? null,
+			ability_dex: input.ability_dex ?? null,
+			ability_con: input.ability_con ?? null,
+			ability_int: input.ability_int ?? null,
+			ability_wis: input.ability_wis ?? null,
+			ability_cha: input.ability_cha ?? null,
+			skills: input.skills ?? null,
+			senses: input.senses ?? null,
+			languages: input.languages ?? null,
+			challenge_rating: input.challenge_rating ?? null,
+			traits: input.traits ?? null,
+			actions: input.actions ?? null,
+			is_spellcaster: input.is_spellcaster ?? 0,
+			spellcasting_class: input.spellcasting_class ?? null,
+			spellcasting_ability: input.spellcasting_ability ?? null,
+			spell_slots_total_json: input.spell_slots_total_json ?? null,
+			spell_slots_expended_json: input.spell_slots_expended_json ?? null
 		}
 	});
 
@@ -1242,10 +1717,53 @@ function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCharacter
 			reputation = $reputation,
 			notes = $notes,
 			race = $race,
+			creature_type = $creature_type,
 			alignment = $alignment,
 			age = $age,
 			class_name = $class_name,
-			presentation = $presentation
+			presentation = $presentation,
+			background = $background,
+			height = $height,
+			weight = $weight,
+			eyes = $eyes,
+			skin = $skin,
+			hair = $hair,
+			inspiration = $inspiration,
+			initiative = $initiative,
+			temp_hp = $temp_hp,
+			hit_dice_remaining = $hit_dice_remaining,
+			death_save_successes = $death_save_successes,
+			death_save_failures = $death_save_failures,
+			personality_traits = $personality_traits,
+			ideals = $ideals,
+			bonds = $bonds,
+			flaws = $flaws,
+			backstory = $backstory,
+			allies = $allies,
+			features = $features,
+			proficiencies = $proficiencies,
+			treasure = $treasure,
+			armor_class = $armor_class,
+			armor_class_notes = $armor_class_notes,
+			speed = $speed,
+			hp_dice = $hp_dice,
+			ability_str = $ability_str,
+			ability_dex = $ability_dex,
+			ability_con = $ability_con,
+			ability_int = $ability_int,
+			ability_wis = $ability_wis,
+			ability_cha = $ability_cha,
+			skills = $skills,
+			senses = $senses,
+			languages = $languages,
+			challenge_rating = $challenge_rating,
+			traits = $traits,
+			actions = $actions,
+			is_spellcaster = $is_spellcaster,
+			spellcasting_class = $spellcasting_class,
+			spellcasting_ability = $spellcasting_ability,
+			spell_slots_total_json = $spell_slots_total_json,
+			spell_slots_expended_json = $spell_slots_expended_json
 		WHERE character_id = $character_id`,
 		bind: {
 			character_id: input.character_id,
@@ -1254,10 +1772,53 @@ function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCharacter
 			reputation: input.reputation ?? null,
 			notes: input.notes ?? null,
 			race: input.race ?? null,
+			creature_type: input.creature_type ?? null,
 			alignment: input.alignment ?? null,
 			age: input.age ?? null,
 			class_name: input.class_name ?? null,
-			presentation: input.presentation ?? null
+			presentation: input.presentation ?? null,
+			background: input.background ?? null,
+			height: input.height ?? null,
+			weight: input.weight ?? null,
+			eyes: input.eyes ?? null,
+			skin: input.skin ?? null,
+			hair: input.hair ?? null,
+			inspiration: input.inspiration ?? 0,
+			initiative: input.initiative ?? null,
+			temp_hp: input.temp_hp ?? null,
+			hit_dice_remaining: input.hit_dice_remaining ?? null,
+			death_save_successes: input.death_save_successes ?? 0,
+			death_save_failures: input.death_save_failures ?? 0,
+			personality_traits: input.personality_traits ?? null,
+			ideals: input.ideals ?? null,
+			bonds: input.bonds ?? null,
+			flaws: input.flaws ?? null,
+			backstory: input.backstory ?? null,
+			allies: input.allies ?? null,
+			features: input.features ?? null,
+			proficiencies: input.proficiencies ?? null,
+			treasure: input.treasure ?? null,
+			armor_class: input.armor_class ?? null,
+			armor_class_notes: input.armor_class_notes ?? null,
+			speed: input.speed ?? null,
+			hp_dice: input.hp_dice ?? null,
+			ability_str: input.ability_str ?? null,
+			ability_dex: input.ability_dex ?? null,
+			ability_con: input.ability_con ?? null,
+			ability_int: input.ability_int ?? null,
+			ability_wis: input.ability_wis ?? null,
+			ability_cha: input.ability_cha ?? null,
+			skills: input.skills ?? null,
+			senses: input.senses ?? null,
+			languages: input.languages ?? null,
+			challenge_rating: input.challenge_rating ?? null,
+			traits: input.traits ?? null,
+			actions: input.actions ?? null,
+			is_spellcaster: input.is_spellcaster ?? 0,
+			spellcasting_class: input.spellcasting_class ?? null,
+			spellcasting_ability: input.spellcasting_ability ?? null,
+			spell_slots_total_json: input.spell_slots_total_json ?? null,
+			spell_slots_expended_json: input.spell_slots_expended_json ?? null
 		}
 	});
 
@@ -1881,7 +2442,7 @@ function insertCampaignPlayer(
 			kind: 'pc',
 			created_by_user_id: ownerUserId,
 			cloned_from_character_id: null,
-			display_name: player.username,
+			display_name: player.display_name,
 			experience_base: 0,
 			experience: 0,
 			level: 1,
@@ -1925,6 +2486,11 @@ function addCampaignPlayer(
 		throw new Error('Player name is required');
 	}
 
+	const displayName = input.display_name.trim();
+	if (!displayName) {
+		throw new Error('Character name is required');
+	}
+
 	const character = insertCampaignPlayer(
 		database,
 		input.campaign_id,
@@ -1933,6 +2499,7 @@ function addCampaignPlayer(
 		{
 			user_id: input.user_id,
 			username,
+			display_name: displayName,
 			player_id: input.player_id,
 			character_id: input.character_id
 		}
@@ -2159,6 +2726,18 @@ function updateUserTheme(database: AppDb, userId: string, theme: string): void {
 	execSql(database, {
 		sql: `UPDATE users SET theme = $theme WHERE user_id = $user_id`,
 		bind: { user_id: userId, theme }
+	});
+}
+
+function updateUserUsername(database: AppDb, userId: string, username: string): void {
+	const trimmed = username.trim();
+	if (!trimmed) {
+		throw new Error('Player name is required');
+	}
+
+	execSql(database, {
+		sql: `UPDATE users SET username = $username WHERE user_id = $user_id`,
+		bind: { user_id: userId, username: trimmed }
 	});
 }
 
@@ -2502,18 +3081,21 @@ function cloneCharacterFromDb(
 		'SELECT item_id FROM character_items WHERE character_id = $characterId',
 		{ characterId: sourceCharacterId }
 	).map((row) => row.item_id);
-	const spellIds = selectObjects<{ spell_id: string }>(
+	const spellRows = selectObjects<{ spell_id: string; prepared: number }>(
 		database,
-		'SELECT spell_id FROM character_spells WHERE character_id = $characterId',
+		'SELECT spell_id, prepared FROM character_spells WHERE character_id = $characterId',
 		{ characterId: sourceCharacterId }
-	).map((row) => row.spell_id);
+	).map((row) => ({
+		spell_id: row.spell_id,
+		prepared: row.prepared === 1
+	}));
 
-	if (weaponIds.length || armorIds.length || itemIds.length || spellIds.length) {
+	if (weaponIds.length || armorIds.length || itemIds.length || spellRows.length) {
 		attachCharacterLoadout(database, newCharacterId, {
 			weapon_ids: weaponIds,
 			armor_ids: armorIds,
 			item_ids: itemIds,
-			spell_ids: spellIds
+			spells: spellRows
 		});
 	}
 }
@@ -2890,6 +3472,10 @@ async function handleRequest(request: WorkerRequest): Promise<WorkerResponse> {
 				updateUserTheme(getDb(), request.args[0], request.args[1]);
 				return { id: request.id, result: null };
 			}
+			case 'updateUserUsername': {
+				updateUserUsername(getDb(), request.args[0], request.args[1]);
+				return { id: request.id, result: null };
+			}
 			case 'softDeletePlayer': {
 				const deletedAt = softDeletePlayer(getDb(), request.args[0]);
 				return { id: request.id, result: deletedAt };
@@ -3049,6 +3635,22 @@ async function handleRequest(request: WorkerRequest): Promise<WorkerResponse> {
 			}
 			case 'deleteItem': {
 				deleteItem(getDb(), request.args[0]);
+				return { id: request.id, result: null };
+			}
+			case 'upsertCondition': {
+				upsertCondition(getDb(), request.args[0]);
+				return { id: request.id, result: null };
+			}
+			case 'deleteCondition': {
+				deleteCondition(getDb(), request.args[0]);
+				return { id: request.id, result: null };
+			}
+			case 'upsertSpecies': {
+				upsertSpecies(getDb(), request.args[0]);
+				return { id: request.id, result: null };
+			}
+			case 'deleteSpecies': {
+				deleteSpecies(getDb(), request.args[0]);
 				return { id: request.id, result: null };
 			}
 			default: {

@@ -42,7 +42,7 @@
 		type StoryNode,
 		type StoryNodeKind
 	} from '$lib/types/schema';
-	import { canvasAttachableItems } from '$lib/domain/story-item-reward';
+	import { partCanvasAttachables } from '$lib/domain/story-node-summary';
 
 	type StoryNodeLine = {
 		id: string;
@@ -221,8 +221,8 @@
 	async function persistStoryItems(items: StoryItem[]) {
 		if (!part) return;
 
-		const attachableIds = new Set(canvasAttachableItems(items).map((item) => item.item_id));
-		const previousAttachableIds = canvasAttachableItems(storyItems)
+		const attachableIds = new Set(partCanvasAttachables(storyNodes, items).map((item) => item.item_id));
+		const previousAttachableIds = partCanvasAttachables(storyNodes, storyItems)
 			.map((item) => item.item_id)
 			.sort()
 			.join(',');
@@ -240,7 +240,8 @@
 			nodeLayout,
 			STORY_NODE_SIZE,
 			undefined,
-			buildStoryEdges(storyNodes)
+			buildStoryEdges(storyNodes),
+			storyNodes
 		);
 
 		if (attachablesChanged) {
@@ -466,7 +467,7 @@
 				<OcrScanButton />
 			</nav>
 
-			<CreateStoryNodeModal bind:open={showCreateModal} onCreate={handleCreateNode} />
+			<CreateStoryNodeModal bind:open={showCreateModal} nodes={storyNodes} onCreate={handleCreateNode} />
 			<EditStoryNodesModal
 				bind:open={showEditModal}
 				nodes={storyNodes}
@@ -570,11 +571,21 @@
 <style>
 	.part-page {
 		position: relative;
+		display: flex;
+		flex-direction: column;
 		width: 100%;
-		overflow-x: clip;
+		height: calc(100dvh - 4.25rem);
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	header {
+		flex-shrink: 0;
 	}
 
 	.story-canvas-shell {
+		flex: 1;
+		min-height: 0;
 		width: 100%;
 	}
 

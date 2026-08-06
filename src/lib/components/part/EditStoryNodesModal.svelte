@@ -82,7 +82,7 @@
 		<Dialog.Content class="dialog-wide">
 			<Dialog.Title>Edit story nodes</Dialog.Title>
 			<Dialog.Description>
-				Update titles here, then open details to edit summaries and parent branches.
+				Open a node to edit its name, summary, type, and place in the sequence.
 			</Dialog.Description>
 
 			<form onsubmit={handleSave}>
@@ -103,36 +103,17 @@
 								<div class="story-node-editor-main">
 									<div class="story-node-editor-meta">
 										<span class="node-kind">{STORY_NODE_KIND_LABELS[row.node.kind]}</span>
+										<strong class="node-title">{draftNode?.title ?? row.node.title}</strong>
 										{#if parents.length > 0}
-											<span class="parent-summary">
-												{#if parents.length > 1}
-													Branch from {parents.join(' + ')}
-												{:else}
-													After {parents[0]}
-												{/if}
-											</span>
+											<span class="parent-summary">After {parents[0]}</span>
 										{:else}
-											<span class="parent-summary">Root node</span>
+											<span class="parent-summary">Start of sequence</span>
 										{/if}
 									</div>
 
 									<div class="story-node-editor-controls">
-										<input
-											value={draftNode?.title ?? ''}
-											placeholder="Node title"
-											aria-label="Story node title"
-											required
-											oninput={(event) => {
-												if (!draftNode) return;
-
-												draftNodes = updateStoryNode(draftNodes, {
-													...draftNode,
-													title: (event.currentTarget as HTMLInputElement).value
-												});
-											}}
-										/>
 										<Button.Root type="button" onclick={() => openDetails(row.node.node_id)}>
-											Details
+											Edit
 										</Button.Root>
 										<Button.Root
 											type="button"
@@ -237,6 +218,12 @@
 		color: var(--color-text-muted);
 	}
 
+	.node-title {
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		font-weight: 600;
+	}
+
 	.parent-summary {
 		font-size: 0.82rem;
 		color: var(--color-text-muted);
@@ -246,11 +233,6 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-	}
-
-	.story-node-editor-controls input {
-		flex: 1;
-		min-width: 0;
 	}
 
 	.node-summary-preview {

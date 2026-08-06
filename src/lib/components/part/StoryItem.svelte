@@ -83,6 +83,7 @@
 
 <div
 	bind:this={element}
+	data-story-draggable
 	data-kind={item.kind}
 	data-treasure={item.is_treasure ? 'true' : undefined}
 	data-has-stats={catalogStats.length ? 'true' : undefined}

@@ -228,6 +228,19 @@ export function getUserById(userId: string): User | undefined {
 	return getUsers().find((user) => user.user_id === userId);
 }
 
+export function getPlayerUserIdForCharacter(characterId: string): string | null {
+	const member = getCampaignMembers().find(
+		(entry) => entry.character_id === characterId && entry.role === 'player'
+	);
+	return member?.user_id ?? null;
+}
+
+export function getPlayerUsernameForCharacter(characterId: string): string | null {
+	const userId = getPlayerUserIdForCharacter(characterId);
+	if (!userId) return null;
+	return getUserById(userId)?.username ?? null;
+}
+
 export function getCampaignById(campaignId: string): Campaign | undefined {
 	if (!isDatabaseCacheReady()) return undefined;
 

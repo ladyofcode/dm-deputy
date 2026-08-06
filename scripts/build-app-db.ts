@@ -48,7 +48,7 @@ console.log(
 );
 if (counts.seededFromJson) {
 	console.log(
-		`  rules seed: spells ${counts.spellCount}, weapons ${counts.weaponCount}, armor ${counts.armorCount}, items ${counts.itemCount}`
+		`  rules seed: spells ${counts.spellCount}, weapons ${counts.weaponCount}, armor ${counts.armorCount}, items ${counts.itemCount}, conditions ${counts.conditionCount}, skills ${counts.skillCount}, species ${counts.speciesCount}`
 	);
 } else {
 	console.log('  rules seed: empty (add JSON under ignorable/catalog-seed/dnd5e/)');
