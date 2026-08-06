@@ -8,6 +8,14 @@ export type NpcLoadoutDraft = {
 	spells: string[];
 };
 
+export type CharacterIdentityDraft = {
+	race: string;
+	alignment: string;
+	age: string;
+	class_name: string;
+	presentation: string;
+};
+
 export type NpcExtrasDraft = {
 	level: number;
 	experience: number;
@@ -22,8 +30,21 @@ export type NpcDraftLine = {
 	kind: NpcCharacterKind;
 	name: string;
 	description: string;
+	identity: CharacterIdentityDraft;
 	extras: NpcExtrasDraft;
+	portraitFile: File | null;
+	portraitImageSource: string | null;
 };
+
+export function createDefaultCharacterIdentity(): CharacterIdentityDraft {
+	return {
+		race: '',
+		alignment: '',
+		age: '',
+		class_name: '',
+		presentation: ''
+	};
+}
 
 export function createDefaultNpcLoadout(): NpcLoadoutDraft {
 	return {
@@ -51,7 +72,20 @@ export function createEmptyNpcDraftLine(): NpcDraftLine {
 		kind: 'npc_general',
 		name: '',
 		description: '',
-		extras: createDefaultNpcExtras()
+		identity: createDefaultCharacterIdentity(),
+		extras: createDefaultNpcExtras(),
+		portraitFile: null,
+		portraitImageSource: null
+	};
+}
+
+export function cloneCharacterIdentity(identity: CharacterIdentityDraft): CharacterIdentityDraft {
+	return {
+		race: identity.race,
+		alignment: identity.alignment,
+		age: identity.age,
+		class_name: identity.class_name,
+		presentation: identity.presentation
 	};
 }
 
@@ -68,6 +102,16 @@ export function cloneNpcExtras(extras: NpcExtrasDraft): NpcExtrasDraft {
 			items: [...extras.loadout.items],
 			spells: [...extras.loadout.spells]
 		}
+	};
+}
+
+export function characterToIdentityDraft(character: Character): CharacterIdentityDraft {
+	return {
+		race: character.race ?? '',
+		alignment: character.alignment ?? '',
+		age: character.age ?? '',
+		class_name: character.class_name ?? '',
+		presentation: character.presentation ?? ''
 	};
 }
 
@@ -97,7 +141,6 @@ export function characterToNpcExtrasDraft(
 export function npcDraftLineHasStats(extras: NpcExtrasDraft): boolean {
 	const loadout = extras.loadout;
 	return (
-		extras.level !== 1 ||
 		extras.experience !== 0 ||
 		extras.hp_max !== 0 ||
 		extras.hp_current !== 0 ||
@@ -107,4 +150,8 @@ export function npcDraftLineHasStats(extras: NpcExtrasDraft): boolean {
 		loadout.items.some(Boolean) ||
 		loadout.spells.some(Boolean)
 	);
+}
+
+export function characterSheetHasCombatStats(extras: NpcExtrasDraft): boolean {
+	return npcDraftLineHasStats(extras);
 }

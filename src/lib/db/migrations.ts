@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 23;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -366,6 +366,29 @@ export const MIGRATIONS: Record<number, string> = {
 			answers_json TEXT NOT NULL DEFAULT '{}',
 			date_updated TEXT NOT NULL
 		);
+	`,
+	20: `
+		ALTER TABLE characters ADD COLUMN date_deleted TEXT;
+	`,
+	21: `
+		ALTER TABLE characters ADD COLUMN race TEXT;
+		ALTER TABLE characters ADD COLUMN alignment TEXT;
+		ALTER TABLE characters ADD COLUMN age TEXT;
+		ALTER TABLE characters ADD COLUMN class_name TEXT;
+		ALTER TABLE characters ADD COLUMN mime_type TEXT;
+		ALTER TABLE characters ADD COLUMN portrait_width INTEGER;
+		ALTER TABLE characters ADD COLUMN portrait_height INTEGER;
+		ALTER TABLE characters ADD COLUMN thumb_width INTEGER;
+		ALTER TABLE characters ADD COLUMN thumb_height INTEGER;
+		ALTER TABLE characters ADD COLUMN thumb_blob BLOB;
+		ALTER TABLE characters ADD COLUMN full_blob BLOB;
+	`,
+	22: `
+		ALTER TABLE characters ADD COLUMN image_source TEXT;
+		ALTER TABLE maps ADD COLUMN image_source TEXT;
+	`,
+	23: `
+		ALTER TABLE characters ADD COLUMN presentation TEXT;
 	`
 };
 

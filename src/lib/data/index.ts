@@ -15,7 +15,7 @@ import {
 	getStoredPartOrder,
 	sortPartsByOrder
 } from '$lib/data/part-order-storage';
-import { isNpcCharacterKind, type CharacterKind } from '$lib/types/schema';
+import { isActiveNpc, type CharacterKind } from '$lib/types/schema';
 import type {
 	Adventure,
 	Campaign,
@@ -87,9 +87,13 @@ export function isPcMemberOfCampaign(campaignId: string, characterId: string): b
 }
 
 export function isNpcMemberOfCampaign(campaignId: string, characterId: string): boolean {
-	return getCachedCampaignNpcs().some(
+	const isLinked = getCachedCampaignNpcs().some(
 		(entry) => entry.campaign_id === campaignId && entry.character_id === characterId
 	);
+
+	if (!isLinked) return false;
+
+	return isActiveNpc(getCharacterById(characterId));
 }
 
 export function isCharacterInCampaign(campaignId: string, characterId: string): boolean {
@@ -119,14 +123,14 @@ export function getNpcsForCampaign(campaignId: string): Character[] {
 	return getCharacters()
 		.filter(
 			(character) =>
-				isNpcCharacterKind(character.kind) && npcCharacterIds.has(character.character_id)
+				isActiveNpc(character) && npcCharacterIds.has(character.character_id)
 		)
 		.sort((a, b) => a.display_name.localeCompare(b.display_name));
 }
 
 export function getAllNpcs(): Character[] {
 	return getCharacters()
-		.filter((character) => isNpcCharacterKind(character.kind))
+		.filter((character) => isActiveNpc(character))
 		.sort((a, b) => a.display_name.localeCompare(b.display_name));
 }
 

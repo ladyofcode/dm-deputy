@@ -3,6 +3,8 @@
 	import { persistCampaignMap, removeCampaignMap } from '$lib/data/writes';
 	import { getCampaignMapObjectUrl } from '$lib/data/map-blob-cache';
 	import { getReactiveCampaignMapsForCampaign } from '$lib/stores/campaign-maps.svelte';
+	import ImageUploadDialog from '$lib/components/shared/ImageUploadDialog.svelte';
+	import type { ImageUploadResult } from '$lib/types/image-upload';
 	import type { CampaignMap } from '$lib/types/schema';
 
 	type Props = {
@@ -14,11 +16,12 @@
 	let showUploadForm = $state(false);
 	let mapName = $state('');
 	let selectedFile = $state<File | null>(null);
+	let imageSource = $state<string | null>(null);
+	let uploadDialogOpen = $state(false);
 	let previewUrl = $state<string | null>(null);
 	let saving = $state(false);
 	let deletingMapId = $state<string | null>(null);
 	let error = $state<string | null>(null);
-	let fileInput = $state<HTMLInputElement | null>(null);
 	let thumbUrls = $state<Record<string, string>>({});
 
 	const maps = $derived(getReactiveCampaignMapsForCampaign(campaignId));
@@ -54,25 +57,47 @@
 
 		mapName = '';
 		selectedFile = null;
+		imageSource = null;
 		previewUrl = null;
 		error = null;
+	}
 
-		if (fileInput) {
-			fileInput.value = '';
+	function openUploadDialog() {
+		if (saving) return;
+		uploadDialogOpen = true;
+		error = null;
+	}
+
+	async function persistSelectedMap(name: string) {
+		if (!selectedFile) return;
+
+		saving = true;
+		error = null;
+
+		try {
+			await persistCampaignMap(campaignId, name, selectedFile, imageSource);
+			resetUploadForm();
+			showUploadForm = false;
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : 'Could not upload map';
+		} finally {
+			saving = false;
 		}
 	}
 
-	function handleFileChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-
+	async function handleUploadConfirm(result: ImageUploadResult) {
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl);
 		}
 
-		selectedFile = file ?? null;
-		previewUrl = file ? URL.createObjectURL(file) : null;
-		error = null;
+		selectedFile = result.file;
+		imageSource = result.imageSource;
+		previewUrl = URL.createObjectURL(result.file);
+
+		const name = mapName.trim();
+		if (name) {
+			await persistSelectedMap(name);
+		}
 	}
 
 	async function handleUpload(event: SubmitEvent) {
@@ -85,18 +110,7 @@
 			return;
 		}
 
-		saving = true;
-		error = null;
-
-		try {
-			await persistCampaignMap(campaignId, name, selectedFile);
-			resetUploadForm();
-			showUploadForm = false;
-		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not upload map';
-		} finally {
-			saving = false;
-		}
+		await persistSelectedMap(name);
 	}
 
 	async function handleDelete(map: CampaignMap) {
@@ -130,8 +144,13 @@
 <section class="maps-section" aria-labelledby="campaign-maps-heading">
 	<div class="maps-section-header">
 		<h2 id="campaign-maps-heading">Maps</h2>
-		<Button.Root type="button" onclick={toggleUploadForm}>
-			{showUploadForm ? 'Cancel' : 'Add map'}
+		<Button.Root
+			type="button"
+			data-variant="icon"
+			onclick={toggleUploadForm}
+			aria-label={showUploadForm ? 'Cancel add map' : 'Add map'}
+		>
+			{showUploadForm ? '−' : '+'}
 		</Button.Root>
 	</div>
 
@@ -176,19 +195,14 @@
 			</div>
 
 			<div class="field">
-				<Label.Root for="campaign_map_file">Image</Label.Root>
-				<input
-					id="campaign_map_file"
-					bind:this={fileInput}
-					type="file"
-					accept="image/*"
-					onchange={handleFileChange}
-				/>
+				<Label.Root>Image</Label.Root>
+				{#if previewUrl}
+					<img class="upload-preview" src={previewUrl} alt="Upload preview" />
+				{/if}
+				<Button.Root type="button" disabled={saving} onclick={openUploadDialog}>
+					{selectedFile ? 'Change image' : 'Choose image'}
+				</Button.Root>
 			</div>
-
-			{#if previewUrl}
-				<img class="upload-preview" src={previewUrl} alt="Upload preview" />
-			{/if}
 
 			{#if error}
 				<p class="hint error">{error}</p>
@@ -200,6 +214,12 @@
 		</form>
 	{/if}
 </section>
+
+<ImageUploadDialog
+	bind:open={uploadDialogOpen}
+	title="Upload map image"
+	onConfirm={handleUploadConfirm}
+/>
 
 <style>
 	.maps-section {

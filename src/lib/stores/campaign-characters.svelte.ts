@@ -4,7 +4,7 @@ import {
 	getCachedCharacters,
 	getCachedUsers
 } from '$lib/db/cache';
-import { isNpcCharacterKind } from '$lib/types/schema';
+import { isActiveNpc } from '$lib/types/schema';
 import type { Character } from '$lib/types/schema';
 
 function isActivePlayerUser(userId: string): boolean {
@@ -51,7 +51,7 @@ class CampaignCharactersState {
 		return getCachedCharacters()
 			.filter(
 				(character) =>
-					isNpcCharacterKind(character.kind) && npcCharacterIds.has(character.character_id)
+					isActiveNpc(character) && npcCharacterIds.has(character.character_id)
 			)
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}
@@ -79,7 +79,7 @@ class CampaignCharactersState {
 	allNpcs(): Character[] {
 		this.track();
 		return getCachedCharacters()
-			.filter((character) => isNpcCharacterKind(character.kind))
+			.filter((character) => isActiveNpc(character))
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}
 
@@ -88,7 +88,7 @@ class CampaignCharactersState {
 		const linkedNpcIds = getNpcCharacterIdsForCampaign(campaignId);
 
 		return getCachedCharacters()
-			.filter((character) => isNpcCharacterKind(character.kind))
+			.filter((character) => isActiveNpc(character))
 			.filter((character) => !linkedNpcIds.has(character.character_id))
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}

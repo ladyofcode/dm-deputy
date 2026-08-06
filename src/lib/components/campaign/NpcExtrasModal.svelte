@@ -2,8 +2,11 @@
 	import { Button, Dialog } from 'bits-ui';
 	import CharacterSheetForm from '$lib/components/character/CharacterSheetForm.svelte';
 	import {
+		cloneCharacterIdentity,
 		cloneNpcExtras,
+		createDefaultCharacterIdentity,
 		createDefaultNpcExtras,
+		type CharacterIdentityDraft,
 		type NpcExtrasDraft
 	} from '$lib/domain/npc-draft';
 	import type { NpcCharacterKind } from '$lib/types/schema';
@@ -12,7 +15,10 @@
 		kind: NpcCharacterKind;
 		name: string;
 		description: string;
+		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
+		portraitFile: File | null;
+		portraitImageSource: string | null;
 	};
 
 	type Props = {
@@ -21,7 +27,10 @@
 		kind: NpcCharacterKind;
 		name: string;
 		description?: string;
+		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
+		portraitFile?: File | null;
+		portraitImageSource?: string | null;
 		onSave?: (payload: SavePayload) => void | Promise<void>;
 		loading?: boolean;
 		saving?: boolean;
@@ -33,7 +42,10 @@
 		kind,
 		name,
 		description = '',
+		identity,
 		extras,
+		portraitFile = null,
+		portraitImageSource = null,
 		onSave,
 		loading = false,
 		saving = false
@@ -42,15 +54,28 @@
 	let modalKind = $state<NpcCharacterKind>('npc_general');
 	let modalName = $state('');
 	let modalDescription = $state('');
-	let draft = $state<NpcExtrasDraft>(createDefaultNpcExtras());
+	let modalIdentity = $state(createDefaultCharacterIdentity());
+	let draft = $state(createDefaultNpcExtras());
+	let modalPortraitFile = $state<File | null>(null);
+	let modalPortraitImageSource = $state<string | null>(null);
+	let modalInitialized = $state(false);
 
 	$effect(() => {
-		if (!open) return;
+		if (!open) {
+			modalInitialized = false;
+			return;
+		}
+
+		if (modalInitialized) return;
 
 		modalKind = kind;
 		modalName = name;
 		modalDescription = description;
+		modalIdentity = cloneCharacterIdentity(identity);
 		draft = cloneNpcExtras(extras);
+		modalPortraitFile = portraitFile;
+		modalPortraitImageSource = portraitImageSource;
+		modalInitialized = true;
 	});
 
 	async function handleSave() {
@@ -64,7 +89,10 @@
 			kind: modalKind,
 			name: modalName.trim(),
 			description: modalDescription.trim(),
-			extras: cloneNpcExtras(draft)
+			identity: cloneCharacterIdentity(modalIdentity),
+			extras: cloneNpcExtras(draft),
+			portraitFile: modalPortraitFile,
+			portraitImageSource: modalPortraitImageSource
 		};
 
 		try {
@@ -78,23 +106,17 @@
 	<Dialog.Portal>
 		<Dialog.Overlay />
 		<Dialog.Content class="dialog-wide">
-			<Dialog.Title>
-				{modalName.trim() ? modalName : mode === 'pc' ? 'Player character sheet' : 'NPC sheet'}
-			</Dialog.Title>
-			<Dialog.Description>
-				{#if mode === 'pc'}
-					Name and optional combat stats or equipment from the rules catalog.
-				{:else}
-					Type, name, and optional combat stats or equipment from the rules catalog.
-				{/if}
-			</Dialog.Description>
+			<Dialog.Title>Add NPC</Dialog.Title>
 
 			<CharacterSheetForm
 				{mode}
 				bind:kind={modalKind}
 				bind:name={modalName}
 				bind:description={modalDescription}
+				bind:identity={modalIdentity}
 				bind:extras={draft}
+				bind:portraitFile={modalPortraitFile}
+				bind:portraitImageSource={modalPortraitImageSource}
 				{loading}
 			/>
 

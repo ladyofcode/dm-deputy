@@ -9,9 +9,11 @@
 		removeCampaignNpc
 	} from '$lib/data/writes';
 	import {
+		cloneCharacterIdentity,
 		cloneNpcExtras,
 		createEmptyNpcDraftLine,
 		npcDraftLineHasStats,
+		type CharacterIdentityDraft,
 		type NpcDraftLine,
 		type NpcExtrasDraft
 	} from '$lib/domain/npc-draft';
@@ -44,7 +46,10 @@
 	let statsModalKind = $state<NpcCharacterKind>('npc_general');
 	let statsModalName = $state('');
 	let statsModalDescription = $state('');
+	let statsModalIdentity = $state(createEmptyNpcDraftLine().identity);
 	let statsModalExtras = $state(createEmptyNpcDraftLine().extras);
+	let statsModalPortraitFile = $state<File | null>(null);
+	let statsModalPortraitImageSource = $state<string | null>(null);
 
 	const npcs = $derived(getReactiveNpcsForCampaign(campaignId));
 	const availableNpcs = $derived(getReactiveAvailableNpcsForCampaign(campaignId));
@@ -75,12 +80,28 @@
 		inputs[inputs.length - 1]?.focus();
 	}
 
+	function draftLineHasSheet(line: NpcDraftLine): boolean {
+		return (
+			npcDraftLineHasStats(line.extras) ||
+			Boolean(line.portraitFile) ||
+			Boolean(line.identity.race.trim()) ||
+			Boolean(line.identity.alignment.trim()) ||
+			Boolean(line.identity.age.trim()) ||
+			Boolean(line.identity.class_name.trim()) ||
+			Boolean(line.identity.presentation.trim()) ||
+			line.extras.level !== 1
+		);
+	}
+
 	function openDraftStatsModal(line: NpcDraftLine) {
 		draftLineId = line.id;
 		statsModalKind = line.kind;
 		statsModalName = line.name;
 		statsModalDescription = line.description;
+		statsModalIdentity = cloneCharacterIdentity(line.identity);
 		statsModalExtras = cloneNpcExtras(line.extras);
+		statsModalPortraitFile = line.portraitFile;
+		statsModalPortraitImageSource = line.portraitImageSource;
 		statsModalOpen = true;
 	}
 
@@ -88,7 +109,10 @@
 		kind: NpcCharacterKind;
 		name: string;
 		description: string;
+		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
+		portraitFile: File | null;
+		portraitImageSource: string | null;
 	}) {
 		if (!draftLineId) return;
 
@@ -99,7 +123,10 @@
 						kind: payload.kind,
 						name: payload.name,
 						description: payload.description,
-						extras: cloneNpcExtras(payload.extras)
+						identity: cloneCharacterIdentity(payload.identity),
+						extras: cloneNpcExtras(payload.extras),
+						portraitFile: payload.portraitFile,
+						portraitImageSource: payload.portraitImageSource
 					}
 				: line
 		);
@@ -292,7 +319,7 @@
 						<Button.Root
 							type="button"
 							data-variant="icon"
-							class={npcDraftLineHasStats(line.extras) ? 'has-sheet' : undefined}
+							class={draftLineHasSheet(line) ? 'has-sheet' : undefined}
 							aria-label={`Open sheet for ${line.name || 'NPC'}`}
 							onclick={() => openDraftStatsModal(line)}
 						>
@@ -340,7 +367,10 @@
 	kind={statsModalKind}
 	name={statsModalName}
 	description={statsModalDescription}
+	identity={statsModalIdentity}
 	extras={statsModalExtras}
+	portraitFile={statsModalPortraitFile}
+	portraitImageSource={statsModalPortraitImageSource}
 	onSave={handleStatsSave}
 />
 

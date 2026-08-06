@@ -9,6 +9,8 @@ import {
 	removeCampaignMapFromCache,
 	removeCampaignNpcFromCache,
 	removeCampaignPlayerFromCache,
+	softDeleteCampaignInCache,
+	softDeleteNpcInCache,
 	softDeleteUserInCache,
 	syncAdventurePartsInCache,
 	touchCampaignInCache,
@@ -32,11 +34,15 @@ import {
 	promoteAdventureToCampaignInDb,
 	removeCampaignNpcFromCampaignInDb,
 	removeCampaignPlayerInDb,
+	softDeleteCampaignInDb,
+	softDeleteNpcInDb,
 	softDeletePlayerInDb,
 	syncAdventurePartsInDb,
 	touchCampaignInDb,
 	updateAdventurePromoteInDb,
 	updateCampaignCharacterInDb,
+	updateCharacterPortraitInDb,
+	updateCharacterStatCacheInDb,
 	updateCampaignDetailsInDb,
 	updateSessionZeroAnswersInDb,
 	updateCampaignThemeInDb,
@@ -76,7 +82,13 @@ import { workspace } from '$lib/stores/workspace.svelte';
 import { processMapUpload } from '$lib/domain/map-image';
 import { revokeCampaignMapObjectUrls } from '$lib/data/map-blob-cache';
 import {
+	revokeCharacterPortraitObjectUrls
+} from '$lib/data/character-blob-cache';
+import { processCharacterPortraitUpload } from '$lib/domain/character-portrait';
+import {
+	characterToIdentityDraft,
 	characterToNpcExtrasDraft,
+	type CharacterIdentityDraft,
 	type NpcDraftLine,
 	type NpcExtrasDraft
 } from '$lib/domain/npc-draft';
@@ -230,6 +242,11 @@ export async function persistCampaignDetails(
 	return campaign;
 }
 
+export async function deleteCampaign(campaignId: string): Promise<void> {
+	const deletedAt = await softDeleteCampaignInDb(campaignId);
+	softDeleteCampaignInCache(campaignId, deletedAt);
+}
+
 export async function persistSessionZero(
 	campaignId: string,
 	state: { answers: Record<string, string>; activeQuestionIds: string[] }
@@ -302,7 +319,8 @@ export async function touchCampaign(userId: string, campaignId: string): Promise
 export async function persistCampaignMap(
 	campaignId: string,
 	name: string,
-	file: File
+	file: File,
+	imageSource: string | null = null
 ): Promise<CampaignMap> {
 	const processed = await processMapUpload(file);
 	const mapId = `map-${crypto.randomUUID()}`;
@@ -318,6 +336,7 @@ export async function persistCampaignMap(
 			full_height: processed.full_height,
 			thumb_width: processed.thumb_width,
 			thumb_height: processed.thumb_height,
+			image_source: imageSource,
 			created_at: now
 		},
 		processed.thumbBuffer,
@@ -332,6 +351,16 @@ export async function removeCampaignMap(mapId: string): Promise<void> {
 	await deleteCampaignMapInDb(mapId);
 	removeCampaignMapFromCache(mapId);
 	revokeCampaignMapObjectUrls(mapId);
+}
+
+function identityDraftToDbFields(identity: CharacterIdentityDraft) {
+	return {
+		race: identity.race.trim() || null,
+		alignment: identity.alignment.trim() || null,
+		age: identity.age.trim() || null,
+		class_name: identity.class_name.trim() || null,
+		presentation: identity.presentation.trim() || null
+	};
 }
 
 function npcDraftToCreateInput(
@@ -350,6 +379,7 @@ function npcDraftToCreateInput(
 		created_by_user_id: createdByUserId,
 		display_name: line.name.trim(),
 		notes: line.description.trim() || null,
+		...identityDraftToDbFields(line.identity),
 		level: line.extras.level,
 		experience: line.extras.experience,
 		hp_max: hpMax,
@@ -379,7 +409,40 @@ export async function persistCampaignNpc(
 		});
 	}
 
+	if (line.portraitFile) {
+		return persistCharacterPortrait(
+			character.character_id,
+			line.portraitFile,
+			line.portraitImageSource
+		);
+	}
+
 	return character;
+}
+
+export async function persistCharacterPortrait(
+	characterId: string,
+	file: File,
+	imageSource: string | null = null
+): Promise<Character> {
+	const processed = await processCharacterPortraitUpload(file);
+	const character = await updateCharacterPortraitInDb(
+		{
+			character_id: characterId,
+			mime_type: processed.mime_type,
+			portrait_width: processed.portrait_width,
+			portrait_height: processed.portrait_height,
+			thumb_width: processed.thumb_width,
+			thumb_height: processed.thumb_height,
+			image_source: imageSource
+		},
+		processed.thumbBuffer,
+		processed.fullBuffer
+	);
+
+	revokeCharacterPortraitObjectUrls(characterId);
+	mergeCharacterIntoCache(character);
+	return getCharacterById(characterId) ?? character;
 }
 
 export async function persistCampaignNpcs(
@@ -409,13 +472,14 @@ function npcExtrasToLoadout(extras: NpcExtrasDraft) {
 function npcDraftToUpdateInput(
 	characterId: string,
 	kind: CharacterKind,
-	line: Pick<NpcDraftLine, 'name' | 'description' | 'extras'>
+	line: Pick<NpcDraftLine, 'name' | 'description' | 'identity' | 'extras'>
 ): import('$lib/db/types').UpdateCampaignCharacterInput {
 	return {
 		character_id: characterId,
 		kind,
 		display_name: line.name.trim(),
 		notes: line.description.trim() || null,
+		...identityDraftToDbFields(line.identity),
 		reputation: line.extras.reputation.trim() || null,
 		loadout: npcExtrasToLoadout(line.extras)
 	};
@@ -427,6 +491,7 @@ export async function updateCampaignCharacter(
 	payload: {
 		name: string;
 		description?: string;
+		identity: CharacterIdentityDraft;
 		extras: NpcExtrasDraft;
 	}
 ): Promise<Character> {
@@ -451,10 +516,24 @@ export async function updateCampaignCharacter(
 		gameSchema
 	);
 
+	let latest = getCharacterById(characterId) ?? existing;
+	if (payload.extras.level !== latest.level) {
+		const updated = await updateCharacterStatCacheInDb({
+			character_id: characterId,
+			experience: latest.experience,
+			level: payload.extras.level,
+			hp_max: latest.hp_max,
+			hp_current: latest.hp_current
+		});
+		mergeCharacterIntoCache(updated);
+		latest = updated;
+	}
+
 	const character = await updateCampaignCharacterInDb(
 		npcDraftToUpdateInput(characterId, kind, {
 			name: payload.name,
 			description: payload.description ?? '',
+			identity: payload.identity,
 			extras: payload.extras
 		})
 	);
@@ -466,6 +545,7 @@ export async function loadCharacterSheetDraft(character: Character): Promise<{
 	kind: CharacterKind;
 	name: string;
 	description: string;
+	identity: CharacterIdentityDraft;
 	extras: NpcExtrasDraft;
 }> {
 	const loadout = await loadCharacterLoadoutInDb(character.character_id);
@@ -474,6 +554,7 @@ export async function loadCharacterSheetDraft(character: Character): Promise<{
 		kind: character.kind,
 		name: character.display_name,
 		description: character.notes ?? '',
+		identity: characterToIdentityDraft(character),
 		extras: characterToNpcExtrasDraft(character, loadout)
 	};
 }
@@ -548,6 +629,11 @@ export async function persistCampaignPlayers(
 export async function softDeletePlayerFromPlayerbase(userId: string): Promise<void> {
 	const deletedAt = await softDeletePlayerInDb(userId);
 	softDeleteUserInCache(userId, deletedAt);
+}
+
+export async function softDeleteNpcFromLibrary(characterId: string): Promise<void> {
+	const deletedAt = await softDeleteNpcInDb(characterId);
+	softDeleteNpcInCache(characterId, deletedAt);
 }
 
 export async function removeCampaignPlayer(

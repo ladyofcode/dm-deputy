@@ -274,7 +274,19 @@ export function createCharacter(
 		hp_current: hpCurrentBase,
 		hp_max: hpMaxBase,
 		reputation: input.reputation ?? null,
-		notes: input.notes ?? null
+		notes: input.notes ?? null,
+		presentation: null,
+		race: null,
+		alignment: null,
+		age: null,
+		class_name: null,
+		mime_type: null,
+		portrait_width: null,
+		portrait_height: null,
+		thumb_width: null,
+		thumb_height: null,
+		image_source: null,
+		date_deleted: null
 	};
 
 	const creationEvents: CharacterStatEvent[] = [];

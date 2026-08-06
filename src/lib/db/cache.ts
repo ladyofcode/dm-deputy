@@ -239,6 +239,20 @@ export function softDeleteUserInCache(userId: string, dateDeleted: string): void
 	bumpCampaignCharactersRevision();
 }
 
+export function softDeleteNpcInCache(characterId: string, dateDeleted: string): void {
+	if (!campaignSnapshot) return;
+
+	campaignSnapshot = {
+		...campaignSnapshot,
+		characters: campaignSnapshot.characters.map((character) =>
+			character.character_id === characterId
+				? { ...character, date_deleted: dateDeleted }
+				: character
+		)
+	};
+	bumpCampaignCharactersRevision();
+}
+
 export function mergeCampaignMemberIntoCache(member: CampaignMember): void {
 	if (!campaignSnapshot) return;
 
@@ -426,6 +440,20 @@ export function updateCampaignInCache(
 	if ('campaign_name' in patch || 'description' in patch) {
 		bumpCampaignListRevision();
 	}
+}
+
+export function softDeleteCampaignInCache(campaignId: string, dateDeleted: string): void {
+	if (!campaignSnapshot) return;
+
+	campaignSnapshot = {
+		...campaignSnapshot,
+		campaigns: campaignSnapshot.campaigns.map((campaign) =>
+			campaign.campaign_id === campaignId
+				? { ...campaign, date_deleted: dateDeleted }
+				: campaign
+		)
+	};
+	bumpCampaignListRevision();
 }
 
 export function syncAdventurePartsInCache(adventureId: string, parts: Part[]): void {

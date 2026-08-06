@@ -98,6 +98,23 @@ export function clearLocalStorageStoryMigration(partIds: string[]): void {
 	}
 }
 
+export function clearAllLocalAppStorage(): void {
+	if (typeof localStorage === 'undefined') return;
+
+	const keysToRemove: string[] = [];
+
+	for (let index = 0; index < localStorage.length; index += 1) {
+		const key = localStorage.key(index);
+		if (key?.startsWith('dm-deputy:')) {
+			keysToRemove.push(key);
+		}
+	}
+
+	for (const key of keysToRemove) {
+		localStorage.removeItem(key);
+	}
+}
+
 function getWorker(): Worker {
 	if (!worker) {
 		initPromise = null;
@@ -257,6 +274,14 @@ export async function softDeletePlayerInDb(userId: string): Promise<string> {
 	return callWorker<string>('softDeletePlayer', [userId]);
 }
 
+export async function softDeleteNpcInDb(characterId: string): Promise<string> {
+	return callWorker<string>('softDeleteNpc', [characterId]);
+}
+
+export async function softDeleteCampaignInDb(campaignId: string): Promise<string> {
+	return callWorker<string>('softDeleteCampaign', [campaignId]);
+}
+
 export async function updateUserThemeInDb(
 	userId: string,
 	theme: import('$lib/types/schema').User['theme']
@@ -390,6 +415,29 @@ export async function loadCharacterLoadoutInDb(
 	characterId: string
 ): Promise<import('./types').CharacterLoadout> {
 	return callWorker('loadCharacterLoadout', [characterId]);
+}
+
+export async function updateCharacterPortraitInDb(
+	input: import('./types').UpdateCharacterPortraitInput,
+	thumbBuffer: ArrayBuffer,
+	fullBuffer: ArrayBuffer
+): Promise<import('$lib/types/schema').Character> {
+	return callWorkerWithTransfer(
+		'updateCharacterPortrait',
+		[input, thumbBuffer, fullBuffer],
+		[thumbBuffer, fullBuffer]
+	);
+}
+
+export async function loadCharacterPortraitBlobInDb(
+	characterId: string,
+	variant: 'thumb' | 'full'
+): Promise<ArrayBuffer | null> {
+	const buffer = await callWorker<ArrayBuffer | null>('loadCharacterPortraitBlob', [
+		characterId,
+		variant
+	]);
+	return buffer ?? null;
 }
 
 export async function addCampaignPlayerInDb(

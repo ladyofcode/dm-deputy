@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Button, Label } from 'bits-ui';
+	import { Button, Dialog, Label } from 'bits-ui';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { preferences } from '$lib/stores/preferences.svelte';
 	import { fromStore } from 'svelte/store';
@@ -16,6 +16,8 @@
 	let backupError = $state<string | null>(null);
 	let isExporting = $state(false);
 	let isImporting = $state(false);
+	let isWiping = $state(false);
+	let showWipeConfirm = $state(false);
 	let isSavingTheme = $state(false);
 
 	const dbReady = fromStore(dbIsReady);
@@ -78,6 +80,24 @@
 			isImporting = false;
 		}
 	}
+
+	async function confirmWipeLocalBackup() {
+		if (isWiping) return;
+
+		backupMessage = null;
+		backupError = null;
+		isWiping = true;
+
+		try {
+			await database.wipeLocalBackup();
+			showWipeConfirm = false;
+			backupMessage = 'Local backup wiped. All campaigns and story data on this device were removed.';
+		} catch (error) {
+			backupError = error instanceof Error ? error.message : String(error);
+		} finally {
+			isWiping = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -115,11 +135,19 @@
 		</p>
 
 		<div class="meta-row">
-			<Button.Root type="button" disabled={isExporting || isImporting} onclick={handleExportBackup}>
+			<Button.Root type="button" disabled={isExporting || isImporting || isWiping} onclick={handleExportBackup}>
 				{isExporting ? 'Exporting…' : 'Export backup'}
 			</Button.Root>
-			<Button.Root type="button" disabled={isExporting || isImporting} onclick={handleImportClick}>
+			<Button.Root type="button" disabled={isExporting || isImporting || isWiping} onclick={handleImportClick}>
 				{isImporting ? 'Importing…' : 'Import backup'}
+			</Button.Root>
+			<Button.Root
+				type="button"
+				class="wipe-button"
+				disabled={isExporting || isImporting || isWiping}
+				onclick={() => (showWipeConfirm = true)}
+			>
+				Wipe local backup
 			</Button.Root>
 		</div>
 
@@ -141,3 +169,52 @@
 
 	<Button.Root href={resolve('/')}>Back to home</Button.Root>
 </section>
+
+<Dialog.Root bind:open={showWipeConfirm}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="dialog-stacked-overlay" />
+		<Dialog.Content class="dialog-stacked">
+			<Dialog.Title>ARE YOU SURE????</Dialog.Title>
+			<Dialog.Description>
+				<p>
+					This permanently deletes <strong>all</strong> campaigns, adventures, characters, maps, and
+					story data stored in the local SQLite backup on this device.
+				</p>
+				<p class="wipe-warning">This cannot be undone unless you have an exported backup file.</p>
+			</Dialog.Description>
+
+			<div class="dialog-footer">
+				<Button.Root type="button" disabled={isWiping} onclick={() => (showWipeConfirm = false)}>
+					Cancel
+				</Button.Root>
+				<Button.Root
+					type="button"
+					class="wipe-button"
+					disabled={isWiping}
+					onclick={confirmWipeLocalBackup}
+				>
+					{isWiping ? 'Wiping…' : 'Yes, wipe everything'}
+				</Button.Root>
+			</div>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<style>
+	:global([data-button-root].wipe-button) {
+		border-color: #b42318;
+		color: #b42318;
+	}
+
+	:global([data-button-root].wipe-button:hover:not(:disabled)) {
+		background: #fef3f2;
+		border-color: #912018;
+		color: #912018;
+	}
+
+	.wipe-warning {
+		margin: 0;
+		color: #b42318;
+		font-weight: 600;
+	}
+</style>

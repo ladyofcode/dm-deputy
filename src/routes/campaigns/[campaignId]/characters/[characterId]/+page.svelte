@@ -10,10 +10,13 @@
 		isCharacterInCampaign
 	} from '$lib/data';
 	import { loadCharacterStatEvents } from '$lib/data/character-stats-persistence';
-	import { loadCharacterSheetDraft, updateCampaignCharacter } from '$lib/data/writes';
+	import { loadCharacterSheetDraft, persistCharacterPortrait, updateCampaignCharacter } from '$lib/data/writes';
 	import {
+		cloneCharacterIdentity,
 		cloneNpcExtras,
+		createDefaultCharacterIdentity,
 		createDefaultNpcExtras,
+		type CharacterIdentityDraft,
 		type NpcExtrasDraft
 	} from '$lib/domain/npc-draft';
 	import { getReactiveNpcsForCampaign, getReactivePcsForCampaign } from '$lib/stores/campaign-characters.svelte';
@@ -59,7 +62,10 @@
 	let sheetKind = $state<NpcCharacterKind>('npc_general');
 	let sheetName = $state('');
 	let sheetDescription = $state('');
+	let sheetIdentity = $state<CharacterIdentityDraft>(createDefaultCharacterIdentity());
 	let sheetExtras = $state<NpcExtrasDraft>(createDefaultNpcExtras());
+	let portraitFile = $state<File | null>(null);
+	let portraitImageSource = $state<string | null>(null);
 	let statEvents = $state<CharacterStatEvent[]>([]);
 
 	$effect(() => {
@@ -82,7 +88,10 @@
 				sheetKind = sheet.kind as NpcCharacterKind;
 				sheetName = sheet.name;
 				sheetDescription = sheet.description;
+				sheetIdentity = cloneCharacterIdentity(sheet.identity);
 				sheetExtras = cloneNpcExtras(sheet.extras);
+				portraitFile = null;
+				portraitImageSource = null;
 				statEvents = events;
 				loading = false;
 			})
@@ -115,8 +124,20 @@
 			await updateCampaignCharacter(character.character_id, kind, {
 				name: sheetName.trim(),
 				description: sheetDescription.trim(),
+				identity: cloneCharacterIdentity(sheetIdentity),
 				extras
 			});
+
+			if (portraitFile) {
+				await persistCharacterPortrait(
+					character.character_id,
+					portraitFile,
+					portraitImageSource
+				);
+				portraitFile = null;
+				portraitImageSource = null;
+			}
+
 			statEvents = await loadCharacterStatEvents(character.character_id);
 			const updated = getCharacterById(character.character_id);
 			if (updated) {
@@ -166,7 +187,11 @@
 					bind:kind={sheetKind}
 					bind:name={sheetName}
 					bind:description={sheetDescription}
+					bind:identity={sheetIdentity}
 					bind:extras={sheetExtras}
+					characterId={character?.character_id}
+					bind:portraitFile
+					bind:portraitImageSource
 					{statEvents}
 					statBases={{
 						experience: character?.experience_base ?? 0,

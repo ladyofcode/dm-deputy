@@ -1,5 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
 import {
+	clearAllLocalAppStorage,
 	clearLocalStorageStoryMigration,
 	collectAllLocalStorageStoryMigration,
 	downloadDatabaseBackup,
@@ -24,6 +25,7 @@ import { bumpCatalogRevision } from '$lib/stores/catalog.svelte';
 import { clearCampaignMapObjectUrlCache } from '$lib/data/map-blob-cache';
 import { LOCAL_USER_ID } from '$lib/constants/user';
 import { getCampaignListForUser } from '$lib/data';
+import { preferences } from '$lib/stores/preferences.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
 
 export type DbStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -158,6 +160,16 @@ class DatabaseController {
 
 	async importBackup(file: File): Promise<void> {
 		await importDatabaseFile(file);
+		await this.reload();
+	}
+
+	async wipeLocalBackup(): Promise<void> {
+		const templateBuffer = await fetchAppDatabaseTemplate();
+		await importDatabaseFile(new Blob([templateBuffer], { type: 'application/x-sqlite3' }));
+		clearAllLocalAppStorage();
+		preferences.userThemes = {};
+		preferences.campaignThemes = {};
+		workspace.setCurrentUser(LOCAL_USER_ID);
 		await this.reload();
 	}
 

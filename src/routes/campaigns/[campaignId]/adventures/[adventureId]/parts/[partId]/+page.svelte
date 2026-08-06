@@ -9,6 +9,7 @@
 	import AwardEncounterXpModal, { type AwardXpMode } from '$lib/components/part/AwardEncounterXpModal.svelte';
 	import { rewardXpFromItems } from '$lib/domain/story-item-reward';
 	import OcrScanButton from '$lib/components/OcrScanButton.svelte';
+	import PartSettingsModal from '$lib/components/part/PartSettingsModal.svelte';
 	import PartStoryCanvas from '$lib/components/part/PartStoryCanvas.svelte';
 	import StoryNodeArmsModal from '$lib/components/part/StoryNodeArmsModal.svelte';
 	import { STORY_NODE_SIZE } from '$lib/components/part/StoryNode.svelte';
@@ -412,7 +413,18 @@
 {:else}
 	<div class="part-page">
 		<header>
-			<h1>{part?.title ?? ''}</h1>
+			<div class="part-header-row">
+				<h1>{part?.title ?? ''}</h1>
+				{#if part && adventure}
+					<PartSettingsModal
+						{campaignId}
+						{adventureId}
+						partId={part.part_id}
+						partTitle={part.title}
+						adventureName={adventure.name}
+					/>
+				{/if}
+			</div>
 		</header>
 
 		<nav aria-label="Back to adventure">
@@ -571,15 +583,28 @@
 		top: 0;
 		z-index: 3;
 		padding: 0.75rem 4.5rem 0.75rem 1.5rem;
-		text-align: center;
 		background: color-mix(in srgb, var(--color-bg) 90%, transparent);
 		backdrop-filter: blur(6px);
 		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
 	}
 
+	.part-header-row {
+		display: grid;
+		grid-template-columns: 2.5rem 1fr 2.5rem;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
 	h1 {
 		margin: 0;
+		grid-column: 2;
+		text-align: center;
 		font-size: clamp(1.2rem, 3.8vw, 1.65rem);
+	}
+
+	.part-header-row :global([data-button-root]) {
+		grid-column: 3;
+		justify-self: end;
 	}
 
 	nav {

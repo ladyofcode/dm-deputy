@@ -3,7 +3,7 @@
 	import { Button } from 'bits-ui';
 	import { fromStore } from 'svelte/store';
 	import { getAllNpcLibraryRows, getAllPlayerRows } from '$lib/data';
-	import { softDeletePlayerFromPlayerbase } from '$lib/data/writes';
+	import { softDeleteNpcFromLibrary, softDeletePlayerFromPlayerbase } from '$lib/data/writes';
 	import { resolveCampaignHref, resolveCharacterHref } from '$lib/navigation/hrefs';
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
 	import { dbIsReady } from '$lib/stores/database.svelte';
@@ -24,6 +24,7 @@
 	});
 
 	let removingUserId = $state<string | null>(null);
+	let removingCharacterId = $state<string | null>(null);
 	let error = $state<string | null>(null);
 
 	function formatHp(current: number, max: number): string {
@@ -48,6 +49,26 @@
 			error = cause instanceof Error ? cause.message : 'Could not remove player';
 		} finally {
 			removingUserId = null;
+		}
+	}
+
+	async function handleRemoveNpcFromLibrary(characterId: string, characterName: string) {
+		if (removingCharacterId) return;
+
+		const confirmed = confirm(
+			`Remove ${characterName} from the library?\n\nThis is irreversible. The NPC will be hidden everywhere, but records are kept in the database.`
+		);
+		if (!confirmed) return;
+
+		removingCharacterId = characterId;
+		error = null;
+
+		try {
+			await softDeleteNpcFromLibrary(characterId);
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : 'Could not remove NPC';
+		} finally {
+			removingCharacterId = null;
 		}
 	}
 </script>
@@ -132,6 +153,7 @@
 								<th scope="col">HP</th>
 								<th scope="col">XP</th>
 								<th scope="col">Reputation</th>
+								<th scope="col"><span class="sr-only">Actions</span></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -152,6 +174,17 @@
 									<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
 									<td>{row.experience > 0 ? row.experience : '—'}</td>
 									<td>{row.reputation ?? '—'}</td>
+									<td class="actions-cell">
+										<Button.Root
+											type="button"
+											data-variant="ghost"
+											disabled={removingCharacterId === row.characterId}
+											onclick={() =>
+												handleRemoveNpcFromLibrary(row.characterId, row.characterName)}
+										>
+											{removingCharacterId === row.characterId ? 'Removing…' : 'Remove'}
+										</Button.Root>
+									</td>
 								</tr>
 							{/each}
 						</tbody>

@@ -91,6 +91,10 @@ export function isNpcCharacterKind(kind: CharacterKind): boolean {
 	return kind === 'npc_general' || kind === 'npc_foe';
 }
 
+export function isActiveNpc(character: Character | undefined): boolean {
+	return character != null && isNpcCharacterKind(character.kind) && !character.date_deleted;
+}
+
 export function normalizeCharacterKind(kind: string): CharacterKind {
 	if (kind === 'pc' || kind === 'npc_foe') {
 		return kind;
@@ -126,7 +130,23 @@ export type Character = {
 	hp_max: number;
 	reputation: string | null;
 	notes: string | null;
+	presentation: string | null;
+	race: string | null;
+	alignment: string | null;
+	age: string | null;
+	class_name: string | null;
+	mime_type: string | null;
+	portrait_width: number | null;
+	portrait_height: number | null;
+	thumb_width: number | null;
+	thumb_height: number | null;
+	image_source: string | null;
+	date_deleted: string | null;
 };
+
+export function characterHasPortrait(character: Character | undefined): boolean {
+	return Boolean(character?.mime_type);
+}
 
 export type StatKind = 'experience' | 'hp_current' | 'hp_max';
 
@@ -187,6 +207,7 @@ export type CampaignMap = {
 	full_height: number;
 	thumb_width: number;
 	thumb_height: number;
+	image_source: string | null;
 	created_at: string;
 };
 

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Button, Dialog, Label } from 'bits-ui';
+	import ImageUploadDialog from '$lib/components/shared/ImageUploadDialog.svelte';
 	import { recognizeImage, terminateOcrWorker, type OcrProgress } from '$lib/ocr/recognize';
+	import type { ImageUploadResult } from '$lib/types/image-upload';
 
 	type Props = {
 		open?: boolean;
@@ -9,6 +11,9 @@
 	let { open = $bindable(false) }: Props = $props();
 
 	let selectedFile = $state<File | null>(null);
+	let imageSource = $state<string | null>(null);
+	let pendingFile = $state<File | null>(null);
+	let uploadDialogOpen = $state(false);
 	let previewUrl = $state<string | null>(null);
 	let extractedText = $state('');
 	let processing = $state(false);
@@ -34,6 +39,8 @@
 		}
 
 		selectedFile = null;
+		imageSource = null;
+		pendingFile = null;
 		previewUrl = null;
 		extractedText = '';
 		processing = false;
@@ -49,17 +56,36 @@
 	function handleFileChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
+		if (!file) return;
 
+		pendingFile = file;
+		uploadDialogOpen = true;
+	}
+
+	function clearFileInput() {
+		if (fileInput) {
+			fileInput.value = '';
+		}
+	}
+
+	function handleUploadConfirm(result: ImageUploadResult) {
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl);
 		}
 
-		selectedFile = file ?? null;
-		previewUrl = file ? URL.createObjectURL(file) : null;
+		selectedFile = result.file;
+		imageSource = result.imageSource;
+		previewUrl = URL.createObjectURL(result.file);
+		pendingFile = null;
 		extractedText = '';
 		error = null;
 		progress = null;
 		clearCopiedFeedback();
+	}
+
+	function handleUploadCancel() {
+		pendingFile = null;
+		clearFileInput();
 	}
 
 	async function handleRecognize() {
@@ -159,6 +185,10 @@
 					</figure>
 				{/if}
 
+				{#if imageSource}
+					<p class="ocr-source">Source: {imageSource}</p>
+				{/if}
+
 				{#if progressLabel}
 					<p class="ocr-progress" aria-live="polite">{progressLabel}</p>
 				{/if}
@@ -200,6 +230,14 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
+<ImageUploadDialog
+	bind:open={uploadDialogOpen}
+	title="Upload image for OCR"
+	file={pendingFile}
+	onConfirm={handleUploadConfirm}
+	onCancel={handleUploadCancel}
+/>
+
 <style>
 	.ocr-form {
 		display: grid;
@@ -226,6 +264,13 @@
 		color: var(--color-text-muted);
 		font-size: 0.9rem;
 		text-transform: capitalize;
+	}
+
+	.ocr-source {
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: 0.9rem;
+		word-break: break-word;
 	}
 
 	textarea {

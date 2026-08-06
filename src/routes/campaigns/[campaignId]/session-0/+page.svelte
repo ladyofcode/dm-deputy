@@ -133,10 +133,15 @@
 					onchange={handleQuestionsChange}
 				/>
 			</div>
-			<p class="hint">
-				Work through these questions together before the first session. Answers autosave as you
-				type.
-			</p>
+			<div class="session-zero-welcome">
+				<p>Welcome to session 0! We'll cover:</p>
+				<ul>
+					<li>Conduct and house rules</li>
+					<li>Character Creation</li>
+					<li>Mechanics</li>
+					<li>Start the game! (hook)</li>
+				</ul>
+			</div>
 		</header>
 
 		<form class="session-zero-form page-stack--compact" onsubmit={(event) => event.preventDefault()}>
@@ -183,6 +188,20 @@
 {/if}
 
 <style>
+	.session-zero-welcome {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.session-zero-welcome p {
+		margin: 0;
+	}
+
+	.session-zero-welcome ul {
+		margin: 0;
+		padding-left: 1.25rem;
+	}
+
 	.session-zero-header h1 {
 		margin: 0;
 	}

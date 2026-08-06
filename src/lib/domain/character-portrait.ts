@@ -1,19 +1,19 @@
-export const MAP_FULL_MAX_EDGE = 2400;
-export const MAP_THUMB_MAX_EDGE = 320;
-export const MAP_FULL_QUALITY = 0.88;
-export const MAP_THUMB_QUALITY = 0.82;
+export const PORTRAIT_FULL_MAX_EDGE = 800;
+export const PORTRAIT_THUMB_MAX_EDGE = 160;
+export const PORTRAIT_FULL_QUALITY = 0.88;
+export const PORTRAIT_THUMB_QUALITY = 0.82;
 
-export type ProcessedMapImage = {
+export type ProcessedCharacterPortrait = {
 	mime_type: 'image/jpeg' | 'image/webp' | 'image/png';
-	full_width: number;
-	full_height: number;
+	portrait_width: number;
+	portrait_height: number;
 	thumb_width: number;
 	thumb_height: number;
 	fullBuffer: ArrayBuffer;
 	thumbBuffer: ArrayBuffer;
 };
 
-type OutputMimeType = ProcessedMapImage['mime_type'];
+type OutputMimeType = ProcessedCharacterPortrait['mime_type'];
 
 function isPngFile(file: File): boolean {
 	return file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
@@ -88,28 +88,30 @@ function outputMimeType(file: File): OutputMimeType {
 	return canvas.toDataURL('image/webp').startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
 }
 
-export async function processMapUpload(file: File): Promise<ProcessedMapImage> {
+export async function processCharacterPortraitUpload(
+	file: File
+): Promise<ProcessedCharacterPortrait> {
 	if (!file.type.startsWith('image/') && !isPngFile(file)) {
 		throw new Error('Choose an image file');
 	}
 
 	const image = await loadImageFromFile(file);
 	const mime_type = outputMimeType(file);
-	const fullSize = fitWithin(image.naturalWidth, image.naturalHeight, MAP_FULL_MAX_EDGE);
-	const thumbSize = fitWithin(image.naturalWidth, image.naturalHeight, MAP_THUMB_MAX_EDGE);
+	const fullSize = fitWithin(image.naturalWidth, image.naturalHeight, PORTRAIT_FULL_MAX_EDGE);
+	const thumbSize = fitWithin(image.naturalWidth, image.naturalHeight, PORTRAIT_THUMB_MAX_EDGE);
 
 	const fullCanvas = drawScaledImage(image, fullSize.width, fullSize.height);
 	const thumbCanvas = drawScaledImage(image, thumbSize.width, thumbSize.height);
 
 	const [fullBuffer, thumbBuffer] = await Promise.all([
-		canvasToBlob(fullCanvas, mime_type, MAP_FULL_QUALITY),
-		canvasToBlob(thumbCanvas, mime_type, MAP_THUMB_QUALITY)
+		canvasToBlob(fullCanvas, mime_type, PORTRAIT_FULL_QUALITY),
+		canvasToBlob(thumbCanvas, mime_type, PORTRAIT_THUMB_QUALITY)
 	]);
 
 	return {
 		mime_type,
-		full_width: fullSize.width,
-		full_height: fullSize.height,
+		portrait_width: fullSize.width,
+		portrait_height: fullSize.height,
 		thumb_width: thumbSize.width,
 		thumb_height: thumbSize.height,
 		fullBuffer,

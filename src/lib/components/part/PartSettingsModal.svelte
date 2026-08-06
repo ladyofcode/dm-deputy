@@ -2,19 +2,29 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button, Dialog, Label } from 'bits-ui';
-	import { deleteCampaign, persistCampaignDetails } from '$lib/data/writes';
+	import { getPartsForAdventure } from '$lib/data';
+	import { persistAdventureParts, touchCampaign } from '$lib/data/writes';
+	import { workspace } from '$lib/stores/workspace.svelte';
 
 	type Props = {
 		campaignId: string;
-		campaignName: string;
-		description?: string;
+		adventureId: string;
+		partId: string;
+		partTitle: string;
+		adventureName: string;
 		open?: boolean;
 	};
 
-	let { campaignId, campaignName, description = '', open = $bindable(false) }: Props = $props();
+	let {
+		campaignId,
+		adventureId,
+		partId,
+		partTitle,
+		adventureName,
+		open = $bindable(false)
+	}: Props = $props();
 
-	let name = $state('');
-	let details = $state('');
+	let title = $state('');
 	let saving = $state(false);
 	let deleting = $state(false);
 	let showDeleteConfirm = $state(false);
@@ -23,8 +33,7 @@
 	$effect(() => {
 		if (!open) return;
 
-		name = campaignName;
-		details = description;
+		title = partTitle;
 		error = null;
 	});
 
@@ -32,35 +41,41 @@
 		event.preventDefault();
 		if (saving || deleting) return;
 
+		const trimmedTitle = title.trim();
+		if (!trimmedTitle) return;
+
 		saving = true;
 		error = null;
 
 		try {
-			await persistCampaignDetails(campaignId, {
-				campaign_name: name,
-				description: details
-			});
+			const nextParts = getPartsForAdventure(adventureId).map((part) =>
+				part.part_id === partId ? { ...part, title: trimmedTitle } : part
+			);
+			await persistAdventureParts(adventureId, nextParts);
+			await touchCampaign(workspace.currentUserId, campaignId);
 			open = false;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save campaign';
+			error = cause instanceof Error ? cause.message : 'Could not save part';
 		} finally {
 			saving = false;
 		}
 	}
 
-	async function confirmDeleteCampaign() {
+	async function confirmDeletePart() {
 		if (deleting) return;
 
 		deleting = true;
 		error = null;
 
 		try {
-			await deleteCampaign(campaignId);
+			const nextParts = getPartsForAdventure(adventureId).filter((part) => part.part_id !== partId);
+			await persistAdventureParts(adventureId, nextParts);
+			await touchCampaign(workspace.currentUserId, campaignId);
 			showDeleteConfirm = false;
 			open = false;
-			await goto(resolve('/'));
+			await goto(resolve(`/campaigns/${campaignId}/adventures/${adventureId}`));
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not delete campaign';
+			error = cause instanceof Error ? cause.message : 'Could not delete part';
 		} finally {
 			deleting = false;
 		}
@@ -68,7 +83,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Trigger data-variant="icon" aria-label="Campaign settings">
+	<Dialog.Trigger data-variant="icon" aria-label="Part settings">
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 			<circle cx="12" cy="12" r="3" />
 			<path
@@ -80,30 +95,21 @@
 	<Dialog.Portal>
 		<Dialog.Overlay />
 		<Dialog.Content>
-			<Dialog.Title>Campaign settings</Dialog.Title>
-			<Dialog.Description>Edit the campaign name and description.</Dialog.Description>
+			<Dialog.Title>Part settings</Dialog.Title>
+			<Dialog.Description>
+				Edit this part in <strong>{adventureName}</strong>.
+			</Dialog.Description>
 
 			<form class="settings-form" onsubmit={handleSave}>
 				<div class="field">
-					<Label.Root for="campaign_settings_name">Campaign name</Label.Root>
+					<Label.Root for="part_settings_title">Part title</Label.Root>
 					<input
-						id="campaign_settings_name"
-						bind:value={name}
+						id="part_settings_title"
+						bind:value={title}
 						required
 						disabled={saving || deleting}
-						placeholder="Campaign name"
+						placeholder="Part title"
 					/>
-				</div>
-
-				<div class="field">
-					<Label.Root for="campaign_settings_description">Description</Label.Root>
-					<textarea
-						id="campaign_settings_description"
-						bind:value={details}
-						rows="4"
-						disabled={saving || deleting}
-						placeholder="Optional description"
-					></textarea>
 				</div>
 
 				{#if error}
@@ -122,11 +128,11 @@
 				</div>
 			</form>
 
-			<section class="danger-zone" aria-labelledby="campaign-delete-heading">
-				<h3 id="campaign-delete-heading">Danger zone</h3>
+			<section class="danger-zone" aria-labelledby="part-delete-heading">
+				<h3 id="part-delete-heading">Danger zone</h3>
 				<p class="hint">
-					Permanently remove <strong>{campaignName}</strong> from your campaign list. Adventures,
-					characters, maps, and story data for this campaign will no longer be accessible.
+					Permanently remove <strong>{partTitle}</strong> from this adventure. Story nodes and items
+					for this part will also be deleted.
 				</p>
 				<Button.Root
 					type="button"
@@ -134,7 +140,7 @@
 					disabled={saving || deleting}
 					onclick={() => (showDeleteConfirm = true)}
 				>
-					Delete campaign
+					Delete part
 				</Button.Root>
 			</section>
 		</Dialog.Content>
@@ -145,11 +151,10 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="dialog-stacked-overlay" />
 		<Dialog.Content class="dialog-stacked">
-			<Dialog.Title>Delete campaign?</Dialog.Title>
+			<Dialog.Title>Delete part?</Dialog.Title>
 			<Dialog.Description>
 				<p>
-					This permanently deletes <strong>{campaignName}</strong> and removes it from your campaign
-					list.
+					This permanently deletes <strong>{partTitle}</strong> and all of its story nodes and items.
 				</p>
 				<p class="delete-warning">This cannot be undone.</p>
 			</Dialog.Description>
@@ -162,9 +167,9 @@
 					type="button"
 					class="delete-button"
 					disabled={deleting}
-					onclick={confirmDeleteCampaign}
+					onclick={confirmDeletePart}
 				>
-					{deleting ? 'Deleting…' : 'Yes, delete campaign'}
+					{deleting ? 'Deleting…' : 'Yes, delete part'}
 				</Button.Root>
 			</div>
 		</Dialog.Content>

@@ -30,12 +30,12 @@
 </svelte:head>
 
 {#if dbReady.current && !campaign}
-	<section class="page-stack">
+	<section class="page-stack campaign-page">
 		<h1>Campaign not found</h1>
 		<Button.Root href={resolve('/')}>Back to home</Button.Root>
 	</section>
 {:else}
-	<section class="page-stack">
+	<section class="page-stack campaign-page">
 		<nav aria-label="Back to home">
 			<Button.Root href={resolve('/')}>←</Button.Root>
 		</nav>
@@ -43,18 +43,13 @@
 		<header class="campaign-page-header">
 			<div class="campaign-page-header-row">
 				<h1>{campaign?.campaign_name ?? ''}</h1>
-				<div class="campaign-page-header-actions">
-					<Button.Root href={resolveSessionZeroHref(campaignId)} data-variant="ghost">
-						Session 0
-					</Button.Root>
-					{#if campaign}
-						<CampaignSettingsModal
-							campaignId={campaign.campaign_id}
-							campaignName={campaign.campaign_name}
-							description={campaign.description ?? ''}
-						/>
-					{/if}
-				</div>
+				{#if campaign}
+					<CampaignSettingsModal
+						campaignId={campaign.campaign_id}
+						campaignName={campaign.campaign_name}
+						description={campaign.description ?? ''}
+					/>
+				{/if}
 			</div>
 			{#if campaign?.description}
 				<p class="campaign-description">{campaign.description}</p>
@@ -64,26 +59,32 @@
 		<section class="adventures-section" aria-labelledby="campaign-adventures-heading">
 			<div class="adventures-section-header">
 				<h2 id="campaign-adventures-heading">Adventures</h2>
-				<Button.Root href={resolve(`/onboarding/adventure/${campaignId}`)} data-variant="ghost">
-					Create adventure
+				<Button.Root
+					href={resolve(`/onboarding/adventure/${campaignId}`)}
+					data-variant="icon"
+					aria-label="Create adventure"
+				>
+					+
 				</Button.Root>
 			</div>
 
+			<ul class="adventure-list list-plain">
+				<li>
+					<a class="adventure-link" href={resolveSessionZeroHref(campaignId)}>Session 0</a>
+				</li>
+				{#each adventures as adventure (adventure.adventure_id)}
+					<li>
+						<a
+							class="adventure-link"
+							href={resolve(`/campaigns/${campaignId}/adventures/${adventure.adventure_id}`)}
+						>
+							{adventure.name}
+						</a>
+					</li>
+				{/each}
+			</ul>
 			{#if adventures.length === 0}
 				<p class="hint">No adventures yet.</p>
-			{:else}
-				<ul class="adventure-list list-plain">
-					{#each adventures as adventure (adventure.adventure_id)}
-						<li>
-							<a
-								class="adventure-link"
-								href={resolve(`/campaigns/${campaignId}/adventures/${adventure.adventure_id}`)}
-							>
-								{adventure.name}
-							</a>
-						</li>
-					{/each}
-				</ul>
 			{/if}
 		</section>
 
@@ -96,6 +97,10 @@
 {/if}
 
 <style>
+	.campaign-page {
+		gap: 2.5rem;
+	}
+
 	.campaign-page-header h1 {
 		margin: 0;
 	}
@@ -109,13 +114,6 @@
 
 	.campaign-page-header-row h1 {
 		min-width: 0;
-	}
-
-	.campaign-page-header-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-shrink: 0;
 	}
 
 	.campaign-description {

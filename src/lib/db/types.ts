@@ -84,6 +84,7 @@ export type CreateCampaignMapInput = {
 	full_height: number;
 	thumb_width: number;
 	thumb_height: number;
+	image_source?: string | null;
 	created_at: string;
 };
 
@@ -116,6 +117,11 @@ export type CreateCampaignCharacterInput = {
 	created_by_user_id: string;
 	display_name: string;
 	notes?: string | null;
+	presentation?: string | null;
+	race?: string | null;
+	alignment?: string | null;
+	age?: string | null;
+	class_name?: string | null;
 	level?: number;
 	experience?: number;
 	hp_max?: number;
@@ -131,9 +137,26 @@ export type UpdateCampaignCharacterInput = {
 	kind: import('$lib/types/schema').CharacterKind;
 	display_name: string;
 	notes?: string | null;
+	presentation?: string | null;
+	race?: string | null;
+	alignment?: string | null;
+	age?: string | null;
+	class_name?: string | null;
 	reputation?: string | null;
 	loadout?: CharacterLoadout;
 };
+
+export type UpdateCharacterPortraitInput = {
+	character_id: string;
+	mime_type: string;
+	portrait_width: number;
+	portrait_height: number;
+	thumb_width: number;
+	thumb_height: number;
+	image_source?: string | null;
+};
+
+export type LoadCharacterPortraitBlobArgs = [string, 'thumb' | 'full'];
 
 export type UpdateCharacterStatCacheInput = {
 	character_id: string;
@@ -220,6 +243,8 @@ export type WorkerRequest =
 			args: [string, import('$lib/types/schema').User['theme']];
 	  }
 	| { id: number; method: 'softDeletePlayer'; args: [string] }
+	| { id: number; method: 'softDeleteNpc'; args: [string] }
+	| { id: number; method: 'softDeleteCampaign'; args: [string] }
 	| {
 			id: number;
 			method: 'updateCampaignTheme';
@@ -247,6 +272,12 @@ export type WorkerRequest =
 	| { id: number; method: 'loadEncounterXpAwardsByEventIds'; args: [string[]] }
 	| { id: number; method: 'updateCharacterStatCache'; args: [UpdateCharacterStatCacheInput] }
 	| { id: number; method: 'loadCharacterLoadout'; args: [string] }
+	| {
+			id: number;
+			method: 'updateCharacterPortrait';
+			args: [UpdateCharacterPortraitInput, ArrayBuffer, ArrayBuffer];
+	  }
+	| { id: number; method: 'loadCharacterPortraitBlob'; args: LoadCharacterPortraitBlobArgs }
 	| { id: number; method: 'addCampaignPlayer'; args: [AddCampaignPlayerInput] }
 	| { id: number; method: 'removeCampaignPlayer'; args: [string, string] }
 	| { id: number; method: 'addCampaignPcToCampaign'; args: [AddCampaignPcToCampaignInput] }

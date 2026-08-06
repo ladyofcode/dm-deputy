@@ -27,6 +27,7 @@ import type {
 	PromoteAdventureResult,
 	UpdateCampaignCharacterInput,
 	UpdateCampaignDetailsInput,
+	UpdateCharacterPortraitInput,
 	UpdateSessionZeroAnswersInput,
 	UpdateCharacterStatCacheInput,
 	WorkerRequest,
@@ -259,6 +260,14 @@ function repairUsersSoftDeleteColumn(database: AppDb): void {
 	addColumnIfMissing(database, 'users', 'date_deleted', 'TEXT');
 }
 
+function repairCharactersSoftDeleteColumn(database: AppDb): void {
+	if (!tableExists(database, 'characters')) {
+		return;
+	}
+
+	addColumnIfMissing(database, 'characters', 'date_deleted', 'TEXT');
+}
+
 function repairCharacterStatEventDescriptionColumn(database: AppDb): void {
 	if (!tableExists(database, 'character_stat_events')) {
 		return;
@@ -288,6 +297,7 @@ function repairSchemaColumns(database: AppDb): void {
 	repairCampaignNpcsTable(database);
 	repairPartsSessionDuration(database);
 	repairUsersSoftDeleteColumn(database);
+	repairCharactersSoftDeleteColumn(database);
 	repairCharacterStatEventDescriptionColumn(database);
 	repairStoryNodeXpAwardColumn(database);
 }
@@ -836,10 +846,7 @@ function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 	const characters = selectObjects<CampaignSnapshot['characters'][number]>(
 		database,
 		'SELECT * FROM characters'
-	).map((character) => ({
-		...character,
-		kind: normalizeCharacterKind(character.kind)
-	}));
+	).map((character) => mapCharacterRow(character));
 	const maps = loadCampaignMapsMetadata(database);
 	const sessionZero = loadCampaignSessionZero(database);
 
@@ -873,10 +880,11 @@ function loadCampaignMapsMetadata(database: AppDb): CampaignMap[] {
 		full_height: number;
 		thumb_width: number;
 		thumb_height: number;
+		image_source: string | null;
 		created_at: string;
 	}>(
 		database,
-		`SELECT map_id, campaign_id, name, mime_type, full_width, full_height, thumb_width, thumb_height, created_at
+		`SELECT map_id, campaign_id, name, mime_type, full_width, full_height, thumb_width, thumb_height, image_source, created_at
 		 FROM maps
 		 WHERE thumb_blob IS NOT NULL AND full_blob IS NOT NULL
 		 ORDER BY name COLLATE NOCASE`
@@ -892,10 +900,10 @@ function createCampaignMap(
 	execSql(database, {
 		sql: `INSERT INTO maps (
 			map_id, campaign_id, name, mime_type, full_width, full_height, thumb_width, thumb_height,
-			thumb_blob, full_blob, created_at, layout_mode
+			thumb_blob, full_blob, created_at, layout_mode, image_source
 		) VALUES (
 			$map_id, $campaign_id, $name, $mime_type, $full_width, $full_height, $thumb_width, $thumb_height,
-			$thumb_blob, $full_blob, $created_at, 'popup'
+			$thumb_blob, $full_blob, $created_at, 'popup', $image_source
 		)`,
 		bind: {
 			map_id: input.map_id,
@@ -908,7 +916,8 @@ function createCampaignMap(
 			thumb_height: input.thumb_height,
 			thumb_blob: new Uint8Array(thumbBuffer),
 			full_blob: new Uint8Array(fullBuffer),
-			created_at: input.created_at
+			created_at: input.created_at,
+			image_source: input.image_source ?? null
 		}
 	});
 
@@ -921,6 +930,7 @@ function createCampaignMap(
 		full_height: input.full_height,
 		thumb_width: input.thumb_width,
 		thumb_height: input.thumb_height,
+		image_source: input.image_source ?? null,
 		created_at: input.created_at
 	};
 }
@@ -1088,6 +1098,76 @@ function insertCampaignNpcLink(
 	};
 }
 
+function mapCharacterRow(row: {
+	character_id: string;
+	campaign_id: string;
+	kind: string;
+	created_by_user_id: string;
+	cloned_from_character_id: string | null;
+	display_name: string;
+	experience_base: number;
+	experience: number;
+	level: number;
+	hp_max_base: number;
+	hp_current_base: number;
+	hp_current: number;
+	hp_max: number;
+	reputation: string | null;
+	notes: string | null;
+	presentation?: string | null;
+	race?: string | null;
+	alignment?: string | null;
+	age?: string | null;
+	class_name?: string | null;
+	mime_type?: string | null;
+	portrait_width?: number | null;
+	portrait_height?: number | null;
+	thumb_width?: number | null;
+	thumb_height?: number | null;
+	image_source?: string | null;
+	date_deleted?: string | null;
+}): Character {
+	return {
+		character_id: row.character_id,
+		campaign_id: row.campaign_id,
+		kind: normalizeCharacterKind(row.kind),
+		created_by_user_id: row.created_by_user_id,
+		cloned_from_character_id: row.cloned_from_character_id,
+		display_name: row.display_name,
+		experience_base: row.experience_base,
+		experience: row.experience,
+		level: row.level,
+		hp_max_base: row.hp_max_base,
+		hp_current_base: row.hp_current_base,
+		hp_current: row.hp_current,
+		hp_max: row.hp_max,
+		reputation: row.reputation,
+		notes: row.notes,
+		presentation: row.presentation ?? null,
+		race: row.race ?? null,
+		alignment: row.alignment ?? null,
+		age: row.age ?? null,
+		class_name: row.class_name ?? null,
+		mime_type: row.mime_type ?? null,
+		portrait_width: row.portrait_width ?? null,
+		portrait_height: row.portrait_height ?? null,
+		thumb_width: row.thumb_width ?? null,
+		thumb_height: row.thumb_height ?? null,
+		image_source: row.image_source ?? null,
+		date_deleted: row.date_deleted ?? null
+	};
+}
+
+function loadCharacterById(database: AppDb, characterId: string): Character | null {
+	const rows = selectObjects<Parameters<typeof mapCharacterRow>[0]>(
+		database,
+		'SELECT * FROM characters WHERE character_id = $characterId LIMIT 1',
+		{ characterId }
+	);
+
+	return rows[0] ? mapCharacterRow(rows[0]) : null;
+}
+
 function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacterInput): Character {
 	const experience = input.experience ?? 0;
 	const level = input.level ?? 1;
@@ -1098,11 +1178,13 @@ function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacter
 		sql: `INSERT INTO characters (
 			character_id, campaign_id, kind, created_by_user_id, cloned_from_character_id,
 			display_name, experience_base, experience, level,
-			hp_max_base, hp_current_base, hp_current, hp_max, reputation, notes
+			hp_max_base, hp_current_base, hp_current, hp_max, reputation, notes,
+			race, alignment, age, class_name, presentation
 		) VALUES (
 			$character_id, $campaign_id, $kind, $created_by_user_id, $cloned_from_character_id,
 			$display_name, $experience_base, $experience, $level,
-			$hp_max_base, $hp_current_base, $hp_current, $hp_max, $reputation, $notes
+			$hp_max_base, $hp_current_base, $hp_current, $hp_max, $reputation, $notes,
+			$race, $alignment, $age, $class_name, $presentation
 		)`,
 		bind: {
 			character_id: input.character_id,
@@ -1119,7 +1201,12 @@ function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacter
 			hp_current: hpCurrent,
 			hp_max: hpMax,
 			reputation: input.reputation ?? null,
-			notes: input.notes ?? null
+			notes: input.notes ?? null,
+			race: input.race ?? null,
+			alignment: input.alignment ?? null,
+			age: input.age ?? null,
+			class_name: input.class_name ?? null,
+			presentation: input.presentation ?? null
 		}
 	});
 
@@ -1137,52 +1224,11 @@ function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacter
 		);
 	}
 
-	return {
-		character_id: input.character_id,
-		campaign_id: input.campaign_id,
-		kind: input.kind,
-		created_by_user_id: input.created_by_user_id,
-		cloned_from_character_id: null,
-		display_name: input.display_name,
-		experience_base: experience,
-		experience,
-		level,
-		hp_max_base: hpMax,
-		hp_current_base: hpCurrent,
-		hp_current: hpCurrent,
-		hp_max: hpMax,
-		reputation: input.reputation ?? null,
-		notes: input.notes ?? null
-	};
+	return loadCharacterById(database, input.character_id)!;
 }
 
 function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCharacterInput): Character {
-	const rows = selectObjects<{
-		character_id: string;
-		campaign_id: string;
-		kind: string;
-		created_by_user_id: string;
-		cloned_from_character_id: string | null;
-		experience_base: number;
-		experience: number;
-		level: number;
-		hp_max_base: number;
-		hp_current_base: number;
-		hp_current: number;
-		hp_max: number;
-		reputation: string | null;
-	}>(
-		database,
-		`SELECT character_id, campaign_id, kind, created_by_user_id, cloned_from_character_id,
-			experience_base, experience, level,
-			hp_max_base, hp_current_base, hp_current, hp_max, reputation
-		 FROM characters
-		 WHERE character_id = $characterId
-		 LIMIT 1`,
-		{ characterId: input.character_id }
-	);
-
-	const existing = rows[0];
+	const existing = loadCharacterById(database, input.character_id);
 	if (!existing) {
 		throw new Error('Character not found');
 	}
@@ -1194,14 +1240,24 @@ function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCharacter
 			kind = $kind,
 			display_name = $display_name,
 			reputation = $reputation,
-			notes = $notes
+			notes = $notes,
+			race = $race,
+			alignment = $alignment,
+			age = $age,
+			class_name = $class_name,
+			presentation = $presentation
 		WHERE character_id = $character_id`,
 		bind: {
 			character_id: input.character_id,
 			kind,
 			display_name: input.display_name.trim(),
 			reputation: input.reputation ?? null,
-			notes: input.notes ?? null
+			notes: input.notes ?? null,
+			race: input.race ?? null,
+			alignment: input.alignment ?? null,
+			age: input.age ?? null,
+			class_name: input.class_name ?? null,
+			presentation: input.presentation ?? null
 		}
 	});
 
@@ -1210,23 +1266,7 @@ function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCharacter
 		attachCharacterLoadout(database, input.character_id, input.loadout);
 	}
 
-	return {
-		character_id: input.character_id,
-		campaign_id: existing.campaign_id,
-		kind,
-		created_by_user_id: existing.created_by_user_id,
-		cloned_from_character_id: existing.cloned_from_character_id,
-		display_name: input.display_name.trim(),
-		experience_base: existing.experience_base,
-		experience: existing.experience,
-		level: existing.level,
-		hp_max_base: existing.hp_max_base,
-		hp_current_base: existing.hp_current_base,
-		hp_current: existing.hp_current,
-		hp_max: existing.hp_max,
-		reputation: input.reputation ?? null,
-		notes: input.notes ?? null
-	};
+	return loadCharacterById(database, input.character_id)!;
 }
 
 function mapStatEventRow(row: {
@@ -1386,23 +1426,45 @@ function updateCharacterStatCache(database: AppDb, input: UpdateCharacterStatCac
 		}
 	});
 
-	return {
-		character_id: existing.character_id,
-		campaign_id: existing.campaign_id,
-		kind: normalizeCharacterKind(existing.kind),
-		created_by_user_id: existing.created_by_user_id,
-		cloned_from_character_id: existing.cloned_from_character_id,
-		display_name: existing.display_name,
-		experience_base: existing.experience_base,
-		experience: input.experience,
-		level: input.level,
-		hp_max_base: existing.hp_max_base,
-		hp_current_base: existing.hp_current_base,
-		hp_current: input.hp_current,
-		hp_max: input.hp_max,
-		reputation: existing.reputation,
-		notes: existing.notes
-	};
+	return loadCharacterById(database, input.character_id)!;
+}
+
+function updateCharacterPortrait(
+	database: AppDb,
+	input: UpdateCharacterPortraitInput,
+	thumbBuffer: ArrayBuffer,
+	fullBuffer: ArrayBuffer
+): Character {
+	execSql(database, {
+		sql: `UPDATE characters SET
+			mime_type = $mime_type,
+			portrait_width = $portrait_width,
+			portrait_height = $portrait_height,
+			thumb_width = $thumb_width,
+			thumb_height = $thumb_height,
+			thumb_blob = $thumb_blob,
+			full_blob = $full_blob,
+			image_source = $image_source
+		WHERE character_id = $character_id`,
+		bind: {
+			character_id: input.character_id,
+			mime_type: input.mime_type,
+			portrait_width: input.portrait_width,
+			portrait_height: input.portrait_height,
+			thumb_width: input.thumb_width,
+			thumb_height: input.thumb_height,
+			thumb_blob: new Uint8Array(thumbBuffer),
+			full_blob: new Uint8Array(fullBuffer),
+			image_source: input.image_source ?? null
+		}
+	});
+
+	const character = loadCharacterById(database, input.character_id);
+	if (!character) {
+		throw new Error('Character not found');
+	}
+
+	return character;
 }
 
 function insertEncounterResolution(database: AppDb, resolution: EncounterResolution): EncounterResolution {
@@ -1555,7 +1617,7 @@ function addCampaignNpcToCampaign(
 	);
 
 	const character = rows[0];
-	if (!character || !isNpcCharacterKind(character.kind)) {
+	if (!character || !isNpcCharacterKind(character.kind) || character.date_deleted) {
 		throw new Error('NPC not found');
 	}
 
@@ -1586,6 +1648,23 @@ function loadCampaignMapBlob(
 		database,
 		`SELECT ${column} AS blob FROM maps WHERE map_id = $mapId LIMIT 1`,
 		{ mapId }
+	);
+	const bytes = rows[0]?.blob;
+	if (!bytes?.byteLength) return null;
+
+	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+function loadCharacterPortraitBlob(
+	database: AppDb,
+	characterId: string,
+	variant: 'thumb' | 'full'
+): ArrayBuffer | null {
+	const column = variant === 'thumb' ? 'thumb_blob' : 'full_blob';
+	const rows = selectObjects<Record<string, Uint8Array | null>>(
+		database,
+		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,
+		{ characterId }
 	);
 	const bytes = rows[0]?.blob;
 	if (!bytes?.byteLength) return null;
@@ -1834,23 +1913,7 @@ function insertCampaignPlayer(
 		}
 	});
 
-	return {
-		character_id: player.character_id,
-		campaign_id: campaignId,
-		kind: 'pc',
-		created_by_user_id: ownerUserId,
-		cloned_from_character_id: null,
-		display_name: player.username,
-		experience_base: 0,
-		experience: 0,
-		level: 1,
-		hp_max_base: 0,
-		hp_current_base: 0,
-		hp_current: 0,
-		hp_max: 0,
-		reputation: null,
-		notes: null
-	};
+	return loadCharacterById(database, player.character_id)!;
 }
 
 function addCampaignPlayer(
@@ -2132,6 +2195,66 @@ function softDeletePlayer(database: AppDb, userId: string): string {
 		sql: `UPDATE users SET date_deleted = $date_deleted WHERE user_id = $user_id`,
 		bind: {
 			user_id: userId,
+			date_deleted: deletedAt
+		}
+	});
+
+	return deletedAt;
+}
+
+function softDeleteNpc(database: AppDb, characterId: string): string {
+	const rows = selectObjects<{ kind: string; date_deleted: string | null }>(
+		database,
+		`SELECT kind, date_deleted FROM characters WHERE character_id = $characterId LIMIT 1`,
+		{ characterId }
+	);
+
+	if (!rows[0]) {
+		throw new Error('NPC not found');
+	}
+
+	if (!isNpcCharacterKind(normalizeCharacterKind(rows[0].kind))) {
+		throw new Error('Only NPCs can be removed from the library');
+	}
+
+	if (rows[0].date_deleted) {
+		throw new Error('NPC has already been removed from the library');
+	}
+
+	const deletedAt = new Date().toISOString();
+
+	execSql(database, {
+		sql: `UPDATE characters SET date_deleted = $date_deleted WHERE character_id = $character_id`,
+		bind: {
+			character_id: characterId,
+			date_deleted: deletedAt
+		}
+	});
+
+	return deletedAt;
+}
+
+function softDeleteCampaign(database: AppDb, campaignId: string): string {
+	const rows = selectObjects<{ date_deleted: string | null }>(
+		database,
+		`SELECT date_deleted FROM campaigns WHERE campaign_id = $campaignId LIMIT 1`,
+		{ campaignId }
+	);
+
+	if (!rows[0]) {
+		throw new Error('Campaign not found');
+	}
+
+	if (rows[0].date_deleted) {
+		throw new Error('Campaign has already been deleted');
+	}
+
+	const deletedAt = new Date().toISOString();
+
+	execSql(database, {
+		sql: `UPDATE campaigns SET date_deleted = $date_deleted WHERE campaign_id = $campaign_id`,
+		bind: {
+			campaign_id: campaignId,
 			date_deleted: deletedAt
 		}
 	});
@@ -2771,6 +2894,14 @@ async function handleRequest(request: WorkerRequest): Promise<WorkerResponse> {
 				const deletedAt = softDeletePlayer(getDb(), request.args[0]);
 				return { id: request.id, result: deletedAt };
 			}
+			case 'softDeleteNpc': {
+				const deletedAt = softDeleteNpc(getDb(), request.args[0]);
+				return { id: request.id, result: deletedAt };
+			}
+			case 'softDeleteCampaign': {
+				const deletedAt = softDeleteCampaign(getDb(), request.args[0]);
+				return { id: request.id, result: deletedAt };
+			}
 			case 'updateCampaignTheme': {
 				updateCampaignTheme(getDb(), request.args[0], request.args[1]);
 				return { id: request.id, result: null };
@@ -2850,6 +2981,19 @@ async function handleRequest(request: WorkerRequest): Promise<WorkerResponse> {
 			case 'loadCharacterLoadout': {
 				const loadout = loadCharacterLoadout(getDb(), request.args[0]);
 				return { id: request.id, result: loadout };
+			}
+			case 'updateCharacterPortrait': {
+				const character = updateCharacterPortrait(
+					getDb(),
+					request.args[0],
+					request.args[1],
+					request.args[2]
+				);
+				return { id: request.id, result: character };
+			}
+			case 'loadCharacterPortraitBlob': {
+				const buffer = loadCharacterPortraitBlob(getDb(), request.args[0], request.args[1]);
+				return { id: request.id, result: buffer, buffer: buffer ?? undefined };
 			}
 			case 'addCampaignPlayer': {
 				const result = addCampaignPlayer(getDb(), request.args[0]);
