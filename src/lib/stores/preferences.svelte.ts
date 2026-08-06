@@ -5,10 +5,12 @@ class PreferencesState {
 	campaignThemes = $state.raw<Record<string, CampaignTheme>>({});
 
 	setUserTheme(userId: string, theme: ThemePreset) {
+		if (this.userThemes[userId] === theme) return;
 		this.userThemes = { ...this.userThemes, [userId]: theme };
 	}
 
 	setCampaignTheme(campaignId: string, theme: CampaignTheme) {
+		if (this.campaignThemes[campaignId] === theme) return;
 		this.campaignThemes = { ...this.campaignThemes, [campaignId]: theme };
 	}
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
 	import { getMostRecentCampaignForUser } from '$lib/data';
 	import { database } from '$lib/stores/database.svelte';
@@ -67,7 +67,10 @@
 	$effect(() => {
 		if (!database.isReady) return;
 
-		void syncThemesWithDatabase(workspace.currentUserId);
+		const userId = workspace.currentUserId;
+		untrack(() => {
+			void syncThemesWithDatabase(userId);
+		});
 	});
 
 	$effect(() => {
