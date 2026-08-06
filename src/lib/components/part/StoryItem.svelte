@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
-	import StoryMapViewer from '$lib/components/part/StoryMapViewer.svelte';
-	import { getCampaignMapObjectUrl } from '$lib/data/map-blob-cache';
+	import CampaignMapThumb from '$lib/components/shared/CampaignMapThumb.svelte';
+	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 	import { getReactiveCampaignMapById } from '$lib/stores/campaign-maps.svelte';
 	import { formatStoryItemCatalogStats } from '$lib/domain/story-item-catalog';
 	import { STORY_ITEM_KIND_LABELS, type StoryItem } from '$lib/types/schema';
 	import TreasureIcon from '$lib/components/icons/TreasureIcon.svelte';
-	import type { StoryNodeCanvasContext } from '$lib/components/part/StoryNode.svelte';
 
 	type Props = {
 		item: StoryItem;
@@ -15,12 +13,8 @@
 
 	let { item, dimmed = false }: Props = $props();
 
-	const canvas = getContext<StoryNodeCanvasContext>('story-node-canvas');
+	const canvas = getStoryNodeCanvasContext();
 	let element = $state<HTMLDivElement | undefined>();
-	let thumbUrl = $state<string | null>(null);
-	let viewerOpen = $state(false);
-	let viewerUrl = $state<string | null>(null);
-	let viewerLoading = $state(false);
 
 	const catalogStats = $derived(item.kind === 'item' ? formatStoryItemCatalogStats(item) : []);
 
@@ -44,41 +38,6 @@
 			canvas.unregisterItem(item.item_id);
 		};
 	});
-
-	$effect(() => {
-		if (item.kind !== 'map' || !item.map_id) {
-			thumbUrl = null;
-			return;
-		}
-
-		let cancelled = false;
-
-		void getCampaignMapObjectUrl(item.map_id, 'thumb').then((url) => {
-			if (!cancelled) {
-				thumbUrl = url;
-			}
-		});
-
-		return () => {
-			cancelled = true;
-		};
-	});
-
-	async function openViewer() {
-		if (item.kind !== 'map' || !item.map_id || viewerLoading) return;
-
-		viewerLoading = true;
-
-		try {
-			const url = await getCampaignMapObjectUrl(item.map_id, 'full');
-			if (!url) return;
-
-			viewerUrl = url;
-			viewerOpen = true;
-		} finally {
-			viewerLoading = false;
-		}
-	}
 </script>
 
 <div
@@ -91,18 +50,9 @@
 >
 	{#if item.kind === 'map'}
 		<span class="drag-handle" data-drag-handle aria-hidden="true">⠿</span>
-		<button
-			type="button"
-			class="map-thumb-button"
-			aria-label={`Open map ${displayLabel}`}
-			onclick={openViewer}
-		>
-			{#if thumbUrl}
-				<img class="map-thumb" src={thumbUrl} alt="" />
-			{:else}
-				<span class="map-thumb map-thumb-missing">No preview</span>
-			{/if}
-		</button>
+		{#if item.map_id}
+			<CampaignMapThumb mapId={item.map_id} label={displayLabel} class="story-item-map-thumb" />
+		{/if}
 		<p class="label map-label">{displayLabel}</p>
 	{:else}
 		{#if item.is_treasure}
@@ -122,13 +72,6 @@
 		{/if}
 	{/if}
 </div>
-
-<StoryMapViewer
-	bind:open={viewerOpen}
-	title={displayLabel}
-	imageUrl={viewerUrl}
-	loading={viewerLoading}
-/>
 
 <style>
 	div {
@@ -196,30 +139,8 @@
 		user-select: none;
 	}
 
-	.map-thumb-button {
-		display: block;
-		width: 100%;
-		padding: 0;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--color-text-muted) 8%, transparent);
-		overflow: hidden;
-		cursor: zoom-in;
-	}
-
-	.map-thumb {
-		display: block;
-		width: 100%;
-		height: 5.5rem;
-		object-fit: cover;
-	}
-
-	.map-thumb-missing {
-		display: grid;
-		place-items: center;
-		height: 5.5rem;
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
+	:global(.story-item-map-thumb) {
+		max-width: none;
 	}
 
 	.map-label {

@@ -1,4 +1,8 @@
 import { getCachedSpells, isCatalogCacheReady } from '$lib/db/catalog-cache';
+import {
+	createCatalogIdIndex,
+	createCatalogNameIndex
+} from '$lib/games/dnd5e/data/catalog-index';
 import type { Spell, SpellSchool } from '$lib/types/schema';
 
 function assertCatalogReady(): void {
@@ -12,14 +16,15 @@ export function getSpellsCatalog(): Spell[] {
 	return getCachedSpells();
 }
 
+const spellsById = createCatalogIdIndex(getSpellsCatalog, (entry) => entry.spell_id);
+const spellsByName = createCatalogNameIndex(getSpellsCatalog, (entry) => entry.spell_name);
+
 export function getSpellById(spellId: string): Spell | undefined {
-	return getSpellsCatalog().find((entry) => entry.spell_id === spellId);
+	return spellsById().get(spellId);
 }
 
 export function getSpellByName(spellName: string): Spell | undefined {
-	return getSpellsCatalog().find(
-		(entry) => entry.spell_name.toLowerCase() === spellName.toLowerCase()
-	);
+	return spellsByName().get(spellName.toLowerCase());
 }
 
 export function getSpellsByLevel(spellLevel: number): Spell[] {

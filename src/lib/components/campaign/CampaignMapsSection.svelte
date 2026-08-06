@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Button, Label } from 'bits-ui';
 	import { persistCampaignMap, removeCampaignMap } from '$lib/data/writes';
-	import { getCampaignMapObjectUrl } from '$lib/data/map-blob-cache';
 	import { getReactiveCampaignMapsForCampaign } from '$lib/stores/campaign-maps.svelte';
+	import CampaignMapThumb from '$lib/components/shared/CampaignMapThumb.svelte';
 	import ImageUploadDialog from '$lib/components/shared/ImageUploadDialog.svelte';
 	import type { ImageUploadResult } from '$lib/types/image-upload';
 	import type { CampaignMap } from '$lib/types/schema';
@@ -22,33 +22,8 @@
 	let saving = $state(false);
 	let deletingMapId = $state<string | null>(null);
 	let error = $state<string | null>(null);
-	let thumbUrls = $state<Record<string, string>>({});
 
 	const maps = $derived(getReactiveCampaignMapsForCampaign(campaignId));
-
-	$effect(() => {
-		if (!campaignId) return;
-
-		let cancelled = false;
-
-		void (async () => {
-			const nextUrls: Record<string, string> = {};
-
-			for (const map of maps) {
-				const url = await getCampaignMapObjectUrl(map.map_id, 'thumb');
-				if (cancelled) return;
-				if (url) nextUrls[map.map_id] = url;
-			}
-
-			if (!cancelled) {
-				thumbUrls = nextUrls;
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	});
 
 	function resetUploadForm() {
 		if (previewUrl) {
@@ -160,11 +135,7 @@
 		<ul class="map-list list-plain">
 			{#each maps as map (map.map_id)}
 				<li class="map-list-item">
-					{#if thumbUrls[map.map_id]}
-						<img class="map-thumb" src={thumbUrls[map.map_id]} alt="" />
-					{:else}
-						<div class="map-thumb map-thumb-empty" aria-hidden="true"></div>
-					{/if}
+					<CampaignMapThumb mapId={map.map_id} label={map.name} class="map-list-thumb" />
 					<span class="map-title">{map.name}</span>
 					<Button.Root
 						type="button"
@@ -254,16 +225,13 @@
 		background: var(--color-surface);
 	}
 
-	.map-thumb {
-		width: 4.5rem;
-		height: 3.25rem;
-		object-fit: cover;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--color-border);
+	.map-list-item :global(.map-list-thumb) {
+		max-width: 4.5rem;
 	}
 
-	.map-thumb-empty {
-		background: color-mix(in srgb, var(--color-text-muted) 18%, transparent);
+	.map-list-item :global(.map-list-thumb .map-thumb),
+	.map-list-item :global(.map-list-thumb .map-thumb-missing) {
+		height: 3.25rem;
 	}
 
 	.map-title {

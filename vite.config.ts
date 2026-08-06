@@ -2,19 +2,7 @@ import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, type Plugin } from 'vite';
 
-const crossOriginIsolationHeaders = {
-	'Cross-Origin-Opener-Policy': 'same-origin',
-	'Cross-Origin-Embedder-Policy': 'require-corp',
-	'Cross-Origin-Resource-Policy': 'same-origin'
-};
-
-function applyCrossOriginIsolationHeaders(
-	setHeader: (name: string, value: string) => void
-): void {
-	for (const [name, value] of Object.entries(crossOriginIsolationHeaders)) {
-		setHeader(name, value);
-	}
-}
+import { crossOriginIsolationHeaders, applyCrossOriginIsolationHeaders } from './cross-origin-isolation-headers.ts';
 
 function crossOriginIsolationPlugin(): Plugin {
 	return {
@@ -35,6 +23,18 @@ function crossOriginIsolationPlugin(): Plugin {
 }
 
 export default defineConfig({
+	build: {
+		rollupOptions: {
+			output: {
+				manualChunks(id) {
+					if (id.includes('node_modules/tesseract.js')) return 'tesseract';
+					if (id.includes('node_modules/@sqlite.org/sqlite-wasm')) return 'sqlite-wasm';
+					if (id.includes('node_modules/animejs')) return 'animejs';
+					if (id.includes('node_modules/@panzoom/panzoom')) return 'panzoom';
+				}
+			}
+		}
+	},
 	plugins: [
 		crossOriginIsolationPlugin(),
 		sveltekit(),
@@ -73,10 +73,42 @@ export default defineConfig({
 			},
 			workbox: {
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,woff2}'],
-				// Module workers must load from the network with COOP/COEP/CORP headers;
-				// precaching them causes "ServiceWorker intercepted…unexpected error" in production.
 				globIgnores: ['**/_app/immutable/workers/**'],
-				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024
+				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+				runtimeCaching: [
+					{
+						urlPattern: ({ url }) => url.pathname === '/dm-deputy.sqlite',
+						handler: 'NetworkFirst',
+						options: {
+							cacheName: 'dm-deputy-db',
+							expiration: { maxEntries: 1 }
+						}
+					},
+					{
+						urlPattern: ({ url }) => url.pathname.includes('/_app/immutable/workers/'),
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'dm-deputy-workers',
+							expiration: { maxEntries: 8 }
+						}
+					},
+					{
+						urlPattern: ({ url }) => url.pathname.endsWith('.wasm'),
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'dm-deputy-wasm',
+							expiration: { maxEntries: 8 }
+						}
+					},
+					{
+						urlPattern: ({ url }) => url.pathname.startsWith('/tesseract/'),
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'dm-deputy-tesseract',
+							expiration: { maxEntries: 16 }
+						}
+					}
+				]
 			},
 			devOptions: {
 				enabled: false

@@ -1,11 +1,12 @@
 import {
 	mergeAdventureIntoCache,
+	mergeCampaignIntoCache,
 	mergeCampaignMapIntoCache,
 	mergeCampaignMemberIntoCache,
 	mergeCampaignNpcIntoCache,
 	mergeCampaignPlayerIntoCache,
 	mergeCharacterIntoCache,
-	reloadDatabaseCache,
+	mergePromotedCampaignFromSnapshot,
 	removeCampaignMapFromCache,
 	removeCampaignNpcFromCache,
 	removeCampaignPlayerFromCache,
@@ -30,7 +31,6 @@ import {
 	deleteCampaignMapInDb,
 	loadCampaignSnapshot,
 	loadCharacterLoadoutInDb,
-	loadPartStory,
 	promoteAdventureToCampaignInDb,
 	removeCampaignNpcFromCampaignInDb,
 	removeCampaignPlayerInDb,
@@ -80,6 +80,7 @@ import {
 } from '$lib/themes/storage';
 import { getCampaignById, getCampaigns, getCharacterById, getPlayerUsernameForCharacter, getPlayerUserIdForCharacter, getUserById } from '$lib/data';
 import { persistCharacterSheetStatChanges } from '$lib/data/character-stats-persistence';
+import { preferences } from '$lib/stores/preferences.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
 import { processMapUpload } from '$lib/domain/map-image';
 import { revokeCampaignMapObjectUrls } from '$lib/data/map-blob-cache';
@@ -101,6 +102,86 @@ import {
 	vitalityDraftToDbFields
 } from '$lib/domain/pc-sheet';
 import type { PromoteAdventureOptions } from '$lib/domain/promote-adventure';
+import { bumpCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
+
+function createOnboardingPcCharacter(
+	player: { character_id: string; display_name: string },
+	campaignId: string,
+	ownerUserId: string
+): Character {
+	return {
+		character_id: player.character_id,
+		campaign_id: campaignId,
+		kind: 'pc',
+		created_by_user_id: ownerUserId,
+		cloned_from_character_id: null,
+		display_name: player.display_name,
+		experience_base: 0,
+		experience: 0,
+		level: 1,
+		hp_max_base: 0,
+		hp_current_base: 0,
+		hp_current: 0,
+		hp_max: 0,
+		reputation: null,
+		notes: null,
+		presentation: null,
+		race: null,
+		creature_type: null,
+		alignment: null,
+		age: null,
+		class_name: null,
+		background: null,
+		height: null,
+		weight: null,
+		eyes: null,
+		skin: null,
+		hair: null,
+		inspiration: false,
+		initiative: null,
+		temp_hp: null,
+		hit_dice_remaining: null,
+		death_save_successes: 0,
+		death_save_failures: 0,
+		personality_traits: null,
+		ideals: null,
+		bonds: null,
+		flaws: null,
+		backstory: null,
+		allies: null,
+		features: null,
+		proficiencies: null,
+		treasure: null,
+		armor_class: null,
+		armor_class_notes: null,
+		speed: null,
+		hp_dice: null,
+		ability_str: null,
+		ability_dex: null,
+		ability_con: null,
+		ability_int: null,
+		ability_wis: null,
+		ability_cha: null,
+		skills: null,
+		senses: null,
+		languages: null,
+		challenge_rating: null,
+		traits: null,
+		actions: null,
+		is_spellcaster: false,
+		spellcasting_class: null,
+		spellcasting_ability: null,
+		spell_slots_total: null,
+		spell_slots_expended: null,
+		mime_type: null,
+		portrait_width: null,
+		portrait_height: null,
+		thumb_width: null,
+		thumb_height: null,
+		image_source: null,
+		date_deleted: null
+	};
+}
 
 export async function persistCampaign(
 	ownerUserId: string,
@@ -156,7 +237,33 @@ export async function persistCampaign(
 		players
 	});
 
-	await reloadDatabaseCache(loadCampaignSnapshot, loadPartStory);
+	mergeCampaignIntoCache(campaign, membership, {
+		users: players.map((player) => ({
+			user_id: player.user_id,
+			email: '',
+			username: player.username,
+			theme: 'default',
+			date_created: now,
+			date_deleted: null
+		})),
+		members: players.map((player) => ({
+			player_id: player.player_id,
+			campaign_id: campaignId,
+			user_id: player.user_id,
+			character_id: player.character_id,
+			date_campaign_joined: now,
+			role: 'player',
+			last_played_at: null
+		})),
+		characters: players.map((player) =>
+			createOnboardingPcCharacter(
+				{ character_id: player.character_id, display_name: player.display_name },
+				campaignId,
+				ownerUserId
+			)
+		)
+	});
+	bumpCampaignCharactersRevision();
 
 	return { campaign, membership };
 }
@@ -213,7 +320,8 @@ export async function persistAdventurePromotion(
 	});
 
 	setStoredPartOrder(result.adventure_id, result.part_ids);
-	await reloadDatabaseCache(loadCampaignSnapshot, loadPartStory);
+	const snapshot = await loadCampaignSnapshot();
+	mergePromotedCampaignFromSnapshot(snapshot, result.campaign_id);
 
 	return {
 		campaignId: result.campaign_id,
@@ -222,6 +330,7 @@ export async function persistAdventurePromotion(
 }
 
 export async function persistUserTheme(userId: string, theme: ThemePreset): Promise<void> {
+	preferences.setUserTheme(userId, theme);
 	setStoredUserTheme(userId, theme);
 	updateUserInCache(userId, { theme });
 	await updateUserThemeInDb(userId, theme);
@@ -231,6 +340,7 @@ export async function persistCampaignTheme(
 	campaignId: string,
 	theme: CampaignTheme
 ): Promise<void> {
+	preferences.setCampaignTheme(campaignId, theme);
 	setStoredCampaignTheme(campaignId, theme);
 	updateCampaignInCache(campaignId, { theme });
 	await updateCampaignThemeInDb(campaignId, theme);
@@ -283,6 +393,9 @@ export async function syncThemesWithDatabase(userId: string): Promise<void> {
 		await persistUserTheme(userId, storedUserTheme);
 	} else if (!storedUserTheme && dbUserTheme) {
 		setStoredUserTheme(userId, dbUserTheme);
+		preferences.setUserTheme(userId, dbUserTheme);
+	} else if (storedUserTheme) {
+		preferences.setUserTheme(userId, storedUserTheme);
 	}
 
 	for (const campaign of getCampaigns()) {
@@ -292,6 +405,9 @@ export async function syncThemesWithDatabase(userId: string): Promise<void> {
 			await persistCampaignTheme(campaign.campaign_id, storedCampaignTheme);
 		} else if (!storedCampaignTheme) {
 			setStoredCampaignTheme(campaign.campaign_id, campaign.theme);
+			preferences.setCampaignTheme(campaign.campaign_id, campaign.theme);
+		} else {
+			preferences.setCampaignTheme(campaign.campaign_id, storedCampaignTheme);
 		}
 	}
 }
@@ -579,7 +695,7 @@ export async function updateCampaignCharacter(
 		gameSchema
 	);
 
-	let latest = getCharacterById(characterId) ?? existing;
+	const latest = getCharacterById(characterId) ?? existing;
 	if (payload.extras.level !== latest.level) {
 		const updated = await updateCharacterStatCacheInDb({
 			character_id: characterId,
@@ -589,7 +705,6 @@ export async function updateCampaignCharacter(
 			hp_current: latest.hp_current
 		});
 		mergeCharacterIntoCache(updated);
-		latest = updated;
 	}
 
 	const character = await updateCampaignCharacterInDb(

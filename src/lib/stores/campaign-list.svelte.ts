@@ -1,29 +1,27 @@
-import { getCampaignById } from '$lib/data';
+import { getCachedCampaigns } from '$lib/db/cache';
 import { getCampaignListForUser, type CampaignListEntry } from '$lib/data/campaign-list';
+import type { Campaign } from '$lib/types/schema';
+import { trackCampaignListRevision } from '$lib/stores/campaign-list-revision.svelte';
+
+function getCampaignById(campaignId: string): Campaign | undefined {
+	return getCachedCampaigns().find((campaign) => campaign.campaign_id === campaignId);
+}
 
 class CampaignListState {
-	revision = $state(0);
-
-	bump(): void {
-		this.revision += 1;
-	}
-
 	forUser(userId: string): CampaignListEntry[] {
-		void this.revision;
+		void trackCampaignListRevision();
 		return getCampaignListForUser(userId);
 	}
 
 	forCampaign(campaignId: string) {
-		void this.revision;
+		void trackCampaignListRevision();
 		return getCampaignById(campaignId);
 	}
 }
 
 export const campaignList = new CampaignListState();
 
-export function bumpCampaignListRevision(): void {
-	campaignList.bump();
-}
+export { bumpCampaignListRevision } from '$lib/stores/campaign-list-revision.svelte';
 
 export function getReactiveCampaignListForUser(userId: string): CampaignListEntry[] {
 	return campaignList.forUser(userId);

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button, Dialog, Label } from 'bits-ui';
+	import ConfirmDeleteDialog from '$lib/components/shared/ConfirmDeleteDialog.svelte';
 	import { getPartsForAdventure } from '$lib/data';
 	import { persistAdventureParts, touchCampaign } from '$lib/data/writes';
 	import { workspace } from '$lib/stores/workspace.svelte';
@@ -29,10 +30,18 @@
 	let deleting = $state(false);
 	let showDeleteConfirm = $state(false);
 	let error = $state<string | null>(null);
+	let formKey = $state('');
 
 	$effect(() => {
-		if (!open) return;
+		if (!open) {
+			formKey = '';
+			return;
+		}
 
+		const nextKey = `${partId}:${partTitle}`;
+		if (formKey === nextKey) return;
+
+		formKey = nextKey;
 		title = partTitle;
 		error = null;
 	});
@@ -147,34 +156,17 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<Dialog.Root bind:open={showDeleteConfirm}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="dialog-stacked-overlay" />
-		<Dialog.Content class="dialog-stacked">
-			<Dialog.Title>Delete part?</Dialog.Title>
-			<Dialog.Description>
-				<p>
-					This permanently deletes <strong>{partTitle}</strong> and all of its story nodes and items.
-				</p>
-				<p class="delete-warning">This cannot be undone.</p>
-			</Dialog.Description>
-
-			<div class="dialog-footer">
-				<Button.Root type="button" disabled={deleting} onclick={() => (showDeleteConfirm = false)}>
-					Cancel
-				</Button.Root>
-				<Button.Root
-					type="button"
-					class="delete-button"
-					disabled={deleting}
-					onclick={confirmDeletePart}
-				>
-					{deleting ? 'Deleting…' : 'Yes, delete part'}
-				</Button.Root>
-			</div>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+<ConfirmDeleteDialog
+	bind:open={showDeleteConfirm}
+	title="Delete part?"
+	confirmLabel="Yes, delete part"
+	{deleting}
+	onConfirm={confirmDeletePart}
+>
+	{#snippet description()}
+		This permanently deletes <strong>{partTitle}</strong> and all of its story nodes and items.
+	{/snippet}
+</ConfirmDeleteDialog>
 
 <style>
 	.settings-form {
@@ -197,14 +189,8 @@
 		font-weight: 600;
 	}
 
-	.hint.error,
-	.delete-warning {
+	.hint.error {
 		color: var(--color-danger, #b42318);
-	}
-
-	.delete-warning {
-		margin: 0;
-		font-weight: 600;
 	}
 
 	:global([data-button-root].delete-button) {

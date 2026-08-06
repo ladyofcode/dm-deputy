@@ -3,7 +3,6 @@
 	import { page } from '$app/state';
 	import { Button, Tooltip } from 'bits-ui';
 	import CharacterSheetForm from '$lib/components/character/CharacterSheetForm.svelte';
-	import { fromStore } from 'svelte/store';
 	import {
 		getCampaignById,
 		getCharacterById,
@@ -20,7 +19,7 @@
 		type NpcExtrasDraft
 	} from '$lib/domain/npc-draft';
 	import { getReactiveNpcsForCampaign, getReactivePcsForCampaign } from '$lib/stores/campaign-characters.svelte';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import {
 		CHARACTER_KIND_LABELS,
 		isNpcCharacterKind,
@@ -28,18 +27,17 @@
 		type NpcCharacterKind
 	} from '$lib/types/schema';
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const characterId = $derived(page.params.characterId ?? '');
 
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getCampaignById(campaignId);
 	});
 
 	const character = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		getReactivePcsForCampaign(campaignId);
 		getReactiveNpcsForCampaign(campaignId);
 		return getCharacterById(characterId);
@@ -70,7 +68,7 @@
 	let statEvents = $state<CharacterStatEvent[]>([]);
 
 	$effect(() => {
-		if (!dbReady.current || !character || !isValidCharacter) {
+		if (!database.isReady || !character || !isValidCharacter) {
 			loading = false;
 			return;
 		}
@@ -164,7 +162,7 @@
 	<title>{sheetName || character?.display_name || 'Character'} · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && (!campaign || !character || !isValidCharacter)}
+{#if database.isReady && (!campaign || !character || !isValidCharacter)}
 	<section class="page-stack">
 		<h1>Character not found</h1>
 		<Button.Root href={resolve('/library/players')}>Back to library</Button.Root>

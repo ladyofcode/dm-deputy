@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -540,6 +540,21 @@ Any attack that hits the creature is a critical hit if the attacker is within 5 
 			('skill-sleight-of-hand', 'Sleight of Hand', 'dex'),
 			('skill-stealth', 'Stealth', 'dex'),
 			('skill-survival', 'Survival', 'wis');
+	`,
+	29: `
+		CREATE INDEX IF NOT EXISTS idx_parts_adventure ON parts (adventure_id);
+		CREATE INDEX IF NOT EXISTS idx_adventures_campaign ON adventures (campaign_id);
+		CREATE INDEX IF NOT EXISTS idx_campaign_members_campaign ON campaign_members (campaign_id);
+		CREATE INDEX IF NOT EXISTS idx_campaign_members_user ON campaign_members (user_id);
+		CREATE INDEX IF NOT EXISTS idx_campaign_members_user_campaign ON campaign_members (user_id, campaign_id);
+		CREATE INDEX IF NOT EXISTS idx_characters_campaign ON characters (campaign_id);
+		CREATE INDEX IF NOT EXISTS idx_character_weapons_character ON character_weapons (character_id);
+		CREATE INDEX IF NOT EXISTS idx_character_armor_character ON character_armor (character_id);
+		CREATE INDEX IF NOT EXISTS idx_character_items_character ON character_items (character_id);
+		CREATE INDEX IF NOT EXISTS idx_character_spells_character ON character_spells (character_id);
+		CREATE INDEX IF NOT EXISTS idx_encounter_resolutions_event ON encounter_resolutions (event_id);
+		CREATE INDEX IF NOT EXISTS idx_character_stat_events_character_stat ON character_stat_events (character_id, stat);
+		CREATE INDEX IF NOT EXISTS idx_character_stat_events_batch ON character_stat_events (batch_id);
 	`
 };
 

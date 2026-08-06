@@ -1,5 +1,3 @@
-/* Theme tokens */
-
 :root,
 [data-theme='default'] {
 	--color-bg: #f8f8f8;
@@ -37,13 +35,11 @@
 	--color-border-strong: #a88b5e;
 	--color-quote-border: #8b6914;
 	--color-shadow: rgb(44 36 22 / 12%);
-	--font-display: 'Cinzel Decorative', 'Cinzel', serif;
+	--font-display: 'Cinzel', serif;
 	--font-heading: 'Cinzel', serif;
 	--font-body: 'PT Serif', Georgia, serif;
 	--noise-opacity: 0.05;
 }
-
-/* Base */
 
 *,
 *::before,
@@ -135,8 +131,6 @@ button:focus-visible,
 	outline-offset: 2px;
 }
 
-/* App layout */
-
 .shell {
 	position: relative;
 	z-index: 1;
@@ -189,8 +183,6 @@ button:focus-visible,
 	max-width: none;
 	padding: 0;
 }
-
-/* Page layout */
 
 .page-stack {
 	display: grid;
@@ -373,16 +365,6 @@ button:focus-visible,
 	background: var(--color-surface);
 }
 
-.surface-card {
-	padding: 0.75rem;
-	border: 1px solid var(--color-border);
-	border-radius: var(--radius-md);
-	background: var(--color-surface);
-	box-shadow: 0 1px 3px var(--color-shadow);
-}
-
-/* Lists and cards */
-
 .list-plain {
 	list-style: none;
 	margin: 0;
@@ -462,8 +444,6 @@ button:focus-visible,
 	white-space: nowrap;
 }
 
-/* Adventure parts */
-
 .parts-section {
 	display: grid;
 	gap: var(--space-section);
@@ -486,8 +466,6 @@ button:focus-visible,
 .part-handle:active {
 	cursor: grabbing;
 }
-
-/* bits-ui: Button */
 
 [data-button-root] {
 	display: inline-flex;
@@ -539,14 +517,10 @@ button:focus-visible,
 	border-color: var(--color-border);
 }
 
-/* bits-ui: Label */
-
 [data-label-root] {
 	font-weight: 600;
 	color: var(--color-text);
 }
-
-/* bits-ui: Checkbox */
 
 .checkbox-field {
 	display: flex;
@@ -586,8 +560,6 @@ button:focus-visible,
 	opacity: 0.55;
 	cursor: not-allowed;
 }
-
-/* bits-ui: Switch */
 
 [data-switch-root] {
 	display: inline-flex;
@@ -633,16 +605,12 @@ button:focus-visible,
 	outline-offset: 2px;
 }
 
-/* bits-ui: Separator */
-
 [data-separator-root] {
 	height: 1px;
 	background: var(--color-border);
 	border: none;
 	margin: 0;
 }
-
-/* bits-ui: Dialog */
 
 [data-menu-content] {
 	z-index: 50;

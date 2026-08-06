@@ -4,8 +4,8 @@
 	import { Button, Tooltip } from 'bits-ui';
 	import FullAdventureRewardSection from '$lib/components/adventure/FullAdventureRewardSection.svelte';
 	import StoryMapPreview from '$lib/components/part/StoryMapPreview.svelte';
-	import { fromStore } from 'svelte/store';
-	import { getAdventureById, getCampaignById, getCharacterById, getNpcsForCampaign, getPartsForAdventure } from '$lib/data';
+	import { getAdventureById, getCampaignById, getCharacterById, getPartsForAdventure } from '$lib/data';
+	import { getReactiveNpcsForCampaign } from '$lib/stores/campaign-characters.svelte';
 	import { loadEncounterXpAwardsByEventIds } from '$lib/data/character-stats-persistence';
 	import { getInitialStoryItems, getInitialStoryNodes } from '$lib/data/part-story';
 	import {
@@ -17,24 +17,23 @@
 	} from '$lib/domain/full-adventure';
 	import { ensurePartStoryInCache } from '$lib/db/cache';
 	import { loadPartStory } from '$lib/db/client';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { STORY_NODE_KIND_LABELS, type StoryItem } from '$lib/types/schema';
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const adventureId = $derived(page.params.adventureId ?? '');
 
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getCampaignById(campaignId);
 	});
 	const adventure = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getAdventureById(adventureId);
 	});
 	const parts = $derived.by(() => {
-		if (!dbReady.current) return [];
+		if (!database.isReady) return [];
 		return getPartsForAdventure(adventureId);
 	});
 
@@ -42,7 +41,7 @@
 	let xpAwardsByNodeId = $state<Map<string, NodeXpAwardLine[]>>(new Map());
 
 	$effect(() => {
-		if (!dbReady.current || parts.length === 0) {
+		if (!database.isReady || parts.length === 0) {
 			storyLoaded = parts.length === 0;
 			return;
 		}
@@ -63,7 +62,7 @@
 	});
 
 	$effect(() => {
-		if (!storyLoaded || !dbReady.current) {
+		if (!storyLoaded || !database.isReady) {
 			xpAwardsByNodeId = new Map();
 			return;
 		}
@@ -116,7 +115,9 @@
 	});
 
 	const npcsById = $derived(
-		dbReady.current ? new Map(getNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc])) : new Map()
+		database.isReady
+			? new Map(getReactiveNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc]))
+			: new Map()
 	);
 
 	function contextLabel(item: StoryItem): string {
@@ -137,7 +138,7 @@
 	<title>{adventure?.name ?? 'Adventure'} · Full adventure · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && (!campaign || !adventure)}
+{#if database.isReady && (!campaign || !adventure)}
 	<section class="page-stack">
 		<h1>Adventure not found</h1>
 		<Button.Root href={resolve('/')}>Back to home</Button.Root>

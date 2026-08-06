@@ -25,10 +25,6 @@ import {
 	getSpellsBySchool,
 	getSpellsCatalog
 } from './data/spells';
-import {
-	getMonsterTemplateById,
-	MONSTER_TEMPLATES
-} from './data/monsters';
 import { getWeaponById, getWeaponsByCategory, getWeaponsCatalog } from './data/weapons';
 import { characterLevels, getLevelForExperience } from './rules/character-levels';
 import { abilityModifier, proficiencyBonus } from './rules/formulae';
@@ -91,7 +87,5 @@ export {
 	getConditionByName,
 	getSpeciesCatalog,
 	getSpeciesById,
-	getSpeciesByName,
-	getMonsterTemplateById,
-	MONSTER_TEMPLATES
+	getSpeciesByName
 };

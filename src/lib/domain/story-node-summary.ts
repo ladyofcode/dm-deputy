@@ -1,4 +1,4 @@
-import type { ItemSize } from '$lib/data/part-story';
+import type { ItemSize } from '$lib/data/part-story-layout';
 import { canvasAttachableItems } from '$lib/domain/story-item-reward';
 import type { StoryItem, StoryNode } from '$lib/types/schema';
 

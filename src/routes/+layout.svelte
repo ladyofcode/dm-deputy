@@ -2,10 +2,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { fromStore } from 'svelte/store';
 	import favicon from '$lib/assets/favicon.svg';
 	import { getMostRecentCampaignForUser } from '$lib/data';
-	import { database, dbError, dbIsReady, dbStatus } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { preferences } from '$lib/stores/preferences.svelte';
 	import { resolveActiveTheme } from '$lib/themes/resolve';
@@ -19,7 +18,6 @@
 
 	let { children } = $props();
 
-	const ready = fromStore(dbIsReady);
 	const webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 
 	onMount(() => {
@@ -34,7 +32,7 @@
 	});
 
 	const recentCampaign = $derived(
-		ready.current ? getMostRecentCampaignForUser(workspace.currentUserId) : null
+		database.isReady ? getMostRecentCampaignForUser(workspace.currentUserId) : null
 	);
 
 	const contextualCampaignId = $derived.by(() => {
@@ -56,7 +54,7 @@
 	);
 
 	const activeTheme = $derived(
-		ready.current
+		database.isReady
 			? resolveActiveTheme(
 					workspace.currentUserId,
 					contextualCampaignId,
@@ -67,7 +65,7 @@
 	);
 
 	$effect(() => {
-		if (!ready.current) return;
+		if (!database.isReady) return;
 
 		void syncThemesWithDatabase(workspace.currentUserId);
 	});
@@ -80,12 +78,14 @@
 <svelte:head>
 	{@html webManifestLink}
 	<link rel="icon" href={favicon} />
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap"
-		rel="stylesheet"
-	/>
+	{#if activeTheme === 'medieval'}
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap"
+			rel="stylesheet"
+		/>
+	{/if}
 </svelte:head>
 
 <AuthGate />
@@ -107,10 +107,10 @@
 	</header>
 
 	<main class="app-main" class:app-main--canvas={isPartStoryPage}>
-		{#if $dbStatus === 'error'}
+		{#if database.status === 'error'}
 			<section class="db-error-banner page-stack" role="alert">
 				<h1>Database error</h1>
-				<p>{$dbError}</p>
+				<p>{database.error}</p>
 				<p class="hint">
 					If this persists, clear site data for this origin and reload. OPFS storage also requires
 					HTTPS with COOP/COEP headers when deployed.

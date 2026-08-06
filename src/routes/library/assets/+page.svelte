@@ -1,71 +1,17 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
-	import { fromStore } from 'svelte/store';
-	import StoryMapViewer from '$lib/components/part/StoryMapViewer.svelte';
+	import CampaignMapThumb from '$lib/components/shared/CampaignMapThumb.svelte';
 	import { getCampaignById } from '$lib/data';
-	import { getCampaignMapObjectUrl } from '$lib/data/map-blob-cache';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
 	import { getReactiveAllCampaignMaps } from '$lib/stores/campaign-maps.svelte';
-	import { dbIsReady } from '$lib/stores/database.svelte';
-	import type { CampaignMap } from '$lib/types/schema';
+	import { database } from '$lib/stores/database.svelte';
 
-	const dbReady = fromStore(dbIsReady);
-	const maps = $derived(dbReady.current ? getReactiveAllCampaignMaps() : []);
-
-	let thumbUrls = $state<Record<string, string>>({});
-	let viewerOpen = $state(false);
-	let viewerUrl = $state<string | null>(null);
-	let viewerTitle = $state('');
-	let viewerLoading = $state(false);
-
-	$effect(() => {
-		if (!maps.length) {
-			thumbUrls = {};
-			return;
-		}
-
-		let cancelled = false;
-
-		void (async () => {
-			const nextUrls: Record<string, string> = {};
-
-			for (const map of maps) {
-				const url = await getCampaignMapObjectUrl(map.map_id, 'thumb');
-				if (cancelled) return;
-				if (url) nextUrls[map.map_id] = url;
-			}
-
-			if (!cancelled) {
-				thumbUrls = nextUrls;
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	});
+	const maps = $derived(database.isReady ? getReactiveAllCampaignMaps() : []);
 
 	function formatDimensions(width: number, height: number): string {
 		if (!width || !height) return '—';
 		return `${width}×${height}`;
-	}
-
-	async function openViewer(map: CampaignMap) {
-		if (viewerLoading) return;
-
-		viewerLoading = true;
-
-		try {
-			const url = await getCampaignMapObjectUrl(map.map_id, 'full');
-			if (!url) return;
-
-			viewerUrl = url;
-			viewerTitle = map.name;
-			viewerOpen = true;
-		} finally {
-			viewerLoading = false;
-		}
 	}
 </script>
 
@@ -83,25 +29,13 @@
 		<p class="hint">Map images uploaded across all campaigns.</p>
 	</header>
 
-	{#if dbReady.current}
+	{#if database.isReady}
 		{#if maps.length}
 			<ul class="asset-grid list-plain">
 				{#each maps as map (map.map_id)}
 					{@const campaign = getCampaignById(map.campaign_id)}
 					<li class="asset-card">
-						<button
-							type="button"
-							class="asset-thumb"
-							aria-label={`Open map ${map.name}`}
-							disabled={viewerLoading}
-							onclick={() => openViewer(map)}
-						>
-							{#if thumbUrls[map.map_id]}
-								<img src={thumbUrls[map.map_id]} alt="" loading="lazy" />
-							{:else}
-								<span class="asset-thumb-placeholder">Loading…</span>
-							{/if}
-						</button>
+						<CampaignMapThumb mapId={map.map_id} label={map.name} class="asset-thumb" />
 						<div class="asset-meta">
 							<h2>{map.name}</h2>
 							{#if campaign}
@@ -121,13 +55,6 @@
 		{/if}
 	{/if}
 </section>
-
-<StoryMapViewer
-	bind:open={viewerOpen}
-	title={viewerTitle}
-	imageUrl={viewerUrl}
-	loading={viewerLoading}
-/>
 
 <style>
 	.library-header h1 {
@@ -153,37 +80,18 @@
 		background: var(--color-surface);
 	}
 
-	.asset-thumb {
-		display: block;
-		width: 100%;
-		padding: 0;
-		border: none;
+	:global(.asset-card .asset-thumb) {
+		max-width: none;
+	}
+
+	:global(.asset-card .asset-thumb .map-thumb-button) {
 		aspect-ratio: 4 / 3;
-		overflow: hidden;
-		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--color-border) 40%, var(--color-surface));
-		cursor: zoom-in;
 	}
 
-	.asset-thumb:disabled {
-		cursor: wait;
-		opacity: 0.7;
-	}
-
-	.asset-thumb img {
-		display: block;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		pointer-events: none;
-	}
-
-	.asset-thumb-placeholder {
-		display: grid;
-		place-items: center;
-		height: 100%;
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
+	:global(.asset-card .asset-thumb .map-thumb) {
+		height: auto;
+		min-height: 0;
+		aspect-ratio: 4 / 3;
 	}
 
 	.asset-meta h2 {

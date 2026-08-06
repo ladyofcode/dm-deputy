@@ -1,14 +1,7 @@
 import type { Armor, Condition, Item, Skill, Species, Spell, Weapon } from '$lib/types/schema';
+import type { CatalogSnapshot } from '$lib/db/types';
 
-export type CatalogSnapshot = {
-	spells: Spell[];
-	weapons: Weapon[];
-	armor: Armor[];
-	items: Item[];
-	conditions: Condition[];
-	skills: Skill[];
-	species: Species[];
-};
+export type { CatalogSnapshot };
 
 let catalogSnapshot: CatalogSnapshot | null = null;
 

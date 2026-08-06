@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 	import { nodeSummaryId } from '$lib/domain/story-node-summary';
 	import type { StoryNode } from '$lib/types/schema';
-	import type { StoryNodeCanvasContext } from '$lib/components/part/StoryNode.svelte';
 
 	type Props = {
 		node: StoryNode;
@@ -11,7 +10,7 @@
 
 	let { node, dimmed = false }: Props = $props();
 
-	const canvas = getContext<StoryNodeCanvasContext>('story-node-canvas');
+	const canvas = getStoryNodeCanvasContext();
 	let element = $state<HTMLDivElement | undefined>();
 	let summaryTextEl = $state<HTMLParagraphElement | undefined>();
 	let expanded = $state(false);
@@ -35,8 +34,8 @@
 	}
 
 	$effect(() => {
-		summaryText;
-		expanded;
+		void summaryText;
+		void expanded;
 		queueMicrotask(measureOverflow);
 	});
 

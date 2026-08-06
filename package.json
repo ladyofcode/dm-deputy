@@ -3,14 +3,16 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"packageManager": "pnpm@11.16.0",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"postbuild": "node scripts/patch-adapter-node-headers.mjs",
+		"start": "node --experimental-strip-types server.js",
 		"preview": "vite preview",
 		"build:db": "node --experimental-strip-types scripts/build-app-db.ts",
-		"predev": "pnpm run build:db",
-		"prebuild": "pnpm run build:db",
+		"copy:tesseract": "node scripts/copy-tesseract-assets.mjs",
+		"predev": "pnpm run build:db && pnpm run copy:tesseract",
+		"prebuild": "pnpm run build:db && pnpm run copy:tesseract",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -20,12 +22,14 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
-		"@sveltejs/adapter-auto": "^7.0.1",
+		"@panzoom/panzoom": "^4.6.2",
 		"@sveltejs/adapter-node": "5.5.0",
 		"@sveltejs/kit": "^2.57.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@types/node": "^24",
 		"@vite-pwa/sveltekit": "^1.1.0",
+		"animejs": "^4.4.1",
+		"bits-ui": "^2.18.1",
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",
@@ -34,6 +38,7 @@
 		"prettier-plugin-svelte": "^3.5.1",
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
+		"tesseract.js": "^7.0.0",
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.58.1",
 		"vite": "^8.0.7",
@@ -41,10 +46,6 @@
 		"workbox-window": "^7.4.1"
 	},
 	"dependencies": {
-		"@panzoom/panzoom": "^4.6.2",
-		"@sqlite.org/sqlite-wasm": "3.53.0-build1",
-		"animejs": "^4.4.1",
-		"bits-ui": "^2.18.1",
-		"tesseract.js": "^7.0.0"
+		"@sqlite.org/sqlite-wasm": "3.53.0-build1"
 	}
 }

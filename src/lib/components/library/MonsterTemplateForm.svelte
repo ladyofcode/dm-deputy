@@ -143,6 +143,7 @@
 
 	<div class="abilities-row" aria-label="Ability scores">
 		{#each ABILITY_KEYS as key (key)}
+			{@const modifier = abilityModifier(draft.abilities[key])}
 			<label class="ability-stat">
 				<span>{key.toUpperCase()}</span>
 				<input
@@ -152,7 +153,7 @@
 					value={draft.abilities[key]}
 					oninput={(event) => updateAbility(key, Number(event.currentTarget.value) || 10)}
 				/>
-				<em>{abilityModifier(draft.abilities[key]) >= 0 ? '+' : ''}{abilityModifier(draft.abilities[key])}</em>
+				<em>{modifier >= 0 ? '+' : ''}{modifier}</em>
 			</label>
 		{/each}
 	</div>

@@ -1,7 +1,6 @@
 import type { AbilityScores, NpcCharacterKind } from '$lib/types/schema';
 import type { CharacterIdentityDraft, NpcExtrasDraft } from '$lib/domain/npc-draft';
 import {
-	createDefaultCharacterAbilities,
 	createDefaultCharacterCombat,
 	createDefaultCharacterIdentity,
 	createDefaultNpcExtras

@@ -3,8 +3,7 @@
 	import { Button, Dialog, Label } from 'bits-ui';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { preferences } from '$lib/stores/preferences.svelte';
-	import { fromStore } from 'svelte/store';
-	import { database, dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { persistUserTheme } from '$lib/data/writes';
 	import { accountThemeOptions } from '$lib/themes/themes';
 	import { getUserTheme } from '$lib/themes/resolve';
@@ -20,10 +19,9 @@
 	let showWipeConfirm = $state(false);
 	let isSavingTheme = $state(false);
 
-	const dbReady = fromStore(dbIsReady);
 
 	const selectedTheme = $derived(
-		dbReady.current
+		database.isReady
 			? getUserTheme(workspace.currentUserId, preferences.userThemes)
 			: resolveStoredActiveTheme(workspace.currentUserId)
 	);

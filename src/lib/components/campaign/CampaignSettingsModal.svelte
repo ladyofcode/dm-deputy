@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button, Dialog, Label } from 'bits-ui';
+	import ConfirmDeleteDialog from '$lib/components/shared/ConfirmDeleteDialog.svelte';
 	import { deleteCampaign, persistCampaignDetails } from '$lib/data/writes';
 
 	type Props = {
@@ -19,10 +20,18 @@
 	let deleting = $state(false);
 	let showDeleteConfirm = $state(false);
 	let error = $state<string | null>(null);
+	let formKey = $state('');
 
 	$effect(() => {
-		if (!open) return;
+		if (!open) {
+			formKey = '';
+			return;
+		}
 
+		const nextKey = campaignId;
+		if (formKey === nextKey) return;
+
+		formKey = nextKey;
 		name = campaignName;
 		details = description;
 		error = null;
@@ -141,35 +150,18 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<Dialog.Root bind:open={showDeleteConfirm}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="dialog-stacked-overlay" />
-		<Dialog.Content class="dialog-stacked">
-			<Dialog.Title>Delete campaign?</Dialog.Title>
-			<Dialog.Description>
-				<p>
-					This permanently deletes <strong>{campaignName}</strong> and removes it from your campaign
-					list.
-				</p>
-				<p class="delete-warning">This cannot be undone.</p>
-			</Dialog.Description>
-
-			<div class="dialog-footer">
-				<Button.Root type="button" disabled={deleting} onclick={() => (showDeleteConfirm = false)}>
-					Cancel
-				</Button.Root>
-				<Button.Root
-					type="button"
-					class="delete-button"
-					disabled={deleting}
-					onclick={confirmDeleteCampaign}
-				>
-					{deleting ? 'Deleting…' : 'Yes, delete campaign'}
-				</Button.Root>
-			</div>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+<ConfirmDeleteDialog
+	bind:open={showDeleteConfirm}
+	title="Delete campaign?"
+	confirmLabel="Yes, delete campaign"
+	{deleting}
+	onConfirm={confirmDeleteCampaign}
+>
+	{#snippet description()}
+		This permanently deletes <strong>{campaignName}</strong> and removes it from your campaign
+		list.
+	{/snippet}
+</ConfirmDeleteDialog>
 
 <style>
 	.settings-form {
@@ -192,14 +184,8 @@
 		font-weight: 600;
 	}
 
-	.hint.error,
-	.delete-warning {
+	.hint.error {
 		color: var(--color-danger, #b42318);
-	}
-
-	.delete-warning {
-		margin: 0;
-		font-weight: 600;
 	}
 
 	:global([data-button-root].delete-button) {

@@ -1,4 +1,5 @@
 import { getCachedArmor, isCatalogCacheReady } from '$lib/db/catalog-cache';
+import { createCatalogIdIndex } from '$lib/games/dnd5e/data/catalog-index';
 import type { Armor, ArmorCategory } from '$lib/types/schema';
 
 function assertCatalogReady(): void {
@@ -12,8 +13,10 @@ export function getArmorCatalog(): Armor[] {
 	return getCachedArmor();
 }
 
+const armorById = createCatalogIdIndex(getArmorCatalog, (entry) => entry.armor_id);
+
 export function getArmorById(armorId: string): Armor | undefined {
-	return getArmorCatalog().find((entry) => entry.armor_id === armorId);
+	return armorById().get(armorId);
 }
 
 export function getArmorByCategory(category: ArmorCategory): Armor[] {

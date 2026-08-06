@@ -1,10 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
-
-const crossOriginIsolationHeaders: Record<string, string> = {
-	'Cross-Origin-Opener-Policy': 'same-origin',
-	'Cross-Origin-Embedder-Policy': 'require-corp',
-	'Cross-Origin-Resource-Policy': 'same-origin'
-};
+import { crossOriginIsolationHeaders } from '../cross-origin-isolation-headers.ts';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);

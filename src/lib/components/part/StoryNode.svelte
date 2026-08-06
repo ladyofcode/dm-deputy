@@ -1,18 +1,9 @@
 <script lang="ts" module>
-	export const STORY_NODE_SIZE = 168;
-
-	export type StoryNodeCanvasContext = {
-		registerElement: (nodeId: string, element: HTMLDivElement) => void;
-		unregisterElement: (nodeId: string) => void;
-		registerItem: (itemId: string, element: HTMLDivElement) => void;
-		unregisterItem: (itemId: string) => void;
-		updateStoryItem: (item: import('$lib/types/schema').StoryItem) => void;
-		requestConnectorSync: () => void;
-	};
+	export type { StoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 </script>
 
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 	import { STORY_NODE_KIND_LABELS, type StoryNode } from '$lib/types/schema';
 
 	type Props = {
@@ -31,10 +22,7 @@
 		onToggleComplete
 	}: Props = $props();
 
-	const canvas = getContext<{
-		registerElement: (nodeId: string, element: HTMLDivElement) => void;
-		unregisterElement: (nodeId: string) => void;
-	}>('story-node-canvas');
+	const canvas = getStoryNodeCanvasContext();
 	let element = $state<HTMLDivElement | undefined>();
 	let pointerStart = $state<{ x: number; y: number } | null>(null);
 
@@ -69,6 +57,14 @@
 		}
 	}
 
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		if (!onActivate) return;
+
+		event.preventDefault();
+		onActivate(node.node_id);
+	}
+
 	$effect(() => {
 		if (!element) return;
 
@@ -90,6 +86,7 @@
 	aria-label={`${STORY_NODE_KIND_LABELS[node.kind]}: ${node.title}${isCompleted ? ' (completed)' : ''}`}
 	onpointerdown={handlePointerDown}
 	onpointerup={handlePointerUp}
+	onkeydown={handleKeydown}
 >
 	<span>{STORY_NODE_KIND_LABELS[node.kind]}</span>
 	<strong>{node.title}</strong>

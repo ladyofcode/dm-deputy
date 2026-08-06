@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { Button, Dialog, Label } from 'bits-ui';
+	import { Button, Dialog } from 'bits-ui';
+	import StoryNodeFields from '$lib/components/shared/StoryNodeFields.svelte';
 	import { normalizeStoryNode } from '$lib/data/part-story';
 	import { wouldCreateParentCycle } from '$lib/domain/story-node-tree';
-	import {
-		STORY_NODE_KIND_LABELS,
-		type StoryNode,
-		type StoryNodeKind
-	} from '$lib/types/schema';
+	import { type StoryNode, type StoryNodeKind } from '$lib/types/schema';
 
 	type Props = {
 		open?: boolean;
@@ -19,7 +16,7 @@
 	let title = $state('');
 	let kind = $state<StoryNodeKind>('exploration');
 	let summary = $state('');
-	let previousNodeId = $state('');
+	let parentNodeIds = $state<string[]>([]);
 	let difficulty = $state('');
 	let error = $state<string | null>(null);
 
@@ -27,7 +24,8 @@
 		title = '';
 		kind = 'exploration';
 		summary = '';
-		previousNodeId = nodes.length > 0 ? (nodes[nodes.length - 1]?.node_id ?? '') : '';
+		const lastNodeId = nodes.length > 0 ? (nodes[nodes.length - 1]?.node_id ?? '') : '';
+		parentNodeIds = lastNodeId ? [lastNodeId] : [];
 		difficulty = '';
 		error = null;
 	}
@@ -42,10 +40,10 @@
 		}
 
 		const nodeId = `node-${crypto.randomUUID()}`;
-		const parentNodeIds = previousNodeId ? [previousNodeId] : [];
+		const nextParentIds = [...new Set(parentNodeIds)];
 
-		if (wouldCreateParentCycle(nodes, nodeId, parentNodeIds)) {
-			error = 'That sequence would create a loop.';
+		if (wouldCreateParentCycle(nodes, nodeId, nextParentIds)) {
+			error = 'Those links would create a loop.';
 			return;
 		}
 
@@ -54,7 +52,7 @@
 			kind,
 			title: trimmedTitle,
 			summary: summary.trim(),
-			parent_node_ids: parentNodeIds,
+			parent_node_ids: nextParentIds,
 			difficulty: kind === 'encounter' ? difficulty.trim() || null : null
 		});
 
@@ -77,48 +75,15 @@
 			<Dialog.Description>Add a new node to this part&apos;s story canvas.</Dialog.Description>
 
 			<form onsubmit={handleCreate}>
-				<div class="field">
-					<Label.Root for="story_node_title">Name</Label.Root>
-					<input id="story_node_title" bind:value={title} required placeholder="Node title" />
-				</div>
-
-				<div class="field">
-					<Label.Root for="story_node_summary">Summary</Label.Root>
-					<textarea
-						id="story_node_summary"
-						bind:value={summary}
-						rows="4"
-						placeholder="What happens here?"
-					></textarea>
-				</div>
-
-				<div class="field">
-					<Label.Root for="story_node_kind">Type</Label.Root>
-					<select id="story_node_kind" bind:value={kind}>
-						<option value="exploration">{STORY_NODE_KIND_LABELS.exploration}</option>
-						<option value="encounter">{STORY_NODE_KIND_LABELS.encounter}</option>
-					</select>
-				</div>
-
-				<div class="field">
-					<Label.Root for="story_node_previous">Comes after</Label.Root>
-					<p class="hint">Choose the previous node in the sequence.</p>
-					<select id="story_node_previous" bind:value={previousNodeId}>
-						<option value="">Start of sequence (first node)</option>
-						{#each nodes as parent (parent.node_id)}
-							<option value={parent.node_id}>
-								{STORY_NODE_KIND_LABELS[parent.kind]} · {parent.title}
-							</option>
-						{/each}
-					</select>
-				</div>
-
-				{#if kind === 'encounter'}
-					<div class="field">
-						<Label.Root for="story_node_difficulty">Difficulty</Label.Root>
-						<input id="story_node_difficulty" bind:value={difficulty} placeholder="e.g. medium" />
-					</div>
-				{/if}
+				<StoryNodeFields
+					idPrefix="story_node"
+					bind:title
+					bind:kind
+					bind:summary
+					bind:parentNodeIds
+					bind:difficulty
+					parentOptions={nodes}
+				/>
 
 				{#if error}
 					<p class="hint">{error}</p>

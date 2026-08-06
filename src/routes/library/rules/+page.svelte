@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
-	import { fromStore } from 'svelte/store';
 	import CatalogEntryDialog from '$lib/components/catalog/CatalogEntryDialog.svelte';
+	import CatalogTable from '$lib/components/catalog/CatalogTable.svelte';
 	import SpeciesEntryDialog from '$lib/components/catalog/SpeciesEntryDialog.svelte';
 	import {
 		loadCatalogIfNeeded,
@@ -31,10 +31,8 @@
 		getReactiveCatalogSpells,
 		getReactiveCatalogWeapons
 	} from '$lib/stores/catalog.svelte';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import type { Armor, Condition, Item, Species, Spell, Weapon } from '$lib/types/schema';
-
-	const dbReady = fromStore(dbIsReady);
 
 	let activeTab = $state<CatalogKind>('spells');
 	let catalogLoading = $state(false);
@@ -45,17 +43,52 @@
 	let editingSpecies = $state<Species | null>(null);
 	let deletingId = $state<string | null>(null);
 
-	const spells = $derived(dbReady.current ? getReactiveCatalogSpells() : []);
-	const weapons = $derived(dbReady.current ? getReactiveCatalogWeapons() : []);
-	const armor = $derived(dbReady.current ? getReactiveCatalogArmor() : []);
-	const items = $derived(dbReady.current ? getReactiveCatalogItems() : []);
-	const conditions = $derived(dbReady.current ? getReactiveCatalogConditions() : []);
-	const species = $derived(dbReady.current ? getReactiveCatalogSpecies() : []);
+	const spells = $derived(database.isReady ? getReactiveCatalogSpells() : []);
+	const weapons = $derived(database.isReady ? getReactiveCatalogWeapons() : []);
+	const armor = $derived(database.isReady ? getReactiveCatalogArmor() : []);
+	const items = $derived(database.isReady ? getReactiveCatalogItems() : []);
+	const conditions = $derived(database.isReady ? getReactiveCatalogConditions() : []);
+	const species = $derived(database.isReady ? getReactiveCatalogSpecies() : []);
 
-	const catalogReady = $derived(dbReady.current && isCatalogCacheReady());
+	const catalogReady = $derived(database.isReady && isCatalogCacheReady());
+	const catalogTabOrder = Object.keys(CATALOG_KIND_LABELS) as CatalogKind[];
+
+	function rulesTabId(kind: CatalogKind): string {
+		return `rules-tab-${kind}`;
+	}
+
+	function rulesPanelId(kind: CatalogKind): string {
+		return `rules-panel-${kind}`;
+	}
+
+	function handleTabKeydown(event: KeyboardEvent, kind: CatalogKind) {
+		const index = catalogTabOrder.indexOf(kind);
+		if (index === -1) return;
+
+		let nextIndex: number | null = null;
+
+		if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+			nextIndex = (index + 1) % catalogTabOrder.length;
+		} else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+			nextIndex = (index - 1 + catalogTabOrder.length) % catalogTabOrder.length;
+		} else if (event.key === 'Home') {
+			nextIndex = 0;
+		} else if (event.key === 'End') {
+			nextIndex = catalogTabOrder.length - 1;
+		}
+
+		if (nextIndex == null) return;
+
+		event.preventDefault();
+		const nextKind = catalogTabOrder[nextIndex];
+		if (!nextKind) return;
+
+		activeTab = nextKind;
+		document.getElementById(rulesTabId(nextKind))?.focus();
+	}
 
 	$effect(() => {
-		if (!dbReady.current) return;
+		if (!database.isReady) return;
 
 		catalogLoading = true;
 		catalogError = null;
@@ -137,18 +170,25 @@
 	<header class="library-header">
 		<h1>Rules library</h1>
 		<p class="hint">Add and edit spells, weapons, armor, items, conditions, and species in your local D&D 5e catalog.</p>
+		{#if database.catalogError}
+			<p class="hint error" role="alert">Catalog failed to load: {database.catalogError}</p>
+		{/if}
 	</header>
 
-	{#if dbReady.current}
+	{#if database.isReady}
 		<div class="rules-toolbar">
 			<div class="rules-tabs" role="tablist" aria-label="Catalog categories">
 				{#each Object.entries(CATALOG_KIND_LABELS) as [kind, label] (kind)}
 					<button
 						type="button"
 						role="tab"
+						id={rulesTabId(kind as CatalogKind)}
 						class="rules-tab"
 						aria-selected={activeTab === kind}
+						aria-controls={rulesPanelId(kind as CatalogKind)}
+						tabindex={activeTab === kind ? 0 : -1}
 						onclick={() => (activeTab = kind as CatalogKind)}
+						onkeydown={(event) => handleTabKeydown(event, kind as CatalogKind)}
 					>
 						{label}
 					</button>
@@ -164,270 +204,141 @@
 			<p class="hint">Loading rules library…</p>
 		{:else if catalogError}
 			<p class="hint error" role="alert">{catalogError}</p>
-		{:else if activeTab === 'spells'}
-			{#if spells.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Level</th>
-								<th scope="col">School</th>
-								<th scope="col">Casting time</th>
-								<th scope="col" class="actions-col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each spells as spell (spell.spell_id)}
-								<tr>
-									<td class="name-cell">{spell.spell_name}</td>
-									<td>{spell.spell_level}</td>
-									<td>{SPELL_SCHOOL_LABELS[spell.spell_school]}</td>
-									<td>{spell.casting_time}</td>
-									<td class="actions-col">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											onclick={() => openEditDialog(spell)}
-										>
-											Edit
-										</Button.Root>
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={deletingId === spell.spell_id}
-											onclick={() => handleDelete(spell.spell_id)}
-										>
-											Delete
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No spells yet. Add your first homebrew spell.</p>
-			{/if}
-		{:else if activeTab === 'weapons'}
-			{#if weapons.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Damage</th>
-								<th scope="col">Type</th>
-								<th scope="col">Cost</th>
-								<th scope="col" class="actions-col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each weapons as weapon (weapon.weapon_id)}
-								<tr>
-									<td class="name-cell">{weapon.weapon_name}</td>
-									<td>{weapon.damage_dice}</td>
-									<td>{weapon.damage_type}</td>
-									<td>{formatWeaponCost(weapon)}</td>
-									<td class="actions-col">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											onclick={() => openEditDialog(weapon)}
-										>
-											Edit
-										</Button.Root>
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={deletingId === weapon.weapon_id}
-											onclick={() => handleDelete(weapon.weapon_id)}
-										>
-											Delete
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No weapons yet.</p>
-			{/if}
-		{:else if activeTab === 'armor'}
-			{#if armor.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Category</th>
-								<th scope="col">AC</th>
-								<th scope="col">Cost</th>
-								<th scope="col" class="actions-col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each armor as entry (entry.armor_id)}
-								<tr>
-									<td class="name-cell">{entry.armor_name}</td>
-									<td>{ARMOR_CATEGORY_LABELS[entry.armor_category]}</td>
-									<td>{entry.armor_class}</td>
-									<td>{entry.cost} gp</td>
-									<td class="actions-col">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											onclick={() => openEditDialog(entry)}
-										>
-											Edit
-										</Button.Root>
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={deletingId === entry.armor_id}
-											onclick={() => handleDelete(entry.armor_id)}
-										>
-											Delete
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No armor yet.</p>
-			{/if}
-		{:else if activeTab === 'items'}
-			{#if items.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Category</th>
-								<th scope="col">Cost</th>
-								<th scope="col" class="actions-col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each items as entry (entry.item_id)}
-								<tr>
-									<td class="name-cell">{entry.item_name}</td>
-									<td>{entry.item_subcategory ?? entry.item_category}</td>
-									<td>{formatItemCost(entry)}</td>
-									<td class="actions-col">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											onclick={() => openEditDialog(entry)}
-										>
-											Edit
-										</Button.Root>
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={deletingId === entry.item_id}
-											onclick={() => handleDelete(entry.item_id)}
-										>
-											Delete
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No items yet.</p>
-			{/if}
-		{:else if activeTab === 'conditions'}
-			{#if conditions.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Effects</th>
-								<th scope="col" class="actions-col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each conditions as entry (entry.condition_id)}
-								<tr>
-									<td class="name-cell">{entry.condition_name}</td>
-									<td class="description-cell">{previewDescription(entry.description)}</td>
-									<td class="actions-col">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											onclick={() => openEditDialog(entry)}
-										>
-											Edit
-										</Button.Root>
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={deletingId === entry.condition_id}
-											onclick={() => handleDelete(entry.condition_id)}
-										>
-											Delete
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No conditions yet.</p>
-			{/if}
-		{:else if activeTab === 'species'}
-			{#if species.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Size</th>
-								<th scope="col">Speed</th>
-								<th scope="col">Traits</th>
-								<th scope="col" class="actions-col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each species as entry (entry.species_id)}
-								<tr>
-									<td class="name-cell">{entry.species_name}</td>
-									<td>{entry.size}</td>
-									<td>{entry.speed}</td>
-									<td class="description-cell">{formatSpeciesTraitNames(entry)}</td>
-									<td class="actions-col">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											onclick={() => openSpeciesDialog(entry)}
-										>
-											Edit
-										</Button.Root>
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={deletingId === entry.species_id}
-											onclick={() => handleDelete(entry.species_id)}
-										>
-											Delete
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No species yet.</p>
-			{/if}
+		{:else}
+			<div
+				id={rulesPanelId(activeTab)}
+				role="tabpanel"
+				aria-labelledby={rulesTabId(activeTab)}
+				tabindex="0"
+			>
+				{#if activeTab === 'spells'}
+					<CatalogTable
+						items={spells}
+						getId={(spell) => spell.spell_id}
+						emptyMessage="No spells yet. Add your first homebrew spell."
+						onEdit={openEditDialog}
+						onDelete={handleDelete}
+						{deletingId}
+					>
+						{#snippet header()}
+							<th scope="col">Name</th>
+							<th scope="col">Level</th>
+							<th scope="col">School</th>
+							<th scope="col">Casting time</th>
+						{/snippet}
+						{#snippet row(spell)}
+							<td class="name-cell">{spell.spell_name}</td>
+							<td>{spell.spell_level}</td>
+							<td>{SPELL_SCHOOL_LABELS[spell.spell_school]}</td>
+							<td>{spell.casting_time}</td>
+						{/snippet}
+					</CatalogTable>
+				{:else if activeTab === 'weapons'}
+					<CatalogTable
+						items={weapons}
+						getId={(weapon) => weapon.weapon_id}
+						emptyMessage="No weapons yet."
+						onEdit={openEditDialog}
+						onDelete={handleDelete}
+						{deletingId}
+					>
+						{#snippet header()}
+							<th scope="col">Name</th>
+							<th scope="col">Damage</th>
+							<th scope="col">Type</th>
+							<th scope="col">Cost</th>
+						{/snippet}
+						{#snippet row(weapon)}
+							<td class="name-cell">{weapon.weapon_name}</td>
+							<td>{weapon.damage_dice}</td>
+							<td>{weapon.damage_type}</td>
+							<td>{formatWeaponCost(weapon)}</td>
+						{/snippet}
+					</CatalogTable>
+				{:else if activeTab === 'armor'}
+					<CatalogTable
+						items={armor}
+						getId={(entry) => entry.armor_id}
+						emptyMessage="No armor yet."
+						onEdit={openEditDialog}
+						onDelete={handleDelete}
+						{deletingId}
+					>
+						{#snippet header()}
+							<th scope="col">Name</th>
+							<th scope="col">Category</th>
+							<th scope="col">AC</th>
+							<th scope="col">Cost</th>
+						{/snippet}
+						{#snippet row(entry)}
+							<td class="name-cell">{entry.armor_name}</td>
+							<td>{ARMOR_CATEGORY_LABELS[entry.armor_category]}</td>
+							<td>{entry.armor_class}</td>
+							<td>{entry.cost} gp</td>
+						{/snippet}
+					</CatalogTable>
+				{:else if activeTab === 'items'}
+					<CatalogTable
+						items={items}
+						getId={(entry) => entry.item_id}
+						emptyMessage="No items yet."
+						onEdit={openEditDialog}
+						onDelete={handleDelete}
+						{deletingId}
+					>
+						{#snippet header()}
+							<th scope="col">Name</th>
+							<th scope="col">Category</th>
+							<th scope="col">Cost</th>
+						{/snippet}
+						{#snippet row(entry)}
+							<td class="name-cell">{entry.item_name}</td>
+							<td>{entry.item_subcategory ?? entry.item_category}</td>
+							<td>{formatItemCost(entry)}</td>
+						{/snippet}
+					</CatalogTable>
+				{:else if activeTab === 'conditions'}
+					<CatalogTable
+						items={conditions}
+						getId={(entry) => entry.condition_id}
+						emptyMessage="No conditions yet."
+						onEdit={openEditDialog}
+						onDelete={handleDelete}
+						{deletingId}
+					>
+						{#snippet header()}
+							<th scope="col">Name</th>
+							<th scope="col">Effects</th>
+						{/snippet}
+						{#snippet row(entry)}
+							<td class="name-cell">{entry.condition_name}</td>
+							<td class="description-cell">{previewDescription(entry.description)}</td>
+						{/snippet}
+					</CatalogTable>
+				{:else if activeTab === 'species'}
+					<CatalogTable
+						items={species}
+						getId={(entry) => entry.species_id}
+						emptyMessage="No species yet."
+						onEdit={openSpeciesDialog}
+						onDelete={handleDelete}
+						{deletingId}
+					>
+						{#snippet header()}
+							<th scope="col">Name</th>
+							<th scope="col">Size</th>
+							<th scope="col">Speed</th>
+							<th scope="col">Traits</th>
+						{/snippet}
+						{#snippet row(entry)}
+							<td class="name-cell">{entry.species_name}</td>
+							<td>{entry.size}</td>
+							<td>{entry.speed}</td>
+							<td class="description-cell">{formatSpeciesTraitNames(entry)}</td>
+						{/snippet}
+					</CatalogTable>
+				{/if}
+			</div>
 		{/if}
 	{/if}
 </section>
@@ -472,54 +383,6 @@
 	.rules-tab[aria-selected='true'] {
 		border-color: var(--color-accent);
 		color: var(--color-accent);
-	}
-
-	.table-wrap {
-		overflow-x: auto;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.data-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.95rem;
-	}
-
-	.data-table th,
-	.data-table td {
-		padding: 0.65rem 0.75rem;
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-		vertical-align: top;
-	}
-
-	.data-table th {
-		font-family: var(--font-heading);
-		font-weight: 600;
-		background: color-mix(in srgb, var(--color-border) 35%, var(--color-surface));
-	}
-
-	.data-table tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.name-cell {
-		font-weight: 600;
-	}
-
-	.description-cell {
-		max-width: 36rem;
-		color: var(--color-text-muted, inherit);
-	}
-
-	.actions-col {
-		white-space: nowrap;
-	}
-
-	.actions-col :global([data-button-root]) {
-		margin-right: 0.25rem;
 	}
 
 	.hint.error {

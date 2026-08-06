@@ -8,41 +8,42 @@ import {
 	isCatalogCacheReady
 } from '$lib/db/catalog-cache';
 import type { Armor, Condition, Item, Species, Spell, Weapon } from '$lib/types/schema';
+import { createRevisionSignal } from '$lib/stores/revision.svelte';
 
 class CatalogState {
-	revision = $state(0);
+	#revision = createRevisionSignal();
 
 	bump(): void {
-		this.revision += 1;
+		this.#revision.bump();
 	}
 
 	spells(): Spell[] {
-		void this.revision;
+		void this.#revision.track();
 		return isCatalogCacheReady() ? getCachedSpells() : [];
 	}
 
 	weapons(): Weapon[] {
-		void this.revision;
+		void this.#revision.track();
 		return isCatalogCacheReady() ? getCachedWeapons() : [];
 	}
 
 	armor(): Armor[] {
-		void this.revision;
+		void this.#revision.track();
 		return isCatalogCacheReady() ? getCachedArmor() : [];
 	}
 
 	items(): Item[] {
-		void this.revision;
+		void this.#revision.track();
 		return isCatalogCacheReady() ? getCachedItems() : [];
 	}
 
 	conditions(): Condition[] {
-		void this.revision;
+		void this.#revision.track();
 		return isCatalogCacheReady() ? getCachedConditions() : [];
 	}
 
 	species(): Species[] {
-		void this.revision;
+		void this.#revision.track();
 		return isCatalogCacheReady() ? getCachedSpecies() : [];
 	}
 }

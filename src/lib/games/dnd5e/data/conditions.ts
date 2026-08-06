@@ -1,4 +1,8 @@
 import { getCachedConditions, isCatalogCacheReady } from '$lib/db/catalog-cache';
+import {
+	createCatalogIdIndex,
+	createCatalogNameIndex
+} from '$lib/games/dnd5e/data/catalog-index';
 import type { Condition } from '$lib/types/schema';
 
 function assertCatalogReady(): void {
@@ -97,12 +101,16 @@ export function getConditionsCatalog(): Condition[] {
 	return getCachedConditions();
 }
 
+const conditionsById = createCatalogIdIndex(getConditionsCatalog, (entry) => entry.condition_id);
+const conditionsByName = createCatalogNameIndex(
+	getConditionsCatalog,
+	(entry) => entry.condition_name
+);
+
 export function getConditionById(conditionId: string): Condition | undefined {
-	return getConditionsCatalog().find((entry) => entry.condition_id === conditionId);
+	return conditionsById().get(conditionId);
 }
 
 export function getConditionByName(conditionName: string): Condition | undefined {
-	return getConditionsCatalog().find(
-		(entry) => entry.condition_name.toLowerCase() === conditionName.toLowerCase()
-	);
+	return conditionsByName().get(conditionName.toLowerCase());
 }

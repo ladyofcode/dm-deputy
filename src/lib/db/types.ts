@@ -1,5 +1,5 @@
 import type { StoryNode } from '$lib/types/schema';
-import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story';
+import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout';
 import type { StoryItem } from '$lib/types/schema';
 
 export type DbExec = {
@@ -301,6 +301,30 @@ export type AddCampaignPcToCampaignResult = {
 	member: import('$lib/types/schema').CampaignMember;
 };
 
+export type SavePartStoryInput = {
+	partId: string;
+	nodes?: StoryNode[] | null;
+	items?: StoryItem[] | null;
+	nodeLayout?: PartNodeLayout | null;
+	itemLayout?: PartItemLayout | null;
+};
+
+export type EncounterXpAwardWrite = {
+	event: import('$lib/types/schema').CharacterStatEvent;
+	cache: UpdateCharacterStatCacheInput;
+};
+
+export type PersistEncounterXpBatchInput = {
+	resolution: import('$lib/types/schema').EncounterResolution;
+	awards: EncounterXpAwardWrite[];
+};
+
+export type PersistEncounterXpBatchResult = {
+	resolution: import('$lib/types/schema').EncounterResolution;
+	events: import('$lib/types/schema').CharacterStatEvent[];
+	characters: import('$lib/types/schema').Character[];
+};
+
 export type UpdateCampaignDetailsInput = {
 	campaign_id: string;
 	campaign_name: string;
@@ -326,6 +350,7 @@ export type WorkerRequest =
 	| { id: number; method: 'savePartNodeLayout'; args: [string, PartNodeLayout] }
 	| { id: number; method: 'savePartItemLayout'; args: [string, PartItemLayout] }
 	| { id: number; method: 'savePartStoryItems'; args: [string, StoryItem[]] }
+	| { id: number; method: 'savePartStory'; args: [SavePartStoryInput] }
 	| { id: number; method: 'createCampaign'; args: [CreateCampaignInput] }
 	| { id: number; method: 'createAdventure'; args: [CreateAdventureInput] }
 	| { id: number; method: 'syncAdventureParts'; args: [string, import('$lib/types/schema').Part[]] }
@@ -362,7 +387,30 @@ export type WorkerRequest =
 	| { id: number; method: 'updateCampaignCharacter'; args: [UpdateCampaignCharacterInput] }
 	| { id: number; method: 'loadCharacterStatEvents'; args: [string, import('$lib/types/schema').StatKind | null] }
 	| { id: number; method: 'insertCharacterStatEvent'; args: [import('$lib/types/schema').CharacterStatEvent] }
+	| {
+			id: number;
+			method: 'insertCharacterStatEventAndUpdateCache';
+			args: [
+				import('$lib/types/schema').CharacterStatEvent,
+				UpdateCharacterStatCacheInput
+			];
+	  }
+	| {
+			id: number;
+			method: 'insertCharacterStatEvents';
+			args: [import('$lib/types/schema').CharacterStatEvent[]];
+	  }
 	| { id: number; method: 'insertEncounterResolution'; args: [import('$lib/types/schema').EncounterResolution] }
+	| {
+			id: number;
+			method: 'persistEncounterXpBatch';
+			args: [PersistEncounterXpBatchInput];
+	  }
+	| {
+			id: number;
+			method: 'persistStatChangesBatch';
+			args: [EncounterXpAwardWrite[]];
+	  }
 	| { id: number; method: 'getEncounterResolutionByEventId'; args: [string] }
 	| { id: number; method: 'getEncounterResolutionEventIds'; args: [string[]] }
 	| { id: number; method: 'loadEncounterXpAwardsByEventIds'; args: [string[]] }

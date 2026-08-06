@@ -1,4 +1,5 @@
 import { getCachedItems, isCatalogCacheReady } from '$lib/db/catalog-cache';
+import { createCatalogIdIndex } from '$lib/games/dnd5e/data/catalog-index';
 import type { Item, ItemCategory } from '$lib/types/schema';
 
 function assertCatalogReady(): void {
@@ -12,8 +13,10 @@ export function getItemsCatalog(): Item[] {
 	return getCachedItems();
 }
 
+const itemsById = createCatalogIdIndex(getItemsCatalog, (entry) => entry.item_id);
+
 export function getItemById(itemId: string): Item | undefined {
-	return getItemsCatalog().find((entry) => entry.item_id === itemId);
+	return itemsById().get(itemId);
 }
 
 export function getItemsByCategory(category: ItemCategory): Item[] {

@@ -8,6 +8,7 @@ import type {
 	SpellSlotsByLevel
 } from '$lib/types/schema';
 import { SPELL_SLOT_LEVELS } from '$lib/types/schema';
+import { safeJsonParseObject } from '$lib/json/safe-parse';
 
 export type CharacterSpellcastingDraft = {
 	enabled: boolean;
@@ -18,7 +19,6 @@ export type CharacterSpellcastingDraft = {
 };
 
 export type CharacterSpellDraft = CharacterSpellEntry & {
-	/** UI-only level hint while the spell picker is still empty. */
 	draft_level?: number;
 };
 
@@ -48,21 +48,17 @@ export function createEmptyCharacterSpellDraft(): CharacterSpellDraft {
 export function parseSpellSlotsJson(value: string | null | undefined): SpellSlotsByLevel {
 	if (!value?.trim()) return {};
 
-	try {
-		const parsed = JSON.parse(value) as Record<string, number>;
-		const slots: SpellSlotsByLevel = {};
+	const parsed = safeJsonParseObject<Record<string, number>>(value, {});
+	const slots: SpellSlotsByLevel = {};
 
-		for (const level of SPELL_SLOT_LEVELS) {
-			const raw = parsed[String(level)];
-			if (typeof raw === 'number' && raw >= 0) {
-				slots[level] = raw;
-			}
+	for (const level of SPELL_SLOT_LEVELS) {
+		const raw = parsed[String(level)];
+		if (typeof raw === 'number' && raw >= 0) {
+			slots[level] = raw;
 		}
-
-		return slots;
-	} catch {
-		return {};
 	}
+
+	return slots;
 }
 
 export function serializeSpellSlots(slots: SpellSlotsByLevel): string | null {

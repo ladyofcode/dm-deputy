@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { Button, Label } from 'bits-ui';
-	import { tick } from 'svelte';
+	import { Button } from 'bits-ui';
 	import { fade } from 'svelte/transition';
 	import CreateStoryNodeModal from '$lib/components/part/CreateStoryNodeModal.svelte';
 	import EditStoryNodesModal from '$lib/components/part/EditStoryNodesModal.svelte';
@@ -12,43 +11,23 @@
 	import PartSettingsModal from '$lib/components/part/PartSettingsModal.svelte';
 	import PartStoryCanvas from '$lib/components/part/PartStoryCanvas.svelte';
 	import StoryNodeArmsModal from '$lib/components/part/StoryNodeArmsModal.svelte';
-	import { STORY_NODE_SIZE } from '$lib/components/part/StoryNode.svelte';
-	import { fromStore } from 'svelte/store';
+	import StoryNodesEmptyForm from '$lib/components/part/StoryNodesEmptyForm.svelte';
 	import { getCampaignById, getAdventureById, getPartById } from '$lib/data';
-	import { getEncounterResolutionEventIdsInDb } from '$lib/db/client';
 	import { ensurePartStoryInCache } from '$lib/db/cache';
 	import { loadPartStory } from '$lib/db/client';
-	import { dbIsReady } from '$lib/stores/database.svelte';
 	import {
+		appendNodesToPart,
+		createChainedStoryNodes,
+		persistPartStoryItems,
+		refreshXpAwardedNodeIds,
+		replacePartStoryNodes,
 		activateStoryNode,
-		buildStoryEdges,
-		defaultPositionForNewNode,
 		getInitialStoryNodes,
 		getInitialStoryItems,
-		getPartStoryCanvasWidth,
-		loadPartItemLayout,
-		loadPartNodeLayout,
-		normalizeStoryNode,
-		resolvePartItemLayout,
-		savePartItemLayout,
-		savePartNodeLayout,
-		savePartStoryItems,
-		savePartStoryNodes,
 		toggleStoryNodeCompleted
 	} from '$lib/data/part-story';
-	import {
-		STORY_NODE_KIND_LABELS,
-		type StoryItem,
-		type StoryNode,
-		type StoryNodeKind
-	} from '$lib/types/schema';
-	import { partCanvasAttachables } from '$lib/domain/story-node-summary';
-
-	type StoryNodeLine = {
-		id: string;
-		title: string;
-		kind: StoryNodeKind;
-	};
+	import { database } from '$lib/stores/database.svelte';
+	import { type StoryItem, type StoryNode, type StoryNodeKind } from '$lib/types/schema';
 
 	const STORY_CONTENT_FADE = { duration: 180 };
 
@@ -56,23 +35,21 @@
 	const adventureId = $derived(page.params.adventureId ?? '');
 	const partId = $derived(page.params.partId ?? '');
 
-	const dbReady = fromStore(dbIsReady);
-
 	const part = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getPartById(partId);
 	});
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getCampaignById(campaignId);
 	});
 	const adventure = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getAdventureById(adventureId);
 	});
 
-	let storyNodes = $state<StoryNode[]>([]);
-	let storyItems = $state<StoryItem[]>([]);
+	let storyNodes = $state.raw<StoryNode[]>([]);
+	let storyItems = $state.raw<StoryItem[]>([]);
 	let storyLoaded = $state(false);
 	const hasStoryNodes = $derived(storyNodes.length > 0);
 	let showCreateModal = $state(false);
@@ -83,10 +60,6 @@
 	let awardXpNodeId = $state<string | null>(null);
 	let awardXpMode = $state<AwardXpMode>('menu');
 	let xpAwardedNodeIds = $state<Set<string>>(new Set());
-	let nodeLines = $state<StoryNodeLine[]>([
-		{ id: crypto.randomUUID(), title: '', kind: 'exploration' }
-	]);
-	let saving = $state(false);
 	let error = $state<string | null>(null);
 
 	const armsModalNode = $derived(
@@ -104,31 +77,8 @@
 		return rewardXpFromItems(rewards);
 	});
 
-	function nodeIdsWithRewardXp(nodes: StoryNode[], items: StoryItem[]): string[] {
-		return nodes
-			.filter((node) => {
-				const rewards = items.filter(
-					(item) => item.is_reward && item.parent_node_id === node.node_id
-				);
-				return rewardXpFromItems(rewards) > 0;
-			})
-			.map((node) => node.node_id);
-	}
-
-	async function refreshXpAwardedNodes(nodes: StoryNode[], items: StoryItem[]) {
-		const nodeIds = nodeIdsWithRewardXp(nodes, items);
-
-		if (nodeIds.length === 0) {
-			xpAwardedNodeIds = new Set();
-			return;
-		}
-
-		const awarded = await getEncounterResolutionEventIdsInDb(nodeIds);
-		xpAwardedNodeIds = new Set(awarded);
-	}
-
 	$effect(() => {
-		if (!dbReady.current || !partId) {
+		if (!database.isReady || !partId) {
 			storyLoaded = false;
 			return;
 		}
@@ -144,7 +94,9 @@
 			storyNodes = getInitialStoryNodes(partId);
 			storyItems = getInitialStoryItems(partId);
 			storyLoaded = true;
-			void refreshXpAwardedNodes(storyNodes, storyItems);
+			void refreshXpAwardedNodeIds(storyNodes, storyItems).then((ids) => {
+				if (!cancelled) xpAwardedNodeIds = ids;
+			});
 		});
 
 		return () => {
@@ -152,115 +104,16 @@
 		};
 	});
 
-	function canvasDimensions() {
-		const canvasWidth = getPartStoryCanvasWidth();
-		const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-
-		return { canvasWidth, canvasHeight: canvasHeight || 1 };
-	}
-
-	function createStoryNode(
-		title: string,
-		kind: StoryNodeKind,
-		summary = '',
-		parentNodeId?: string
-	): StoryNode {
-		const node: StoryNode = {
-			node_id: `node-${crypto.randomUUID()}`,
-			kind,
-			title: title.trim(),
-			summary: summary.trim(),
-			parent_node_ids: parentNodeId ? [parentNodeId] : []
-		};
-
-		if (kind === 'encounter') {
-			node.difficulty = null;
-		}
-
-		return node;
-	}
-
-	function createChainedStoryNodes(
-		lines: { title: string; kind: StoryNodeKind }[],
-		initialParentId?: string
-	): StoryNode[] {
-		const nodes: StoryNode[] = [];
-		let parentId = initialParentId;
-
-		for (const line of lines) {
-			const node = createStoryNode(line.title, line.kind, '', parentId);
-			nodes.push(node);
-			parentId = node.node_id;
-		}
-
-		return nodes;
-	}
-
 	async function appendNodes(nodes: StoryNode[]) {
 		if (!part || nodes.length === 0) return;
 
-		const existingLayout = loadPartNodeLayout(part.part_id) ?? {};
-		const { canvasWidth, canvasHeight } = canvasDimensions();
-		const nextLayout = { ...existingLayout };
-
-		for (const node of nodes) {
-			nextLayout[node.node_id] = defaultPositionForNewNode(
-				nextLayout,
-				canvasWidth,
-				canvasHeight,
-				STORY_NODE_SIZE
-			);
-		}
-
-		const nextNodes = [...storyNodes, ...nodes];
-		storyNodes = nextNodes;
-		await savePartNodeLayout(part.part_id, nextLayout);
-		await savePartStoryNodes(part.part_id, nextNodes);
+		storyNodes = await appendNodesToPart(part.part_id, storyNodes, nodes);
 	}
 
 	async function persistStoryItems(items: StoryItem[]) {
 		if (!part) return;
 
-		const attachableIds = new Set(partCanvasAttachables(storyNodes, items).map((item) => item.item_id));
-		const previousAttachableIds = partCanvasAttachables(storyNodes, storyItems)
-			.map((item) => item.item_id)
-			.sort()
-			.join(',');
-		const nextAttachableIds = [...attachableIds].sort().join(',');
-		const attachablesChanged = previousAttachableIds !== nextAttachableIds;
-
-		const itemLayout = loadPartItemLayout(part.part_id) ?? {};
-		const nextItemLayout = Object.fromEntries(
-			Object.entries(itemLayout).filter(([itemId]) => attachableIds.has(itemId))
-		);
-		const nodeLayout = loadPartNodeLayout(part.part_id) ?? {};
-		const resolvedLayout = resolvePartItemLayout(
-			part.part_id,
-			items,
-			nodeLayout,
-			STORY_NODE_SIZE,
-			undefined,
-			buildStoryEdges(storyNodes),
-			storyNodes
-		);
-
-		if (attachablesChanged) {
-			for (const itemId of attachableIds) {
-				if (resolvedLayout[itemId]) {
-					nextItemLayout[itemId] = resolvedLayout[itemId];
-				}
-			}
-		} else {
-			for (const itemId of attachableIds) {
-				if (!nextItemLayout[itemId] && resolvedLayout[itemId]) {
-					nextItemLayout[itemId] = resolvedLayout[itemId];
-				}
-			}
-		}
-
-		storyItems = items;
-		await savePartStoryItems(part.part_id, items);
-		await savePartItemLayout(part.part_id, nextItemLayout);
+		storyItems = await persistPartStoryItems(part.part_id, storyNodes, storyItems, items);
 	}
 
 	function openArmsModal(nodeId: string) {
@@ -285,18 +138,9 @@
 	async function replaceStoryNodes(nodes: StoryNode[]) {
 		if (!part) return;
 
-		const normalized = nodes.map(normalizeStoryNode);
-		const nodeIds = new Set(normalized.map((node) => node.node_id));
-		const existingLayout = loadPartNodeLayout(part.part_id) ?? {};
-		const nextLayout = Object.fromEntries(
-			Object.entries(existingLayout).filter(([nodeId]) => nodeIds.has(nodeId))
-		);
-		const nextItems = storyItems.filter((item) => nodeIds.has(item.parent_node_id));
-
-		storyNodes = normalized;
-		await savePartStoryNodes(part.part_id, normalized);
-		await savePartNodeLayout(part.part_id, nextLayout);
-		await persistStoryItems(nextItems);
+		const result = await replacePartStoryNodes(part.part_id, nodes, storyItems);
+		storyNodes = result.nodes;
+		storyItems = result.items;
 	}
 
 	async function handleSaveEditedNodes(nodes: StoryNode[]) {
@@ -320,42 +164,10 @@
 		}
 	}
 
-	function addNodeLine() {
-		nodeLines = [...nodeLines, { id: crypto.randomUUID(), title: '', kind: 'exploration' }];
-	}
+	async function handleSaveEmptyForm(lines: { title: string; kind: StoryNodeKind }[]) {
+		if (!part) return;
 
-	async function handleNodeKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Enter') return;
-
-		event.preventDefault();
-		addNodeLine();
-		await tick();
-
-		const inputs = document.querySelectorAll<HTMLInputElement>('.story-node-line input');
-		inputs[inputs.length - 1]?.focus();
-	}
-
-	async function saveNewNodes(event: SubmitEvent) {
-		event.preventDefault();
-		if (saving || !part) return;
-
-		const lines = nodeLines
-			.map((line) => ({ title: line.title.trim(), kind: line.kind }))
-			.filter((line) => line.title.length > 0);
-
-		if (lines.length === 0) return;
-
-		saving = true;
-		error = null;
-
-		try {
-			await appendNodes(createChainedStoryNodes(lines));
-			nodeLines = [{ id: crypto.randomUUID(), title: '', kind: 'exploration' }];
-		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save story nodes';
-		} finally {
-			saving = false;
-		}
+		await appendNodes(createChainedStoryNodes(lines));
 	}
 
 	async function handleStoryItemUpdate(updated: StoryItem) {
@@ -396,7 +208,7 @@
 	}
 
 	async function handleXpAwarded() {
-		await refreshXpAwardedNodes(storyNodes, storyItems);
+		xpAwardedNodeIds = await refreshXpAwardedNodeIds(storyNodes, storyItems);
 	}
 </script>
 
@@ -404,7 +216,7 @@
 	<title>{part?.title ?? 'Part'} · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && !part}
+{#if database.isReady && !part}
 	<section class="page-stack">
 		<h1>Part not found</h1>
 		<Button.Root href={resolve(`/campaigns/${campaignId}/adventures/${adventureId}`)}>
@@ -488,57 +300,9 @@
 				/>
 			</div>
 		{:else if storyLoaded}
-			<section
-				class="story-nodes-empty"
-				aria-label="Add story nodes"
-				in:fade={STORY_CONTENT_FADE}
-			>
-				<div class="story-nodes-empty-panel">
-					<h2>No story nodes! Add below</h2>
-					<p class="hint">Enter each node title and type. Press Enter to add another.</p>
-
-					<form class="story-nodes-form" onsubmit={saveNewNodes}>
-						<div class="field">
-							<Label.Root>Story nodes</Label.Root>
-							<ul class="story-node-lines list-plain">
-								{#each nodeLines as line, index (line.id)}
-									<li class="story-node-line">
-										<input
-											bind:value={line.title}
-											placeholder="Node title"
-											aria-label="Story node title"
-											onkeydown={handleNodeKeydown}
-										/>
-										<select bind:value={line.kind} aria-label="Story node type">
-											<option value="exploration">{STORY_NODE_KIND_LABELS.exploration}</option>
-											<option value="encounter">{STORY_NODE_KIND_LABELS.encounter}</option>
-										</select>
-										{#if index === nodeLines.length - 1}
-											<Button.Root
-												type="button"
-												data-variant="icon"
-												onclick={addNodeLine}
-												aria-label="Add story node line"
-											>
-												+
-											</Button.Root>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						</div>
-
-						<div class="story-nodes-form-submit">
-							{#if error}
-								<p class="hint">{error}</p>
-							{/if}
-							<Button.Root type="submit" disabled={saving}>
-								{saving ? 'Saving…' : 'Save'}
-							</Button.Root>
-						</div>
-					</form>
-				</div>
-			</section>
+			<div in:fade={STORY_CONTENT_FADE}>
+				<StoryNodesEmptyForm onSave={handleSaveEmptyForm} />
+			</div>
 		{/if}
 
 		{#if campaign}
@@ -650,46 +414,5 @@
 
 	.part-actions :global([data-button-root][data-variant='icon'] svg) {
 		display: block;
-	}
-
-	.story-nodes-empty {
-		position: fixed;
-		inset: 0;
-		z-index: 5;
-		display: grid;
-		place-items: center;
-		padding: var(--space-page);
-		pointer-events: none;
-	}
-
-	.story-nodes-empty-panel {
-		width: min(100%, 32rem);
-		padding: var(--space-page);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-panel, 0.75rem);
-		background: var(--color-surface);
-		box-shadow: 0 12px 40px var(--color-shadow);
-		pointer-events: auto;
-		overflow: hidden;
-	}
-
-	.story-nodes-form {
-		display: grid;
-		gap: var(--space-section);
-		min-width: 0;
-	}
-
-	.story-nodes-empty-panel :global(.field) {
-		margin-bottom: 0;
-		min-width: 0;
-	}
-
-	.story-nodes-empty-panel h2 {
-		margin: 0 0 var(--space-field);
-		font-size: 1.1rem;
-	}
-
-	.story-nodes-form-submit {
-		margin-top: var(--space-section);
 	}
 </style>

@@ -1,6 +1,5 @@
 import {
 	ARMOR_CATEGORY_LABELS,
-	COST_CURRENCY_LABELS,
 	formatWeaponCost,
 	formatItemCost,
 	ITEM_CATEGORY_LABELS,
@@ -133,36 +132,4 @@ export function storyCatalogTypeLabel(catalogType: 'weapon' | 'armor' | 'item'):
 		case 'item':
 			return 'Gear, mounts & services';
 	}
-}
-
-/** Short suffix for compact table cells. */
-export function formatCatalogStatSummary(
-	entry: Weapon | Armor | Item,
-	kind: 'weapon' | 'armor' | 'item'
-): string {
-	if (kind === 'weapon') {
-		const weapon = entry as Weapon;
-		const cost =
-			weapon.cost != null && weapon.cost_currency
-				? `${weapon.cost} ${COST_CURRENCY_LABELS[weapon.cost_currency]}`
-				: null;
-		return [weapon.damage_dice, cost, formatWeight(weapon.weight)].filter(Boolean).join(' · ');
-	}
-
-	if (kind === 'armor') {
-		const armorEntry = entry as Armor;
-		return [`AC ${armorEntry.armor_class}`, `${armorEntry.cost} gp`, formatWeight(armorEntry.weight)]
-			.filter(Boolean)
-			.join(' · ');
-	}
-
-	const item = entry as Item;
-	return [
-		formatItemCost(item),
-		formatWeight(item.weight),
-		item.speed,
-		item.carrying_capacity
-	]
-		.filter(Boolean)
-		.join(' · ');
 }

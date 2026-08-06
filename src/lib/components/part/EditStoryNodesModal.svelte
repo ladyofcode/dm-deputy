@@ -23,6 +23,7 @@
 	let showDetailModal = $state(false);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
+	let formKey = $state('');
 
 	const treeRows = $derived(flattenStoryNodeTree(draftNodes));
 	const detailNode = $derived(
@@ -30,7 +31,15 @@
 	);
 
 	$effect(() => {
-		if (!open) return;
+		if (!open) {
+			formKey = '';
+			return;
+		}
+
+		const nextKey = nodes.map((node) => node.node_id).join('|');
+		if (formKey === nextKey) return;
+
+		formKey = nextKey;
 		draftNodes = cloneStoryNodes(nodes);
 		detailNodeId = null;
 		showDetailModal = false;
@@ -82,7 +91,7 @@
 		<Dialog.Content class="dialog-wide">
 			<Dialog.Title>Edit story nodes</Dialog.Title>
 			<Dialog.Description>
-				Open a node to edit its name, summary, type, and place in the sequence.
+				Open a node to edit its name, summary, type, and connections to other nodes.
 			</Dialog.Description>
 
 			<form onsubmit={handleSave}>
@@ -105,9 +114,9 @@
 										<span class="node-kind">{STORY_NODE_KIND_LABELS[row.node.kind]}</span>
 										<strong class="node-title">{draftNode?.title ?? row.node.title}</strong>
 										{#if parents.length > 0}
-											<span class="parent-summary">After {parents[0]}</span>
+											<span class="parent-summary">Follows {parents.join(', ')}</span>
 										{:else}
-											<span class="parent-summary">Start of sequence</span>
+											<span class="parent-summary">Entry point</span>
 										{/if}
 									</div>
 

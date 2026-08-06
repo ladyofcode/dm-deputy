@@ -1,4 +1,4 @@
-import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story';
+import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout';
 import { isRewardGroupId, rewardGroupId } from '$lib/domain/story-item-reward';
 import type { StoryItem, StoryNode } from '$lib/types/schema';
 

@@ -2,7 +2,6 @@ import { getRuleset } from '$lib/games';
 import type {
 	Character,
 	CharacterStatEvent,
-	EncounterResolution,
 	EncounterXpSplitMode,
 	StatKind,
 	StatSourceType,
@@ -13,12 +12,6 @@ const BASE_FIELD = {
 	experience: 'experience_base',
 	hp_current: 'hp_current_base',
 	hp_max: 'hp_max_base'
-} as const satisfies Record<StatKind, keyof Character>;
-
-const CACHED_FIELD = {
-	experience: 'experience',
-	hp_current: 'hp_current',
-	hp_max: 'hp_max'
 } as const satisfies Record<StatKind, keyof Character>;
 
 export type ApplyStatChangeInput = {
@@ -32,19 +25,6 @@ export type ApplyStatChangeInput = {
 	batchId?: string | null;
 	actorUserId: string;
 	metadata?: Record<string, unknown> | null;
-};
-
-export type CreateCharacterInput = {
-	campaignId: string;
-	kind: Character['kind'];
-	createdByUserId: string;
-	displayName: string;
-	experienceBase?: number;
-	hpMaxBase?: number;
-	hpCurrentBase?: number;
-	reputation?: string | null;
-	notes?: string | null;
-	clonedFromCharacterId?: string | null;
 };
 
 export type EncounterXpContext = {
@@ -65,71 +45,6 @@ export type AwardEncounterXpInput = {
 	gameSchema: string;
 	context?: EncounterXpContext;
 };
-
-export type XpAwardEntry = {
-	characterId: string;
-	amount: number;
-	description: string;
-};
-
-export type CharacterStatsRepository = {
-	getCharacter(characterId: string): Character | undefined;
-	saveCharacter(character: Character): void;
-	appendStatEvent(event: CharacterStatEvent): void;
-	getStatEvents(characterId: string, stat?: StatKind): CharacterStatEvent[];
-	saveEncounterResolution(resolution: EncounterResolution): void;
-};
-
-const characters = new Map<string, Character>();
-const statEvents: CharacterStatEvent[] = [];
-const encounterResolutions = new Map<string, EncounterResolution>();
-
-export const inMemoryCharacterStatsRepository: CharacterStatsRepository = {
-	getCharacter(characterId) {
-		return characters.get(characterId);
-	},
-	saveCharacter(character) {
-		characters.set(character.character_id, character);
-	},
-	appendStatEvent(event) {
-		statEvents.push(event);
-	},
-	getStatEvents(characterId, stat) {
-		return statEvents.filter(
-			(event) => event.character_id === characterId && (stat === undefined || event.stat === stat)
-		);
-	},
-	saveEncounterResolution(resolution) {
-		encounterResolutions.set(resolution.resolution_id, resolution);
-	}
-};
-
-let repository: CharacterStatsRepository = inMemoryCharacterStatsRepository;
-
-export function setCharacterStatsRepository(next: CharacterStatsRepository): void {
-	repository = next;
-}
-
-export function resetCharacterStatsRepository(): void {
-	characters.clear();
-	statEvents.length = 0;
-	encounterResolutions.clear();
-	repository = inMemoryCharacterStatsRepository;
-}
-
-export function getCharacterById(characterId: string): Character | undefined {
-	return repository.getCharacter(characterId);
-}
-
-export function getStatHistory(characterId: string, stat?: StatKind): CharacterStatEvent[] {
-	return [...repository.getStatEvents(characterId, stat)].sort(
-		(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-	);
-}
-
-export function getEncounterResolutionById(resolutionId: string): EncounterResolution | undefined {
-	return encounterResolutions.get(resolutionId);
-}
 
 export function computeCurrentStat(
 	character: Character,
@@ -243,190 +158,13 @@ function createStatEventId(): string {
 	return `stat-event-${crypto.randomUUID()}`;
 }
 
-function createResolutionId(): string {
-	return `encounter-resolution-${crypto.randomUUID()}`;
-}
-
-function createCharacterId(): string {
-	return `character-${crypto.randomUUID()}`;
-}
-
-export function createCharacter(
-	input: CreateCharacterInput,
-	gameSchema: string
-): { character: Character; creationEvent: CharacterStatEvent } {
-	const hpMaxBase = input.hpMaxBase ?? 0;
-	const hpCurrentBase = input.hpCurrentBase ?? hpMaxBase;
-	const experienceBase = input.experienceBase ?? 0;
-
-	const character: Character = {
-		character_id: createCharacterId(),
-		campaign_id: input.campaignId,
-		kind: input.kind,
-		created_by_user_id: input.createdByUserId,
-		cloned_from_character_id: input.clonedFromCharacterId ?? null,
-		display_name: input.displayName,
-		experience_base: experienceBase,
-		experience: experienceBase,
-		level: getRuleset(gameSchema).getLevelForExperience(experienceBase),
-		hp_max_base: hpMaxBase,
-		hp_current_base: hpCurrentBase,
-		hp_current: hpCurrentBase,
-		hp_max: hpMaxBase,
-		reputation: input.reputation ?? null,
-		notes: input.notes ?? null,
-		presentation: null,
-		race: null,
-		creature_type: null,
-		alignment: null,
-		age: null,
-		class_name: null,
-		armor_class: null,
-		armor_class_notes: null,
-		speed: null,
-		hp_dice: null,
-		ability_str: null,
-		ability_dex: null,
-		ability_con: null,
-		ability_int: null,
-		ability_wis: null,
-		ability_cha: null,
-		skills: null,
-		senses: null,
-		languages: null,
-		challenge_rating: null,
-		traits: null,
-		actions: null,
-		is_spellcaster: false,
-		spellcasting_class: null,
-		spellcasting_ability: null,
-		spell_slots_total: null,
-		spell_slots_expended: null,
-		background: null,
-		height: null,
-		weight: null,
-		eyes: null,
-		skin: null,
-		hair: null,
-		inspiration: false,
-		initiative: null,
-		temp_hp: null,
-		hit_dice_remaining: null,
-		death_save_successes: 0,
-		death_save_failures: 0,
-		personality_traits: null,
-		ideals: null,
-		bonds: null,
-		flaws: null,
-		backstory: null,
-		allies: null,
-		features: null,
-		proficiencies: null,
-		treasure: null,
-		mime_type: null,
-		portrait_width: null,
-		portrait_height: null,
-		thumb_width: null,
-		thumb_height: null,
-		image_source: null,
-		date_deleted: null
-	};
-
-	const creationEvents: CharacterStatEvent[] = [];
-
-	if (experienceBase !== 0) {
-		creationEvents.push({
-			stat_event_id: createStatEventId(),
-			character_id: character.character_id,
-			campaign_id: character.campaign_id,
-			stat: 'experience',
-			delta: experienceBase,
-			value_after: experienceBase,
-			source_type: 'creation',
-			source_id: null,
-			source_label: 'Character created',
-			description: null,
-			batch_id: null,
-			actor_user_id: input.createdByUserId,
-			metadata: null,
-			created_at: new Date().toISOString()
-		});
-	}
-
-	if (hpMaxBase !== 0) {
-		creationEvents.push({
-			stat_event_id: createStatEventId(),
-			character_id: character.character_id,
-			campaign_id: character.campaign_id,
-			stat: 'hp_max',
-			delta: hpMaxBase,
-			value_after: hpMaxBase,
-			source_type: 'creation',
-			source_id: null,
-			source_label: 'Character created',
-			description: null,
-			batch_id: null,
-			actor_user_id: input.createdByUserId,
-			metadata: null,
-			created_at: new Date().toISOString()
-		});
-	}
-
-	if (hpCurrentBase !== 0) {
-		creationEvents.push({
-			stat_event_id: createStatEventId(),
-			character_id: character.character_id,
-			campaign_id: character.campaign_id,
-			stat: 'hp_current',
-			delta: hpCurrentBase,
-			value_after: hpCurrentBase,
-			source_type: 'creation',
-			source_id: null,
-			source_label: 'Character created',
-			description: null,
-			batch_id: null,
-			actor_user_id: input.createdByUserId,
-			metadata: null,
-			created_at: new Date().toISOString()
-		});
-	}
-
-	repository.saveCharacter(character);
-	for (const event of creationEvents) {
-		repository.appendStatEvent(event);
-	}
-
-	return {
-		character,
-		creationEvent: creationEvents[0] ?? {
-			stat_event_id: createStatEventId(),
-			character_id: character.character_id,
-			campaign_id: character.campaign_id,
-			stat: 'experience',
-			delta: 0,
-			value_after: 0,
-			source_type: 'creation',
-			source_id: null,
-			source_label: 'Character created',
-			description: null,
-			batch_id: null,
-			actor_user_id: input.createdByUserId,
-			metadata: null,
-			created_at: new Date().toISOString()
-		}
-	};
-}
-
-export function applyStatChange(
+export function buildStatChangeResult(
+	character: Character,
+	priorEvents: CharacterStatEvent[],
 	input: ApplyStatChangeInput,
 	gameSchema: string
-): CharacterStatEvent {
-	const character = repository.getCharacter(input.characterId);
-	if (!character) {
-		throw new Error(`Character ${input.characterId} not found.`);
-	}
-
-	const history = repository.getStatEvents(input.characterId, input.stat);
+): { event: CharacterStatEvent; character: Character } {
+	const history = priorEvents.filter((entry) => entry.stat === input.stat);
 	const current = computeCurrentStat(character, history, input.stat);
 	const valueAfter = current + input.delta;
 
@@ -451,93 +189,20 @@ export function applyStatChange(
 		created_at: new Date().toISOString()
 	};
 
-	repository.appendStatEvent(event);
+	const allEvents = [...priorEvents, event];
+	const experience = computeCurrentStat(character, allEvents, 'experience');
+	const hp_current = computeCurrentStat(character, allEvents, 'hp_current');
+	const hp_max = computeCurrentStat(character, allEvents, 'hp_max');
 
-	const cachedField = CACHED_FIELD[input.stat];
 	const updatedCharacter = syncDerivedCharacterFields(
 		{
 			...character,
-			[cachedField]: valueAfter
+			experience,
+			hp_current,
+			hp_max
 		},
 		gameSchema
 	);
 
-	repository.saveCharacter(updatedCharacter);
-
-	return event;
-}
-
-export function awardEncounterXp(input: AwardEncounterXpInput): {
-	resolution: EncounterResolution;
-	events: CharacterStatEvent[];
-} {
-	const totalXp = input.totalXp ?? 0;
-	const sourceLabel = input.node.title;
-	if (totalXp <= 0) {
-		throw new Error(`Encounter ${input.node.node_id} has no XP to award.`);
-	}
-
-	if (input.recipientCharacterIds.length === 0) {
-		throw new Error('At least one recipient character is required to award encounter XP.');
-	}
-
-	const splitMode = input.splitMode ?? 'equal';
-	const shares = computeEncounterXpShares(
-		totalXp,
-		input.recipientCharacterIds,
-		splitMode,
-		input.customShares
-	);
-
-	const resolution: EncounterResolution = {
-		resolution_id: createResolutionId(),
-		event_id: input.node.node_id,
-		total_xp: totalXp,
-		split_mode: splitMode,
-		resolved_by_user_id: input.actorUserId,
-		resolved_at: new Date().toISOString()
-	};
-
-	repository.saveEncounterResolution(resolution);
-
-	const events: CharacterStatEvent[] = [];
-
-	for (const [characterId, amount] of shares) {
-		if (amount === 0) continue;
-
-		const description = input.shareDescriptions?.[characterId]?.trim() ?? '';
-		if (!description) {
-			throw new Error('Each XP award needs a description.');
-		}
-
-		events.push(
-			applyStatChange(
-				{
-					characterId,
-					stat: 'experience',
-					delta: amount,
-					sourceType: 'encounter_xp',
-					sourceId: input.node.node_id,
-					sourceLabel,
-					description,
-					batchId: resolution.resolution_id,
-					actorUserId: input.actorUserId,
-					metadata: {
-						total_xp: totalXp,
-						split_mode: splitMode,
-						share: amount,
-						...(input.context?.adventureId ? { adventure_id: input.context.adventureId } : {}),
-						...(input.context?.partId ? { part_id: input.context.partId } : {}),
-						...(input.context?.adventureName
-							? { adventure_name: input.context.adventureName }
-							: {}),
-						...(input.context?.partName ? { part_name: input.context.partName } : {})
-					}
-				},
-				input.gameSchema
-			)
-		);
-	}
-
-	return { resolution, events };
+	return { event, character: updatedCharacter };
 }

@@ -9,10 +9,10 @@ import type {
 	Part,
 	User
 } from '$lib/types/schema';
-import { bumpCampaignMapsRevision } from '$lib/stores/campaign-maps.svelte';
-import { bumpCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
-import { bumpCampaignListRevision } from '$lib/stores/campaign-list.svelte';
-import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story';
+import { bumpCampaignMapsRevision } from '$lib/stores/campaign-maps-revision.svelte';
+import { bumpCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
+import { bumpCampaignListRevision } from '$lib/stores/campaign-list-revision.svelte';
+import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout';
 import type { StoryItem, StoryNode } from '$lib/types/schema';
 import type { CampaignSnapshot, PartStorySnapshot } from './types';
 
@@ -365,6 +365,87 @@ export function updateCachedPartItemLayout(partId: string, layout: PartItemLayou
 	partStoryCache.set(partId, { ...existing, itemLayout: layout });
 }
 
+function appendUnique<T>(existing: T[], incoming: T[], getId: (item: T) => string): T[] {
+	const seen = new Set(existing.map(getId));
+	const next = [...existing];
+
+	for (const item of incoming) {
+		const id = getId(item);
+		if (seen.has(id)) continue;
+		next.push(item);
+		seen.add(id);
+	}
+
+	return next;
+}
+
+export function mergePromotedCampaignFromSnapshot(
+	snapshot: CampaignSnapshot,
+	campaignId: string
+): void {
+	if (!campaignSnapshot) {
+		setCampaignSnapshot(snapshot);
+		bumpCampaignListRevision();
+		bumpCampaignCharactersRevision();
+		bumpCampaignMapsRevision();
+		return;
+	}
+
+	const newAdventureIds = new Set(
+		snapshot.adventures
+			.filter((adventure) => adventure.campaign_id === campaignId)
+			.map((adventure) => adventure.adventure_id)
+	);
+
+	campaignSnapshot = {
+		...campaignSnapshot,
+		campaigns: appendUnique(
+			campaignSnapshot.campaigns,
+			snapshot.campaigns.filter((campaign) => campaign.campaign_id === campaignId),
+			(campaign) => campaign.campaign_id
+		),
+		campaignMembers: appendUnique(
+			campaignSnapshot.campaignMembers,
+			snapshot.campaignMembers.filter((member) => member.campaign_id === campaignId),
+			(member) => member.player_id
+		),
+		campaignNpcs: appendUnique(
+			campaignSnapshot.campaignNpcs,
+			snapshot.campaignNpcs.filter((npc) => npc.campaign_id === campaignId),
+			(npc) => npc.campaign_npc_id
+		),
+		adventures: appendUnique(
+			campaignSnapshot.adventures,
+			snapshot.adventures.filter((adventure) => adventure.campaign_id === campaignId),
+			(adventure) => adventure.adventure_id
+		),
+		parts: appendUnique(
+			campaignSnapshot.parts,
+			snapshot.parts.filter((part) => newAdventureIds.has(part.adventure_id)),
+			(part) => part.part_id
+		),
+		characters: appendUnique(
+			campaignSnapshot.characters,
+			snapshot.characters.filter((character) => character.campaign_id === campaignId),
+			(character) => character.character_id
+		),
+		maps: appendUnique(
+			campaignSnapshot.maps ?? [],
+			(snapshot.maps ?? []).filter((map) => map.campaign_id === campaignId),
+			(map) => map.map_id
+		),
+		sessionZero: appendUnique(
+			campaignSnapshot.sessionZero,
+			snapshot.sessionZero.filter((entry) => entry.campaign_id === campaignId),
+			(entry) => entry.campaign_id
+		)
+	};
+
+	bumpCampaignListRevision();
+	bumpCampaignCharactersRevision();
+	bumpCampaignMapsRevision();
+}
+
 export function mergeCampaignIntoCache(
 	campaign: Campaign,
 	gmMembership: CampaignMember,
@@ -506,8 +587,7 @@ export function touchCampaignInCache(userId: string, campaignId: string): void {
 }
 
 export async function reloadDatabaseCache(
-	loadCampaign: () => Promise<CampaignSnapshot>,
-	loadPartStory: (partId: string) => Promise<PartStorySnapshot>
+	loadCampaign: () => Promise<CampaignSnapshot>
 ): Promise<void> {
 	const snapshot = await loadCampaign();
 
@@ -524,8 +604,4 @@ export async function reloadDatabaseCache(
 	bumpCampaignMapsRevision();
 	bumpCampaignCharactersRevision();
 	bumpCampaignListRevision();
-
-	for (const part of snapshot.parts) {
-		void ensurePartStoryInCache(part.part_id, loadPartStory).catch(() => {});
-	}
 }

@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
 	import { formatStoryItemCatalogStats } from '$lib/domain/story-item-catalog';
 	import { rewardGroupId } from '$lib/domain/story-item-reward';
 	import RewardIcon from '$lib/components/icons/RewardIcon.svelte';
 	import TreasureIcon from '$lib/components/icons/TreasureIcon.svelte';
 	import { STORY_ITEM_KIND_LABELS, type StoryItem } from '$lib/types/schema';
-	import type { StoryNodeCanvasContext } from '$lib/components/part/StoryNode.svelte';
+	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 
 	type Props = {
 		parentNodeId: string;
@@ -23,7 +22,7 @@
 		onAssignRewardXp
 	}: Props = $props();
 
-	const canvas = getContext<StoryNodeCanvasContext>('story-node-canvas');
+	const canvas = getStoryNodeCanvasContext();
 	let element = $state<HTMLDivElement | undefined>();
 
 	function handleAssignXp(event: MouseEvent) {

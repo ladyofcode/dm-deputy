@@ -2,8 +2,29 @@ import { MONSTER_TEMPLATES, type MonsterTemplate } from '$lib/games/dnd5e/data/m
 
 const STORAGE_KEY = 'dm-deputy:monster-templates';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function isMonsterTemplate(value: unknown): value is MonsterTemplate {
+	return isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string';
+}
+
+function parseStoredMonsterTemplates(raw: string): MonsterTemplate[] | null {
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed) || !parsed.every(isMonsterTemplate)) {
+			return null;
+		}
+
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
 export function cloneMonsterTemplate(template: MonsterTemplate): MonsterTemplate {
-	return JSON.parse(JSON.stringify(template)) as MonsterTemplate;
+	return structuredClone(template);
 }
 
 export function loadStoredMonsterTemplates(): MonsterTemplate[] {
@@ -16,23 +37,24 @@ export function loadStoredMonsterTemplates(): MonsterTemplate[] {
 		return MONSTER_TEMPLATES.map(cloneMonsterTemplate);
 	}
 
-	try {
-		const stored = JSON.parse(raw) as MonsterTemplate[];
-		const storedById = new Map(stored.map((template) => [template.id, template]));
-
-		return MONSTER_TEMPLATES.map((defaultTemplate) => {
-			const saved = storedById.get(defaultTemplate.id);
-			return saved
-				? { ...cloneMonsterTemplate(defaultTemplate), ...saved, id: defaultTemplate.id }
-				: cloneMonsterTemplate(defaultTemplate);
-		});
-	} catch {
+	const stored = parseStoredMonsterTemplates(raw);
+	if (!stored) {
 		return MONSTER_TEMPLATES.map(cloneMonsterTemplate);
 	}
+
+	const storedById = new Map(stored.map((template) => [template.id, template]));
+
+	return MONSTER_TEMPLATES.map((defaultTemplate) => {
+		const saved = storedById.get(defaultTemplate.id);
+		return saved
+			? { ...cloneMonsterTemplate(defaultTemplate), ...saved, id: defaultTemplate.id }
+			: cloneMonsterTemplate(defaultTemplate);
+	});
 }
 
 export function saveStoredMonsterTemplates(templates: MonsterTemplate[]): void {
 	if (typeof localStorage === 'undefined') return;
+
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
 }
 

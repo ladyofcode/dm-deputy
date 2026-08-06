@@ -1,10 +1,18 @@
+import type { Armor, Item, StoryItem, Weapon } from '$lib/types/schema';
 import {
 	getCachedArmor,
 	getCachedItems,
 	getCachedWeapons,
 	isCatalogCacheReady
 } from '$lib/db/catalog-cache';
-import type { Armor, Item, StoryItem, Weapon } from '$lib/types/schema';
+
+function catalogMaps() {
+	return {
+		weapons: new Map(getCachedWeapons().map((entry) => [entry.weapon_id, entry])),
+		armor: new Map(getCachedArmor().map((entry) => [entry.armor_id, entry])),
+		items: new Map(getCachedItems().map((entry) => [entry.item_id, entry]))
+	};
+}
 
 function formatCategory(value: string): string {
 	return value.replace(/_/g, ' ');
@@ -42,13 +50,15 @@ export function getCatalogEntryForStoryItem(
 ): Weapon | Armor | Item | null {
 	if (!isCatalogCacheReady() || !item.catalog_type || !item.catalog_id) return null;
 
+	const maps = catalogMaps();
+
 	switch (item.catalog_type) {
 		case 'weapon':
-			return getCachedWeapons().find((entry) => entry.weapon_id === item.catalog_id) ?? null;
+			return maps.weapons.get(item.catalog_id) ?? null;
 		case 'armor':
-			return getCachedArmor().find((entry) => entry.armor_id === item.catalog_id) ?? null;
+			return maps.armor.get(item.catalog_id) ?? null;
 		case 'item':
-			return getCachedItems().find((entry) => entry.item_id === item.catalog_id) ?? null;
+			return maps.items.get(item.catalog_id) ?? null;
 		default:
 			return null;
 	}

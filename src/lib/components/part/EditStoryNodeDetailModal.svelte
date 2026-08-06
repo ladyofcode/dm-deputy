@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { Button, Dialog, Label } from 'bits-ui';
+	import { Button, Dialog } from 'bits-ui';
+	import StoryNodeFields from '$lib/components/shared/StoryNodeFields.svelte';
 	import { normalizeStoryNode } from '$lib/data/part-story';
 	import { wouldCreateParentCycle } from '$lib/domain/story-node-tree';
-	import {
-		STORY_NODE_KIND_LABELS,
-		type StoryNode,
-		type StoryNodeKind
-	} from '$lib/types/schema';
+	import { type StoryNode, type StoryNodeKind } from '$lib/types/schema';
 
 	type Props = {
 		open?: boolean;
@@ -20,21 +17,31 @@
 	let title = $state('');
 	let kind = $state<StoryNodeKind>('exploration');
 	let summary = $state('');
-	let previousNodeId = $state('');
+	let parentNodeIds = $state<string[]>([]);
 	let difficulty = $state('');
 	let error = $state<string | null>(null);
+	let formKey = $state('');
 
 	const parentOptions = $derived(
 		allNodes.filter((candidate) => candidate.node_id !== node?.node_id)
 	);
 
 	$effect(() => {
-		if (!open || !node) return;
+		if (!open) {
+			formKey = '';
+			return;
+		}
 
+		if (!node) return;
+
+		const nextKey = node.node_id;
+		if (formKey === nextKey) return;
+
+		formKey = nextKey;
 		title = node.title;
 		kind = node.kind;
 		summary = node.summary;
-		previousNodeId = node.parent_node_ids?.[0] ?? '';
+		parentNodeIds = [...(node.parent_node_ids ?? [])];
 		difficulty = node.difficulty ?? '';
 		error = null;
 	});
@@ -49,10 +56,10 @@
 			return;
 		}
 
-		const parentNodeIds = previousNodeId ? [previousNodeId] : [];
+		const nextParentIds = [...new Set(parentNodeIds)];
 
-		if (wouldCreateParentCycle(allNodes, node.node_id, parentNodeIds)) {
-			error = 'That sequence would create a loop.';
+		if (wouldCreateParentCycle(allNodes, node.node_id, nextParentIds)) {
+			error = 'Those links would create a loop.';
 			return;
 		}
 
@@ -61,7 +68,7 @@
 			title: trimmedTitle,
 			kind,
 			summary: summary.trim(),
-			parent_node_ids: parentNodeIds,
+			parent_node_ids: nextParentIds,
 			difficulty: kind === 'encounter' ? difficulty.trim() || null : null
 		});
 
@@ -75,61 +82,21 @@
 		<Dialog.Overlay class="dialog-stacked-overlay" />
 		<Dialog.Content class="dialog-wide dialog-stacked">
 			<Dialog.Title>Edit story node</Dialog.Title>
-			<Dialog.Description>Update this node&apos;s details and place in the sequence.</Dialog.Description>
+			<Dialog.Description>
+				Update this node&apos;s details and how it connects to the rest of the story.
+			</Dialog.Description>
 
 			{#if node}
 				<form onsubmit={handleSubmit}>
-					<div class="field">
-						<Label.Root for="edit_story_node_title">Name</Label.Root>
-						<input
-							id="edit_story_node_title"
-							bind:value={title}
-							placeholder="Node title"
-							required
-						/>
-					</div>
-
-					<div class="field">
-						<Label.Root for="edit_story_node_summary">Summary</Label.Root>
-						<textarea
-							id="edit_story_node_summary"
-							bind:value={summary}
-							rows="4"
-							placeholder="What happens here?"
-						></textarea>
-					</div>
-
-					<div class="field">
-						<Label.Root for="edit_story_node_kind">Type</Label.Root>
-						<select id="edit_story_node_kind" bind:value={kind}>
-							<option value="exploration">{STORY_NODE_KIND_LABELS.exploration}</option>
-							<option value="encounter">{STORY_NODE_KIND_LABELS.encounter}</option>
-						</select>
-					</div>
-
-					<div class="field">
-						<Label.Root for="edit_story_node_previous">Comes after</Label.Root>
-						<p class="hint">Choose the previous node in the sequence.</p>
-						<select id="edit_story_node_previous" bind:value={previousNodeId}>
-							<option value="">Start of sequence (first node)</option>
-							{#each parentOptions as parent (parent.node_id)}
-								<option value={parent.node_id}>
-									{STORY_NODE_KIND_LABELS[parent.kind]} · {parent.title}
-								</option>
-							{/each}
-						</select>
-					</div>
-
-					{#if kind === 'encounter'}
-						<div class="field">
-							<Label.Root for="edit_story_node_difficulty">Difficulty</Label.Root>
-							<input
-								id="edit_story_node_difficulty"
-								bind:value={difficulty}
-								placeholder="e.g. medium"
-							/>
-						</div>
-					{/if}
+					<StoryNodeFields
+						idPrefix="edit_story_node"
+						bind:title
+						bind:kind
+						bind:summary
+						bind:parentNodeIds
+						bind:difficulty
+						{parentOptions}
+					/>
 
 					{#if error}
 						<p class="hint">{error}</p>

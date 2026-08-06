@@ -1,4 +1,8 @@
 import { getCachedSpecies, isCatalogCacheReady } from '$lib/db/catalog-cache';
+import {
+	createCatalogIdIndex,
+	createCatalogNameIndex
+} from '$lib/games/dnd5e/data/catalog-index';
 import type { Species } from '$lib/types/schema';
 
 function assertCatalogReady(): void {
@@ -12,12 +16,13 @@ export function getSpeciesCatalog(): Species[] {
 	return getCachedSpecies();
 }
 
+const speciesById = createCatalogIdIndex(getSpeciesCatalog, (entry) => entry.species_id);
+const speciesByName = createCatalogNameIndex(getSpeciesCatalog, (entry) => entry.species_name);
+
 export function getSpeciesById(speciesId: string): Species | undefined {
-	return getSpeciesCatalog().find((entry) => entry.species_id === speciesId);
+	return speciesById().get(speciesId);
 }
 
 export function getSpeciesByName(speciesName: string): Species | undefined {
-	return getSpeciesCatalog().find(
-		(entry) => entry.species_name.toLowerCase() === speciesName.toLowerCase()
-	);
+	return speciesByName().get(speciesName.toLowerCase());
 }

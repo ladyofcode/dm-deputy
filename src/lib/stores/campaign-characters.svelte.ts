@@ -5,10 +5,15 @@ import {
 	getCachedUsers
 } from '$lib/db/cache';
 import { isActiveNpc } from '$lib/types/schema';
-import type { Character } from '$lib/types/schema';
+import type { CampaignMember, Character, User } from '$lib/types/schema';
+import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
 
-function isActivePlayerUser(userId: string): boolean {
-	const user = getCachedUsers().find((entry) => entry.user_id === userId);
+function buildUsersById(users: User[]): Map<string, User> {
+	return new Map(users.map((user) => [user.user_id, user]));
+}
+
+function isActivePlayerUser(userId: string, usersById: Map<string, User>): boolean {
+	const user = usersById.get(userId);
 	return user != null && !user.date_deleted;
 }
 
@@ -33,19 +38,37 @@ function getNpcCharacterIdsForCampaign(campaignId: string): Set<string> {
 	);
 }
 
+function buildCampaignMembersByCharacterId(
+	members: CampaignMember[],
+	campaignId: string
+): Map<string, CampaignMember> {
+	const membersByCharacterId = new Map<string, CampaignMember>();
+
+	for (const member of members) {
+		if (member.campaign_id !== campaignId || member.role !== 'player' || !member.character_id) {
+			continue;
+		}
+
+		membersByCharacterId.set(member.character_id, member);
+	}
+
+	return membersByCharacterId;
+}
+
+function buildPlayerMembersByCharacterId(members: CampaignMember[]): Map<string, CampaignMember> {
+	const membersByCharacterId = new Map<string, CampaignMember>();
+
+	for (const member of members) {
+		if (member.role !== 'player' || !member.character_id) continue;
+		membersByCharacterId.set(member.character_id, member);
+	}
+
+	return membersByCharacterId;
+}
+
 class CampaignCharactersState {
-	revision = $state(0);
-
-	bump(): void {
-		this.revision += 1;
-	}
-
-	track(): number {
-		return this.revision;
-	}
-
 	forCampaign(campaignId: string): Character[] {
-		this.track();
+		trackCampaignCharactersRevision();
 		const npcCharacterIds = getNpcCharacterIdsForCampaign(campaignId);
 
 		return getCachedCharacters()
@@ -57,34 +80,34 @@ class CampaignCharactersState {
 	}
 
 	forCampaignPcs(campaignId: string): Character[] {
-		this.track();
+		trackCampaignCharactersRevision();
 		const playerCharacterIds = getPlayerCharacterIdsForCampaign(campaignId);
+		const membersByCharacterId = buildCampaignMembersByCharacterId(
+			getCachedCampaignMembers(),
+			campaignId
+		);
+		const usersById = buildUsersById(getCachedUsers());
 
 		return getCachedCharacters()
 			.filter(
 				(character) => character.kind === 'pc' && playerCharacterIds.has(character.character_id)
 			)
 			.filter((character) => {
-				const member = getCachedCampaignMembers().find(
-					(entry) =>
-						entry.campaign_id === campaignId &&
-						entry.character_id === character.character_id &&
-						entry.role === 'player'
-				);
-				return member != null && isActivePlayerUser(member.user_id);
+				const member = membersByCharacterId.get(character.character_id);
+				return member != null && isActivePlayerUser(member.user_id, usersById);
 			})
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}
 
 	allNpcs(): Character[] {
-		this.track();
+		trackCampaignCharactersRevision();
 		return getCachedCharacters()
 			.filter((character) => isActiveNpc(character))
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}
 
 	availableNpcsForCampaign(campaignId: string): Character[] {
-		this.track();
+		trackCampaignCharactersRevision();
 		const linkedNpcIds = getNpcCharacterIdsForCampaign(campaignId);
 
 		return getCachedCharacters()
@@ -94,18 +117,18 @@ class CampaignCharactersState {
 	}
 
 	availablePcsForCampaign(campaignId: string): Character[] {
-		this.track();
+		trackCampaignCharactersRevision();
 		const linkedPcIds = getPlayerCharacterIdsForCampaign(campaignId);
+		const playerMembersByCharacterId = buildPlayerMembersByCharacterId(getCachedCampaignMembers());
+		const usersById = buildUsersById(getCachedUsers());
 
 		return getCachedCharacters()
 			.filter((character) => character.kind === 'pc')
 			.filter((character) => !linkedPcIds.has(character.character_id))
 			.filter((character) => {
-				const member = getCachedCampaignMembers().find(
-					(entry) => entry.character_id === character.character_id && entry.role === 'player'
-				);
+				const member = playerMembersByCharacterId.get(character.character_id);
 				if (!member) return true;
-				return isActivePlayerUser(member.user_id);
+				return isActivePlayerUser(member.user_id, usersById);
 			})
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}
@@ -113,9 +136,7 @@ class CampaignCharactersState {
 
 export const campaignCharacters = new CampaignCharactersState();
 
-export function bumpCampaignCharactersRevision(): void {
-	campaignCharacters.bump();
-}
+export { bumpCampaignCharactersRevision, trackCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
 
 export function getReactiveNpcsForCampaign(campaignId: string): Character[] {
 	return campaignCharacters.forCampaign(campaignId);
@@ -131,12 +152,4 @@ export function getReactiveAvailableNpcsForCampaign(campaignId: string): Charact
 
 export function getReactiveAvailablePcsForCampaign(campaignId: string): Character[] {
 	return campaignCharacters.availablePcsForCampaign(campaignId);
-}
-
-export function getReactiveAllNpcs(): Character[] {
-	return campaignCharacters.allNpcs();
-}
-
-export function trackCampaignCharactersRevision(): number {
-	return campaignCharacters.track();
 }

@@ -40,6 +40,7 @@
 	let armorDraft = $state<Armor>(createArmorDraft());
 	let itemDraft = $state<Item>(createItemDraft());
 	let conditionDraft = $state<Condition>(createConditionDraft());
+	let formKey = $state('');
 
 	const isEdit = $derived(entry !== null);
 
@@ -58,8 +59,25 @@
 	});
 
 	$effect(() => {
-		if (!open) return;
+		if (!open) {
+			formKey = '';
+			return;
+		}
 
+		const entryId =
+			kind === 'spells'
+				? ((entry as Spell | null)?.spell_id ?? 'new')
+				: kind === 'weapons'
+					? ((entry as Weapon | null)?.weapon_id ?? 'new')
+					: kind === 'armor'
+						? ((entry as Armor | null)?.armor_id ?? 'new')
+						: kind === 'items'
+							? ((entry as Item | null)?.item_id ?? 'new')
+							: ((entry as Condition | null)?.condition_id ?? 'new');
+		const nextKey = `${kind}:${entryId}`;
+		if (formKey === nextKey) return;
+
+		formKey = nextKey;
 		error = null;
 
 		if (kind === 'spells') {

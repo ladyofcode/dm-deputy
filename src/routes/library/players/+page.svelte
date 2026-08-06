@@ -2,24 +2,22 @@
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
 	import MonsterTemplatesSection from '$lib/components/library/MonsterTemplatesSection.svelte';
-	import { fromStore } from 'svelte/store';
 	import { getAllNpcLibraryRows, getAllPlayerRows } from '$lib/data';
 	import { softDeleteNpcFromLibrary, softDeletePlayerFromPlayerbase } from '$lib/data/writes';
 	import { resolveCampaignHref, resolveCharacterHref } from '$lib/navigation/hrefs';
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { CHARACTER_KIND_LABELS } from '$lib/types/schema';
 
-	const dbReady = fromStore(dbIsReady);
 
 	const playerRows = $derived.by(() => {
-		if (!dbReady.current) return [];
+		if (!database.isReady) return [];
 		trackCampaignCharactersRevision();
 		return getAllPlayerRows();
 	});
 
 	const npcRows = $derived.by(() => {
-		if (!dbReady.current) return [];
+		if (!database.isReady) return [];
 		trackCampaignCharactersRevision();
 		return getAllNpcLibraryRows();
 	});
@@ -88,7 +86,7 @@
 		<p class="hint">Player accounts and NPCs across all campaigns. Click a name to open the sheet.</p>
 	</header>
 
-	{#if dbReady.current}
+	{#if database.isReady}
 		<section class="library-section" aria-labelledby="library-players-heading">
 			<h2 id="library-players-heading">Players</h2>
 

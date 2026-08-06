@@ -4,23 +4,21 @@
 	import { page } from '$app/state';
 	import { Button, Label } from 'bits-ui';
 	import OcrScanButton from '$lib/components/OcrScanButton.svelte';
-	import { fromStore } from 'svelte/store';
 	import { getAdventuresForCampaign, getCampaignById } from '$lib/data';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
 	import { persistAdventure } from '$lib/data/writes';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import type { OnboardingAdventureDraft } from '$lib/types/convenience-schema';
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getCampaignById(campaignId);
 	});
 	const existingAdventures = $derived.by(() => {
-		if (!dbReady.current) return [];
+		if (!database.isReady) return [];
 		return getAdventuresForCampaign(campaignId);
 	});
 
@@ -59,7 +57,7 @@
 	<title>Create adventure · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && !campaign}
+{#if database.isReady && !campaign}
 	<section class="page-stack page-stack--compact">
 		<h1>Campaign not found</h1>
 		<Button.Root href={resolve('/onboarding/campaign')}>Start over</Button.Root>

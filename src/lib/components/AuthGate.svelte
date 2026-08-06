@@ -61,7 +61,7 @@
 
 	.auth-gate h1 {
 		margin: 0;
-		font-family: var(--font-display, 'Cinzel Decorative', serif);
+		font-family: var(--font-display, 'Cinzel', serif);
 	}
 
 	.auth-gate p {

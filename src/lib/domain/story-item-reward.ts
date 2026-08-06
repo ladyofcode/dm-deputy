@@ -1,6 +1,6 @@
 import type { StoryItem } from '$lib/types/schema';
 import { isPersistedStoryItem } from '$lib/domain/story-item';
-import type { ItemSize } from '$lib/data/part-story';
+import type { ItemSize } from '$lib/data/part-story-layout';
 
 export function rewardXpFromItems(rewardItems: StoryItem[]): number {
 	return rewardItems

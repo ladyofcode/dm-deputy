@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Button, Label } from 'bits-ui';
-	import { tick } from 'svelte';
+	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
+	import CampaignCharacterListItem from '$lib/components/campaign/CampaignCharacterListItem.svelte';
+	import CampaignLinkExistingCharacterForm from '$lib/components/campaign/CampaignLinkExistingCharacterForm.svelte';
 	import NpcExtrasModal from '$lib/components/campaign/NpcExtrasModal.svelte';
 	import AddressCardIcon from '$lib/components/icons/AddressCardIcon.svelte';
 	import {
@@ -41,6 +43,7 @@
 	let addingExistingCharacterId = $state<string | null>(null);
 	let selectedExistingCharacterId = $state('');
 	let error = $state<string | null>(null);
+	let draftNameInputs = $state<Record<string, HTMLInputElement | undefined>>({});
 	let statsModalOpen = $state(false);
 	let draftLineId = $state<string | null>(null);
 	let statsModalKind = $state<NpcCharacterKind>('npc_general');
@@ -71,13 +74,9 @@
 		if (event.key !== 'Enter') return;
 
 		event.preventDefault();
-		addDraftLine();
-		await tick();
-
-		const inputs = document.querySelectorAll<HTMLInputElement>(
-			'.npc-draft-line input[type="text"]'
-		);
-		inputs[inputs.length - 1]?.focus();
+		const newLine = createEmptyNpcDraftLine();
+		draftLines = [...draftLines, newLine];
+		await focusDraftRowInput(() => draftNameInputs[newLine.id]);
 	}
 
 	function draftLineHasSheet(line: NpcDraftLine): boolean {
@@ -190,17 +189,6 @@
 			addingExistingCharacterId = null;
 		}
 	}
-
-	function npcSummary(npc: Character): string | null {
-		const parts: string[] = [];
-
-		if (npc.level !== 1) parts.push(`Level ${npc.level}`);
-		if (npc.hp_max > 0) parts.push(`HP ${npc.hp_current}/${npc.hp_max}`);
-		if (npc.experience > 0) parts.push(`${npc.experience} XP`);
-		if (npc.reputation) parts.push(npc.reputation);
-
-		return parts.length ? parts.join(' · ') : null;
-	}
 </script>
 
 <section class="npcs-section" aria-labelledby="campaign-npcs-heading">
@@ -214,50 +202,32 @@
 	{#if npcs.length}
 		{#if generalNpcs.length}
 			<h3 class="npc-group-heading">NPCs</h3>
-			<ul class="npc-list list-plain">
+			<ul class="character-list list-plain">
 				{#each generalNpcs as npc (npc.character_id)}
-					<li class="npc-list-item">
-						<a class="npc-main" href={resolveCharacterHref(campaignId, npc.character_id)}>
-							<span class="npc-name">{npc.display_name}</span>
-							{#if npcSummary(npc)}
-								<p class="npc-summary">{npcSummary(npc)}</p>
-							{/if}
-						</a>
-						<Button.Root
-							type="button"
-							data-variant="ghost"
-							disabled={removingCharacterId === npc.character_id}
-							onclick={() => handleRemove(npc)}
-							aria-label={`Remove ${npc.display_name} from campaign`}
-						>
-							{removingCharacterId === npc.character_id ? 'Removing…' : 'Remove'}
-						</Button.Root>
-					</li>
+					<CampaignCharacterListItem
+						href={resolveCharacterHref(campaignId, npc.character_id)}
+						character={npc}
+						defaultLevel={1}
+						removing={removingCharacterId === npc.character_id}
+						removeAriaLabel={`Remove ${npc.display_name} from campaign`}
+						onRemove={() => handleRemove(npc)}
+					/>
 				{/each}
 			</ul>
 		{/if}
 
 		{#if foeNpcs.length}
 			<h3 class="npc-group-heading">Foes</h3>
-			<ul class="npc-list list-plain">
+			<ul class="character-list list-plain">
 				{#each foeNpcs as npc (npc.character_id)}
-					<li class="npc-list-item">
-						<a class="npc-main" href={resolveCharacterHref(campaignId, npc.character_id)}>
-							<span class="npc-name">{npc.display_name}</span>
-							{#if npcSummary(npc)}
-								<p class="npc-summary">{npcSummary(npc)}</p>
-							{/if}
-						</a>
-						<Button.Root
-							type="button"
-							data-variant="ghost"
-							disabled={removingCharacterId === npc.character_id}
-							onclick={() => handleRemove(npc)}
-							aria-label={`Remove ${npc.display_name} from campaign`}
-						>
-							{removingCharacterId === npc.character_id ? 'Removing…' : 'Remove'}
-						</Button.Root>
-					</li>
+					<CampaignCharacterListItem
+						href={resolveCharacterHref(campaignId, npc.character_id)}
+						character={npc}
+						defaultLevel={1}
+						removing={removingCharacterId === npc.character_id}
+						removeAriaLabel={`Remove ${npc.display_name} from campaign`}
+						onRemove={() => handleRemove(npc)}
+					/>
 				{/each}
 			</ul>
 		{/if}
@@ -266,34 +236,29 @@
 	{/if}
 
 	{#if availableNpcs.length}
-		<form class="existing-npcs-form" onsubmit={handleAddExistingNpc}>
-			<div class="field">
-				<Label.Root for="existing_npc_select">Add existing NPC</Label.Root>
-				<p class="hint">
-					NPCs removed from a campaign stay in your library and can be added again.
-				</p>
-				<div class="existing-npc-row">
-					<select
-						id="existing_npc_select"
-						bind:value={selectedExistingCharacterId}
-						aria-label="Existing NPC"
-					>
-						<option value="">Choose an NPC…</option>
-						{#each availableNpcs as npc (npc.character_id)}
-							<option value={npc.character_id}>
-								{npc.display_name} ({CHARACTER_KIND_LABELS[npc.kind]})
-							</option>
-						{/each}
-					</select>
-					<Button.Root
-						type="submit"
-						disabled={!selectedExistingCharacterId || addingExistingCharacterId !== null}
-					>
-						{addingExistingCharacterId ? 'Adding…' : 'Add to campaign'}
-					</Button.Root>
-				</div>
-			</div>
-		</form>
+		<CampaignLinkExistingCharacterForm
+			id="existing_npc_select"
+			label="Add existing NPC"
+			hint="NPCs removed from a campaign stay in your library and can be added again."
+			selectAriaLabel="Existing NPC"
+			placeholder="Choose an NPC…"
+			selectedId={selectedExistingCharacterId}
+			submitting={addingExistingCharacterId !== null}
+			submitBusyLabel="Adding…"
+			submitIdleLabel="Add to campaign"
+			onsubmit={handleAddExistingNpc}
+			onSelectedIdChange={(value) => {
+				selectedExistingCharacterId = value;
+			}}
+		>
+			{#snippet options()}
+				{#each availableNpcs as npc (npc.character_id)}
+					<option value={npc.character_id}>
+						{npc.display_name} ({CHARACTER_KIND_LABELS[npc.kind]})
+					</option>
+				{/each}
+			{/snippet}
+		</CampaignLinkExistingCharacterForm>
 	{/if}
 
 	<form class="npcs-form" onsubmit={saveNewNpcs}>
@@ -312,6 +277,7 @@
 						</select>
 						<input
 							type="text"
+							bind:this={draftNameInputs[line.id]}
 							bind:value={line.name}
 							placeholder="Name"
 							aria-label="NPC name"
@@ -326,7 +292,7 @@
 						>
 							<AddressCardIcon size={20} />
 						</Button.Root>
-						{#if draftLines.length > 1 || line.name.trim()}
+						{#if draftLines.length > 1 || Boolean(line.name.trim())}
 							<Button.Root
 								type="button"
 								data-variant="icon"
@@ -394,62 +360,13 @@
 		letter-spacing: 0.04em;
 	}
 
-	.npc-list {
+	.character-list {
 		display: grid;
 		gap: 0.5rem;
 	}
 
-	.npc-list-item {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 0.75rem;
-		align-items: start;
-		padding: 0.65rem 0.75rem;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.npc-main {
-		min-width: 0;
-		display: grid;
-		gap: 0.25rem;
-		padding: 0;
-		text-decoration: none;
-		color: inherit;
-	}
-
-	.npc-main:hover .npc-name {
-		color: var(--color-accent);
-	}
-
-	.npc-name {
-		font-weight: 600;
-	}
-
-	.npc-summary {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
-	}
-
 	.npcs-form {
 		margin-top: 0.5rem;
-	}
-
-	.existing-npcs-form .field {
-		margin-bottom: 0;
-	}
-
-	.existing-npc-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.existing-npc-row select {
-		flex: 1;
-		min-width: 0;
 	}
 
 	.npc-draft-lines {

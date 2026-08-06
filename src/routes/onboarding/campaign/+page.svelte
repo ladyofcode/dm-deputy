@@ -2,11 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button, Label } from 'bits-ui';
-	import { tick } from 'svelte';
-	import { fromStore } from 'svelte/store';
+	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
 	import { getCampaigns } from '$lib/data';
 	import { persistCampaign } from '$lib/data/writes';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import type { CampaignPlayerDraft, OnboardingCampaignDraft } from '$lib/types/convenience-schema';
 
@@ -14,8 +13,7 @@
 		id: string;
 	};
 
-	const dbReady = fromStore(dbIsReady);
-	const hasExistingCampaigns = $derived(dbReady.current ? getCampaigns().length > 0 : false);
+	const hasExistingCampaigns = $derived(database.isReady ? getCampaigns().length > 0 : false);
 
 	let campaignName = $state('');
 	let description = $state('');
@@ -25,6 +23,7 @@
 	]);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
+	let playerNameInputs = $state<Record<string, HTMLInputElement | undefined>>({});
 
 	function createPlayerLine(): PlayerLine {
 		return { id: crypto.randomUUID(), player_name: '', character_name: '' };
@@ -38,11 +37,9 @@
 		if (event.key !== 'Enter') return;
 
 		event.preventDefault();
-		addPlayerLine();
-		await tick();
-
-		const inputs = document.querySelectorAll<HTMLInputElement>('.player-line input');
-		inputs[inputs.length - 2]?.focus();
+		const newLine = createPlayerLine();
+		playerLines = [...playerLines, newLine];
+		await focusDraftRowInput(() => playerNameInputs[newLine.id]);
 	}
 
 	async function handleCreateCampaign(event: SubmitEvent) {
@@ -118,6 +115,7 @@
 				{#each playerLines as line, index (line.id)}
 					<li class="player-line">
 						<input
+							bind:this={playerNameInputs[line.id]}
 							bind:value={line.player_name}
 							placeholder="Player name"
 							aria-label="Player name"

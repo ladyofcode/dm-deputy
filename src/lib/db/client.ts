@@ -1,14 +1,18 @@
 import type { StoryItem, StoryNode } from '$lib/types/schema';
-import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story';
+import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout';
 import type {
 	CampaignSnapshot,
 	CatalogSnapshot,
 	InitResult,
 	LocalStorageStoryMigration,
 	PartStorySnapshot,
+	PersistEncounterXpBatchInput,
+	PersistEncounterXpBatchResult,
+	SavePartStoryInput,
 	WorkerRequest,
 	WorkerResponse
 } from './types';
+import { APP_DB_URL } from './app-db';
 
 type PendingRequest = {
 	resolve: (value: unknown) => void;
@@ -185,7 +189,7 @@ export async function loadCatalogSnapshot(): Promise<CatalogSnapshot> {
 }
 
 export async function fetchAppDatabaseTemplate(): Promise<ArrayBuffer> {
-	const response = await fetch('/dm-deputy.sqlite');
+	const response = await fetch(APP_DB_URL);
 	if (!response.ok) {
 		throw new Error(
 			`App database template not found (${response.status}). Run pnpm run build:db first.`
@@ -200,7 +204,9 @@ export async function initDatabaseClient(
 	templateBuffer: ArrayBuffer
 ): Promise<InitResult> {
 	if (!initPromise) {
-		initPromise = callWorker<InitResult>('init', [migrations, templateBuffer]).catch((error) => {
+		initPromise = callWorkerWithTransfer<InitResult>('init', [migrations, templateBuffer], [
+			templateBuffer
+		]).catch((error) => {
 			initPromise = null;
 			throw error;
 		});
@@ -231,6 +237,10 @@ export async function savePartItemLayout(partId: string, layout: PartItemLayout)
 
 export async function savePartStoryItems(partId: string, items: StoryItem[]): Promise<void> {
 	await callWorker('savePartStoryItems', [partId, items]);
+}
+
+export async function savePartStory(input: SavePartStoryInput): Promise<void> {
+	await callWorker('savePartStory', [input]);
 }
 
 export async function createCampaignInDb(
@@ -323,7 +333,7 @@ export async function exportDatabaseFile(): Promise<Blob> {
 
 export async function importDatabaseFile(file: File | Blob): Promise<void> {
 	const buffer = await file.arrayBuffer();
-	await callWorker('importDatabase', [buffer]);
+	await callWorkerWithTransfer('importDatabase', [buffer], [buffer]);
 	initPromise = null;
 }
 
@@ -385,10 +395,38 @@ export async function insertCharacterStatEventInDb(
 	return callWorker('insertCharacterStatEvent', [event]);
 }
 
+export async function insertCharacterStatEventAndUpdateCacheInDb(
+	event: import('$lib/types/schema').CharacterStatEvent,
+	cache: import('./types').UpdateCharacterStatCacheInput
+): Promise<{
+	event: import('$lib/types/schema').CharacterStatEvent;
+	character: import('$lib/types/schema').Character;
+}> {
+	return callWorker('insertCharacterStatEventAndUpdateCache', [event, cache]);
+}
+
+export async function insertCharacterStatEventsInDb(
+	events: import('$lib/types/schema').CharacterStatEvent[]
+): Promise<void> {
+	return callWorker('insertCharacterStatEvents', [events]);
+}
+
 export async function insertEncounterResolutionInDb(
 	resolution: import('$lib/types/schema').EncounterResolution
 ): Promise<import('$lib/types/schema').EncounterResolution> {
 	return callWorker('insertEncounterResolution', [resolution]);
+}
+
+export async function persistEncounterXpBatchInDb(
+	input: PersistEncounterXpBatchInput
+): Promise<PersistEncounterXpBatchResult> {
+	return callWorker('persistEncounterXpBatch', [input]);
+}
+
+export async function persistStatChangesBatchInDb(
+	awards: import('./types').EncounterXpAwardWrite[]
+): Promise<import('$lib/types/schema').Character[]> {
+	return callWorker('persistStatChangesBatch', [awards]);
 }
 
 export async function getEncounterResolutionByEventIdInDb(

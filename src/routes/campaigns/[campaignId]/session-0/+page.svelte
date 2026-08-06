@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button, Tooltip } from 'bits-ui';
-	import { fromStore } from 'svelte/store';
 	import SessionZeroCategorySections from '$lib/components/campaign/SessionZeroCategorySections.svelte';
 	import SessionZeroQuestionLabel from '$lib/components/campaign/SessionZeroQuestionLabel.svelte';
 	import SessionZeroQuestionsModal from '$lib/components/campaign/SessionZeroQuestionsModal.svelte';
@@ -17,16 +16,15 @@
 	import { getCampaignById, getSessionZeroForCampaign } from '$lib/data';
 	import { persistSessionZero } from '$lib/data/writes';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 
 	const AUTOSAVE_DELAY_MS = 400;
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getCampaignById(campaignId);
 	});
 
@@ -49,7 +47,7 @@
 	);
 
 	$effect(() => {
-		if (!dbReady.current || !campaignId || initializedForCampaignId === campaignId) return;
+		if (!database.isReady || !campaignId || initializedForCampaignId === campaignId) return;
 
 		const stored = getSessionZeroForCampaign(campaignId);
 		const emptyState = createEmptySessionZeroState();
@@ -111,7 +109,7 @@
 	<title>Session 0 · {campaign?.campaign_name ?? 'Campaign'} · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && !campaign}
+{#if database.isReady && !campaign}
 	<section class="page-stack page-stack--compact">
 		<h1>Campaign not found</h1>
 		<Button.Root href={resolve('/')}>Back to home</Button.Root>

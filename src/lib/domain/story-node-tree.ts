@@ -25,21 +25,28 @@ export function isStoryNodeRoot(node: StoryNode, nodesById: Map<string, StoryNod
 
 export function buildStoryNodeForest(nodes: StoryNode[]): StoryNodeTreeItem[] {
 	const nodesById = nodeById(nodes);
+	const childrenByParentId = new Map<string, StoryNode[]>();
+
+	for (const node of nodes) {
+		for (const parentId of node.parent_node_ids ?? []) {
+			const siblings = childrenByParentId.get(parentId) ?? [];
+			siblings.push(node);
+			childrenByParentId.set(parentId, siblings);
+		}
+	}
 
 	function buildChildren(parentId: string, depth: number, path: Set<string>): StoryNodeTreeItem[] {
-		return nodes
-			.filter((node) => node.parent_node_ids?.includes(parentId))
-			.flatMap((node) => {
-				if (path.has(node.node_id)) return [];
+		return (childrenByParentId.get(parentId) ?? []).flatMap((node) => {
+			if (path.has(node.node_id)) return [];
 
-				return [
-					{
-						node,
-						depth,
-						children: buildChildren(node.node_id, depth + 1, new Set([...path, node.node_id]))
-					}
-				];
-			});
+			return [
+				{
+					node,
+					depth,
+					children: buildChildren(node.node_id, depth + 1, new Set([...path, node.node_id]))
+				}
+			];
+		});
 	}
 
 	return nodes

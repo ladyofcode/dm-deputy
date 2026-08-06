@@ -6,7 +6,6 @@
 		groupSpellDraftRowsByLevel,
 		SPELLCASTING_ABILITY_LABELS,
 		spellLevelLabel,
-		spellsForLevel,
 		updateSpellSlot,
 		type CharacterSpellcastingDraft,
 		type CharacterSpellDraft
@@ -39,7 +38,27 @@
 		disabled = false
 	}: Props = $props();
 
+	let spellRowKeys = $state<string[]>([]);
+
 	const spellsById = $derived(new Map(catalogSpells.map((spell) => [spell.spell_id, spell])));
+	const spellsByLevel = $derived.by(() => {
+		const grouped = new Map<number, Spell[]>();
+
+		for (const spell of catalogSpells) {
+			const bucket = grouped.get(spell.spell_level);
+			if (bucket) {
+				bucket.push(spell);
+			} else {
+				grouped.set(spell.spell_level, [spell]);
+			}
+		}
+
+		for (const bucket of grouped.values()) {
+			bucket.sort((left, right) => left.spell_name.localeCompare(right.spell_name));
+		}
+
+		return grouped;
+	});
 	const groupedRows = $derived(groupSpellDraftRowsByLevel(spells, spellsById));
 	const abilityScore = $derived(
 		spellcasting ? getAbilityScoreForSpellcasting(abilities, spellcasting.spellcasting_ability) : null
@@ -74,6 +93,20 @@
 		return [...levels].sort((left, right) => left - right);
 	});
 
+	function syncSpellRowKeys(rowCount: number) {
+		const next = spellRowKeys.slice(0, rowCount);
+
+		while (next.length < rowCount) {
+			next.push(`spell-row-${crypto.randomUUID()}`);
+		}
+
+		spellRowKeys = next;
+	}
+
+	$effect(() => {
+		syncSpellRowKeys(spells.length);
+	});
+
 	function updateSpellcasting(patch: Partial<CharacterSpellcastingDraft>) {
 		if (!spellcasting) return;
 		spellcasting = { ...spellcasting, ...patch };
@@ -86,11 +119,13 @@
 	}
 
 	function removeSpellEntry(index: number) {
+		spellRowKeys = spellRowKeys.filter((_, entryIndex) => entryIndex !== index);
 		const next = spells.filter((_, entryIndex) => entryIndex !== index);
 		spells = next.length ? next : [{ spell_id: '', prepared: false }];
 	}
 
 	function addSpellAtLevel(spellLevel: number) {
+		spellRowKeys = [...spellRowKeys, `spell-row-${crypto.randomUUID()}`];
 		spells = [
 			...spells,
 			{ spell_id: '', prepared: spellLevel > 0 ? false : true, draft_level: spellLevel }
@@ -238,7 +273,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each groupedRows.get(spellLevel) ?? [] as row (row.index)}
+									{#each groupedRows.get(spellLevel) ?? [] as row (spellRowKeys[row.index] ?? row.index)}
 										<tr>
 											{#if spellLevel > 0}
 												<td class="prepared-cell">
@@ -267,7 +302,7 @@
 													aria-label="Spell"
 												>
 													<option value="">Choose spell…</option>
-													{#each spellsForLevel(catalogSpells, spellLevel) as spell (spell.spell_id)}
+													{#each spellsByLevel.get(spellLevel) ?? [] as spell (spell.spell_id)}
 														<option value={spell.spell_id}>{formatSpellSelectLabel(spell)}</option>
 													{/each}
 												</select>

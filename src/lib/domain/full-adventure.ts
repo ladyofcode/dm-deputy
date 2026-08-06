@@ -18,6 +18,7 @@ export type FullAdventureNodeSection = {
 };
 
 export type NodeXpAwardLine = {
+	id: string;
 	characterName: string;
 	amount: number;
 	description: string | null;
@@ -28,6 +29,7 @@ export function buildNodeXpAwardLines(
 	characterNameFor: (characterId: string) => string
 ): NodeXpAwardLine[] {
 	return awards.map((award) => ({
+		id: `${award.event_id}:${award.character_id}`,
 		characterName: characterNameFor(award.character_id),
 		amount: award.amount,
 		description: award.description
@@ -95,11 +97,23 @@ function contextKindForItem(item: StoryItem): FullAdventureContextItem['kind'] {
 	}
 }
 
+function groupItemsByParentId(items: StoryItem[]): Map<string, StoryItem[]> {
+	const grouped = new Map<string, StoryItem[]>();
+
+	for (const item of items) {
+		const list = grouped.get(item.parent_node_id) ?? [];
+		list.push(item);
+		grouped.set(item.parent_node_id, list);
+	}
+
+	return grouped;
+}
+
 function splitNodeItems(
 	nodeId: string,
-	items: StoryItem[]
+	itemsByParentId: Map<string, StoryItem[]>
 ): Pick<FullAdventureNodeSection, 'narrativeNotes' | 'contextItems' | 'rewardItems'> {
-	const nodeItems = items.filter((item) => item.parent_node_id === nodeId);
+	const nodeItems = itemsByParentId.get(nodeId) ?? [];
 	const rewardItems = nodeItems.filter(isStoryItemReward);
 	const nonRewards = nodeItems.filter((item) => !isStoryItemReward(item));
 
@@ -120,11 +134,12 @@ export function buildFullAdventurePartBlocks(
 		.map((part) => {
 			const nodes = nodesByPartId.get(part.part_id) ?? [];
 			const items = itemsByPartId.get(part.part_id) ?? [];
+			const itemsByParentId = groupItemsByParentId(items);
 
 			const sections = uniqueNodesInTreeOrder(nodes).map((node) => ({
 				part,
 				node,
-				...splitNodeItems(node.node_id, items)
+				...splitNodeItems(node.node_id, itemsByParentId)
 			}));
 
 			return { part, sections };

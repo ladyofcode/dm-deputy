@@ -1,17 +1,17 @@
 import { getCharacterById } from '$lib/data';
 import {
 	getEncounterResolutionByEventIdInDb,
-	insertCharacterStatEventInDb,
-	insertEncounterResolutionInDb,
+	insertCharacterStatEventAndUpdateCacheInDb,
+	insertCharacterStatEventsInDb,
 	loadCharacterStatEventsInDb,
 	loadEncounterXpAwardsByEventIdsInDb,
-	updateCharacterStatCacheInDb
+	persistEncounterXpBatchInDb,
+	persistStatChangesBatchInDb
 } from '$lib/db/client';
 import { mergeCharacterIntoCache } from '$lib/db/cache';
 import {
-	computeCurrentStat,
+	buildStatChangeResult,
 	computeEncounterXpShares,
-	syncDerivedCharacterFields,
 	type ApplyStatChangeInput,
 	type AwardEncounterXpInput
 } from '$lib/domain/character-stats';
@@ -22,7 +22,7 @@ import type {
 	EncounterXpAward,
 	StatKind
 } from '$lib/types/schema';
-import { campaignCharacters } from '$lib/stores/campaign-characters.svelte';
+import { bumpCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
 
 function createStatEventId(): string {
 	return `stat-event-${crypto.randomUUID()}`;
@@ -32,10 +32,7 @@ export async function loadCharacterStatEvents(
 	characterId: string,
 	stat?: StatKind
 ): Promise<CharacterStatEvent[]> {
-	const events = await loadCharacterStatEventsInDb(characterId, stat ?? null);
-	return events.sort(
-		(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-	);
+	return loadCharacterStatEventsInDb(characterId, stat ?? null);
 }
 
 export async function getEncounterResolutionByEventId(
@@ -59,49 +56,15 @@ async function persistStatChange(
 		throw new Error(`Character ${input.characterId} not found.`);
 	}
 
-	const history = await loadCharacterStatEvents(input.characterId, input.stat);
-	const current = computeCurrentStat(character, history, input.stat);
-	const valueAfter = current + input.delta;
-
-	if (input.stat !== 'experience' && valueAfter < 0) {
-		throw new Error(`${input.stat} cannot drop below zero.`);
-	}
-
-	const event: CharacterStatEvent = {
-		stat_event_id: createStatEventId(),
-		character_id: character.character_id,
-		campaign_id: character.campaign_id,
-		stat: input.stat,
-		delta: input.delta,
-		value_after: valueAfter,
-		source_type: input.sourceType,
-		source_id: input.sourceId ?? null,
-		source_label: input.sourceLabel,
-		description: input.description?.trim() || null,
-		batch_id: input.batchId ?? null,
-		actor_user_id: input.actorUserId,
-		metadata: input.metadata ?? null,
-		created_at: new Date().toISOString()
-	};
-
-	await insertCharacterStatEventInDb(event);
-
-	const allEvents = await loadCharacterStatEvents(input.characterId);
-	const experience = computeCurrentStat(character, allEvents, 'experience');
-	const hp_current = computeCurrentStat(character, allEvents, 'hp_current');
-	const hp_max = computeCurrentStat(character, allEvents, 'hp_max');
-
-	const updatedCharacter = syncDerivedCharacterFields(
-		{
-			...character,
-			experience,
-			hp_current,
-			hp_max
-		},
+	const priorEvents = await loadCharacterStatEvents(input.characterId);
+	const { event, character: updatedCharacter } = buildStatChangeResult(
+		character,
+		priorEvents,
+		input,
 		gameSchema
 	);
 
-	const persisted = await updateCharacterStatCacheInDb({
+	const { character: persisted } = await insertCharacterStatEventAndUpdateCacheInDb(event, {
 		character_id: updatedCharacter.character_id,
 		experience: updatedCharacter.experience,
 		level: updatedCharacter.level,
@@ -110,7 +73,7 @@ async function persistStatChange(
 	});
 
 	mergeCharacterIntoCache(persisted);
-	campaignCharacters.bump();
+	bumpCampaignCharactersRevision();
 
 	return { event, character: persisted };
 }
@@ -150,9 +113,16 @@ export async function persistAwardEncounterXp(
 		resolved_at: new Date().toISOString()
 	};
 
-	await insertEncounterResolutionInDb(resolution);
-
-	const events: CharacterStatEvent[] = [];
+	const awards: Array<{
+		event: CharacterStatEvent;
+		cache: {
+			character_id: string;
+			experience: number;
+			level: number;
+			hp_max: number;
+			hp_current: number;
+		};
+	}> = [];
 
 	for (const [characterId, amount] of shares) {
 		if (amount === 0) continue;
@@ -162,7 +132,15 @@ export async function persistAwardEncounterXp(
 			throw new Error('Each XP award needs a description.');
 		}
 
-		const event = await persistApplyStatChange(
+		const character = getCharacterById(characterId);
+		if (!character) {
+			throw new Error(`Character ${characterId} not found.`);
+		}
+
+		const priorEvents = await loadCharacterStatEvents(characterId);
+		const { event, character: updatedCharacter } = buildStatChangeResult(
+			character,
+			priorEvents,
 			{
 				characterId,
 				stat: 'experience',
@@ -188,10 +166,27 @@ export async function persistAwardEncounterXp(
 			input.gameSchema
 		);
 
-		events.push(event);
+		awards.push({
+			event,
+			cache: {
+				character_id: updatedCharacter.character_id,
+				experience: updatedCharacter.experience,
+				level: updatedCharacter.level,
+				hp_max: updatedCharacter.hp_max,
+				hp_current: updatedCharacter.hp_current
+			}
+		});
 	}
 
-	return { resolution, events };
+	const result = await persistEncounterXpBatchInDb({ resolution, awards });
+
+	for (const character of result.characters) {
+		mergeCharacterIntoCache(character);
+	}
+
+	bumpCampaignCharactersRevision();
+
+	return { resolution: result.resolution, events: result.events };
 }
 
 export async function persistFreeformXpAwards(input: {
@@ -203,7 +198,16 @@ export async function persistFreeformXpAwards(input: {
 }): Promise<CharacterStatEvent[]> {
 	const sourceLabel = input.sourceLabel.trim() || 'XP award';
 	const batchId = `xp-batch-${crypto.randomUUID()}`;
-	const events: CharacterStatEvent[] = [];
+	const awards: Array<{
+		event: CharacterStatEvent;
+		cache: {
+			character_id: string;
+			experience: number;
+			level: number;
+			hp_max: number;
+			hp_current: number;
+		};
+	}> = [];
 
 	for (const entry of input.entries) {
 		if (entry.amount <= 0) continue;
@@ -213,7 +217,15 @@ export async function persistFreeformXpAwards(input: {
 			throw new Error('Each XP award needs a description.');
 		}
 
-		const event = await persistApplyStatChange(
+		const character = getCharacterById(entry.characterId);
+		if (!character) {
+			throw new Error(`Character ${entry.characterId} not found.`);
+		}
+
+		const priorEvents = await loadCharacterStatEvents(entry.characterId);
+		const { event, character: updatedCharacter } = buildStatChangeResult(
+			character,
+			priorEvents,
 			{
 				characterId: entry.characterId,
 				stat: 'experience',
@@ -236,14 +248,31 @@ export async function persistFreeformXpAwards(input: {
 			input.gameSchema
 		);
 
-		events.push(event);
+		awards.push({
+			event,
+			cache: {
+				character_id: updatedCharacter.character_id,
+				experience: updatedCharacter.experience,
+				level: updatedCharacter.level,
+				hp_max: updatedCharacter.hp_max,
+				hp_current: updatedCharacter.hp_current
+			}
+		});
 	}
 
-	if (events.length === 0) {
+	if (awards.length === 0) {
 		throw new Error('Give at least one player character some XP.');
 	}
 
-	return events;
+	const characters = await persistStatChangesBatchInDb(awards);
+
+	for (const character of characters) {
+		mergeCharacterIntoCache(character);
+	}
+
+	bumpCampaignCharactersRevision();
+
+	return awards.map((award) => award.event);
 }
 
 export async function persistCharacterSheetStatChanges(
@@ -304,28 +333,16 @@ export async function seedCharacterCreationStatEvents(
 	actorUserId: string
 ): Promise<void> {
 	const createdAt = new Date().toISOString();
-	const seeds: Array<{ stat: StatKind; delta: number }> = [];
+	const seeds: CharacterStatEvent[] = [];
 
 	if (values.experience !== 0) {
-		seeds.push({ stat: 'experience', delta: values.experience });
-	}
-
-	if (values.hp_max !== 0) {
-		seeds.push({ stat: 'hp_max', delta: values.hp_max });
-	}
-
-	if (values.hp_current !== 0) {
-		seeds.push({ stat: 'hp_current', delta: values.hp_current });
-	}
-
-	for (const seed of seeds) {
-		await insertCharacterStatEventInDb({
+		seeds.push({
 			stat_event_id: createStatEventId(),
 			character_id: character.character_id,
 			campaign_id: character.campaign_id,
-			stat: seed.stat,
-			delta: seed.delta,
-			value_after: seed.delta,
+			stat: 'experience',
+			delta: values.experience,
+			value_after: values.experience,
 			source_type: 'creation',
 			source_id: null,
 			source_label: 'Character created',
@@ -336,4 +353,44 @@ export async function seedCharacterCreationStatEvents(
 			created_at: createdAt
 		});
 	}
+
+	if (values.hp_max !== 0) {
+		seeds.push({
+			stat_event_id: createStatEventId(),
+			character_id: character.character_id,
+			campaign_id: character.campaign_id,
+			stat: 'hp_max',
+			delta: values.hp_max,
+			value_after: values.hp_max,
+			source_type: 'creation',
+			source_id: null,
+			source_label: 'Character created',
+			description: null,
+			batch_id: null,
+			actor_user_id: actorUserId,
+			metadata: null,
+			created_at: createdAt
+		});
+	}
+
+	if (values.hp_current !== 0) {
+		seeds.push({
+			stat_event_id: createStatEventId(),
+			character_id: character.character_id,
+			campaign_id: character.campaign_id,
+			stat: 'hp_current',
+			delta: values.hp_current,
+			value_after: values.hp_current,
+			source_type: 'creation',
+			source_id: null,
+			source_label: 'Character created',
+			description: null,
+			batch_id: null,
+			actor_user_id: actorUserId,
+			metadata: null,
+			created_at: createdAt
+		});
+	}
+
+	await insertCharacterStatEventsInDb(seeds);
 }

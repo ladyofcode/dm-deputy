@@ -6,21 +6,19 @@
 	import CampaignNpcsSection from '$lib/components/campaign/CampaignNpcsSection.svelte';
 	import CampaignPcsSection from '$lib/components/campaign/CampaignPcsSection.svelte';
 	import CampaignSettingsModal from '$lib/components/campaign/CampaignSettingsModal.svelte';
-	import { fromStore } from 'svelte/store';
 	import { getAdventuresForCampaign } from '$lib/data';
 	import { resolveSessionZeroHref } from '$lib/navigation/hrefs';
 	import { getReactiveCampaignById } from '$lib/stores/campaign-list.svelte';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getReactiveCampaignById(campaignId);
 	});
 	const adventures = $derived.by(() => {
-		if (!dbReady.current) return [];
+		if (!database.isReady) return [];
 		return getAdventuresForCampaign(campaignId);
 	});
 </script>
@@ -29,7 +27,7 @@
 	<title>{campaign?.campaign_name ?? 'Campaign'} · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && !campaign}
+{#if database.isReady && !campaign}
 	<section class="page-stack campaign-page">
 		<h1>Campaign not found</h1>
 		<Button.Root href={resolve('/')}>Back to home</Button.Root>

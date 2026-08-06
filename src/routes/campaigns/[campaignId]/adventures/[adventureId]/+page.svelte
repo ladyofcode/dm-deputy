@@ -2,17 +2,16 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button, Label } from 'bits-ui';
-	import { tick } from 'svelte';
+	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
 	import AdventureSettingsModal from '$lib/components/AdventureSettingsModal.svelte';
 	import OcrScanButton from '$lib/components/OcrScanButton.svelte';
-	import { fromStore } from 'svelte/store';
 	import { getAdventureById, getCampaignById, getPartsForAdventure } from '$lib/data';
 	import {
 		persistAdventureParts,
 		syncAdventurePartOrderWithDatabase,
 		touchCampaign
 	} from '$lib/data/writes';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import type { Part } from '$lib/types/schema';
 
@@ -21,17 +20,16 @@
 		title: string;
 	};
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const adventureId = $derived(page.params.adventureId ?? '');
 
 	const campaign = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getCampaignById(campaignId);
 	});
 	const adventure = $derived.by(() => {
-		if (!dbReady.current) return undefined;
+		if (!database.isReady) return undefined;
 		return getAdventureById(adventureId);
 	});
 
@@ -39,12 +37,13 @@
 	let draggedPartId = $state<string | null>(null);
 	let dragOrderSnapshot = $state('');
 	let partLines = $state<PartLine[]>([{ id: crypto.randomUUID(), title: '' }]);
+	let partTitleInputs = $state<Record<string, HTMLInputElement | undefined>>({});
 	let saving = $state(false);
 	let isReordering = $state(false);
 	let sessionDurationDrafts = $state<Record<string, string>>({});
 
 	$effect(() => {
-		if (!dbReady.current || !adventureId) return;
+		if (!database.isReady || !adventureId) return;
 
 		let cancelled = false;
 
@@ -146,9 +145,6 @@
 
 		draggedPartId = null;
 		dragOrderSnapshot = '';
-		window.removeEventListener('pointermove', handleWindowPointerMove);
-		window.removeEventListener('pointerup', handleWindowPointerUp);
-		window.removeEventListener('pointercancel', handleWindowPointerUp);
 
 		if (!orderChanged) return;
 
@@ -170,9 +166,6 @@
 		event.preventDefault();
 		draggedPartId = partId;
 		dragOrderSnapshot = displayParts.map((part) => part.part_id).join('\n');
-		window.addEventListener('pointermove', handleWindowPointerMove);
-		window.addEventListener('pointerup', handleWindowPointerUp);
-		window.addEventListener('pointercancel', handleWindowPointerUp);
 	}
 
 	function addPartLine() {
@@ -190,11 +183,9 @@
 		if (event.key !== 'Enter') return;
 
 		event.preventDefault();
-		addPartLine();
-		await tick();
-
-		const inputs = document.querySelectorAll<HTMLInputElement>('.part-line input');
-		inputs[inputs.length - 1]?.focus();
+		const newLine = { id: crypto.randomUUID(), title: '' };
+		partLines = [...partLines, newLine];
+		await focusDraftRowInput(() => partTitleInputs[newLine.id]);
 	}
 
 	async function saveNewParts(event: SubmitEvent) {
@@ -222,7 +213,13 @@
 	<title>{adventure?.name ?? 'Adventure'} · DM Deputy</title>
 </svelte:head>
 
-{#if dbReady.current && (!campaign || !adventure)}
+<svelte:window
+	onpointermove={handleWindowPointerMove}
+	onpointerup={handleWindowPointerUp}
+	onpointercancel={handleWindowPointerUp}
+/>
+
+{#if database.isReady && (!campaign || !adventure)}
 	<section class="page-stack">
 		<h1>Adventure not found</h1>
 		<Button.Root href={resolve('/')}>Back to home</Button.Root>
@@ -327,6 +324,7 @@
 						{#each partLines as line, index (line.id)}
 							<li class="part-line">
 								<input
+									bind:this={partTitleInputs[line.id]}
 									bind:value={line.title}
 									placeholder="Part title"
 									aria-label="Part title"

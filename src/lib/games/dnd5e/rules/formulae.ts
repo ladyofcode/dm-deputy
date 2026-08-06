@@ -1,40 +1,39 @@
-/** D&D 5e ability score → modifier (PHB table, scores 1–30). */
 const ABILITY_MODIFIER_BY_SCORE = [
-	-5, // 1
+	-5,
 	-4,
-	-4, // 2–3
+	-4,
 	-3,
-	-3, // 4–5
+	-3,
 	-2,
-	-2, // 6–7
+	-2,
 	-1,
-	-1, // 8–9
+	-1,
 	0,
-	0, // 10–11
+	0,
 	1,
-	1, // 12–13
+	1,
 	2,
-	2, // 14–15
+	2,
 	3,
-	3, // 16–17
+	3,
 	4,
-	4, // 18–19
+	4,
 	5,
-	5, // 20–21
+	5,
 	6,
-	6, // 22–23
+	6,
 	7,
-	7, // 24–25
+	7,
 	8,
-	8, // 26–27
+	8,
 	9,
-	9, // 28–29
-	10 // 30
+	9,
+	10
 ] as const;
 
 export function abilityModifier(score: number): number {
 	const clamped = Math.min(30, Math.max(1, Math.round(score)));
-	return ABILITY_MODIFIER_BY_SCORE[clamped - 1];
+	return ABILITY_MODIFIER_BY_SCORE[clamped - 1] ?? 0;
 }
 
 export function proficiencyBonus(level: number): number {

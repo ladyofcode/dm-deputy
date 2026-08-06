@@ -1,5 +1,12 @@
 import type { StoryNode, StoryItem, StoryNodeKind } from '$lib/types/schema';
 import {
+	STORY_NODE_SIZE,
+	type ItemSize,
+	type NodePosition,
+	type PartItemLayout,
+	type PartNodeLayout
+} from '$lib/data/part-story-layout';
+import {
 	getCachedPartStory,
 	isDatabaseCacheReady,
 	activateCachedStoryNode,
@@ -10,18 +17,21 @@ import {
 	updateCachedPartStoryNodes
 } from '$lib/db/cache';
 import {
+	getEncounterResolutionEventIdsInDb,
 	activateStoryNodeInDb,
 	toggleStoryNodeCompletedInDb,
 	savePartItemLayout as persistPartItemLayout,
 	savePartNodeLayout as persistPartNodeLayout,
-	savePartStoryItems as persistPartStoryItems,
-	savePartStoryNodes as persistPartStoryNodes
+	savePartStoryItems as persistPartStoryItemsInDb,
+	savePartStoryNodes as persistPartStoryNodes,
+	savePartStory as persistPartStory
 } from '$lib/db/client';
 import { normalizeStoryItem, isPersistedStoryItem, storyItemSize } from '$lib/domain/story-item';
 import {
 	estimateRewardGroupSize,
 	isRewardGroupId,
-	isStoryItemReward
+	isStoryItemReward,
+	rewardXpFromItems
 } from '$lib/domain/story-item-reward';
 import {
 	estimateNodeSummarySize,
@@ -29,13 +39,12 @@ import {
 	partCanvasAttachables
 } from '$lib/domain/story-node-summary';
 
-export type NodePosition = {
-	x: number;
-	y: number;
-};
-
-export type PartNodeLayout = Record<string, NodePosition>;
-export type PartItemLayout = Record<string, NodePosition>;
+export type {
+	ItemSize,
+	NodePosition,
+	PartItemLayout,
+	PartNodeLayout
+} from '$lib/data/part-story-layout';
 
 export type StoryEdge = {
 	id: string;
@@ -47,15 +56,6 @@ function assertStoryReady(): void {
 	if (!isDatabaseCacheReady()) {
 		throw new Error('Database is not ready yet');
 	}
-}
-
-export function getDefaultStoryItems(): StoryItem[] {
-	return [];
-}
-
-export function loadPartStoryItems(partId: string): StoryItem[] | null {
-	assertStoryReady();
-	return getCachedPartStory(partId)?.items ?? null;
 }
 
 export function getInitialStoryItems(partId: string): StoryItem[] {
@@ -74,7 +74,7 @@ export async function savePartStoryItems(partId: string, items: StoryItem[]): Pr
 	assertStoryReady();
 	const normalized = items.map(normalizeStoryItem).filter(isPersistedStoryItem);
 	updateCachedPartStoryItems(partId, normalized);
-	await persistPartStoryItems(partId, normalized);
+	await persistPartStoryItemsInDb(partId, normalized);
 }
 
 const ITEM_KIND_ORDER = {
@@ -215,11 +215,6 @@ function sortItemsForLayout(items: StoryItem[]) {
 	);
 }
 
-export type ItemSize = {
-	width: number;
-	height: number;
-};
-
 function itemCenter(position: NodePosition, size: ItemSize) {
 	return {
 		x: position.x + size.width / 2,
@@ -262,10 +257,14 @@ export function itemsLayoutOverlaps(
 ) {
 	for (let i = 0; i < items.length; i++) {
 		for (let j = i + 1; j < items.length; j++) {
-			const sizeA = sizes[items[i].item_id] ?? ESTIMATED_ITEM_SIZE;
-			const sizeB = sizes[items[j].item_id] ?? ESTIMATED_ITEM_SIZE;
-			const posA = layout[items[i].item_id];
-			const posB = layout[items[j].item_id];
+			const itemA = items[i];
+			const itemB = items[j];
+			if (!itemA || !itemB) continue;
+
+			const sizeA = sizes[itemA.item_id] ?? ESTIMATED_ITEM_SIZE;
+			const sizeB = sizes[itemB.item_id] ?? ESTIMATED_ITEM_SIZE;
+			const posA = layout[itemA.item_id];
+			const posB = layout[itemB.item_id];
 			if (!posA || !posB) continue;
 
 			if (boxesOverlap(posA, sizeA, posB, sizeB, gap)) {
@@ -502,6 +501,8 @@ export function separateSiblingItemLayout(
 
 		for (let i = 0; i < items.length; i++) {
 			const itemA = items[i];
+			if (!itemA) continue;
+
 			const sizeA = sizes[itemA.item_id] ?? ESTIMATED_ITEM_SIZE;
 			if (!nextLayout[itemA.item_id]) continue;
 
@@ -514,6 +515,7 @@ export function separateSiblingItemLayout(
 
 			for (let j = i + 1; j < items.length; j++) {
 				const itemB = items[j];
+				if (!itemB) continue;
 				const sizeB = sizes[itemB.item_id] ?? ESTIMATED_ITEM_SIZE;
 				const currentA = nextLayout[itemA.item_id];
 				const currentB = nextLayout[itemB.item_id];
@@ -628,34 +630,16 @@ export function estimatedAttachableSizes(
 
 function filterStackedSavedItemLayout(
 	saved: PartItemLayout | null,
-	attachables: StoryItem[],
-	allItems: StoryItem[],
-	nodes: StoryNode[] = []
+	attachables: StoryItem[]
 ): PartItemLayout | null {
 	if (!saved) return null;
 
-	const itemsByParent = attachables.reduce<Record<string, StoryItem[]>>((groups, item) => {
-		const group = groups[item.parent_node_id] ?? [];
-		group.push(item);
-		groups[item.parent_node_id] = group;
-		return groups;
-	}, {});
+	const attachableIds = new Set(attachables.map((item) => item.item_id));
+	const filtered = Object.fromEntries(
+		Object.entries(saved).filter(([itemId]) => attachableIds.has(itemId))
+	);
 
-	const usable = { ...saved };
-	let changed = false;
-
-	for (const parentItems of Object.values(itemsByParent)) {
-		if (
-			itemsLayoutOverlaps(parentItems, saved, estimatedAttachableSizes(parentItems, allItems, nodes))
-		) {
-			for (const item of parentItems) {
-				delete usable[item.item_id];
-				changed = true;
-			}
-		}
-	}
-
-	return changed ? usable : saved;
+	return Object.keys(filtered).length > 0 ? filtered : null;
 }
 
 export const ITEM_CONNECTOR_MIN_LENGTH = 72;
@@ -732,6 +716,47 @@ export function buildStoryEdges(nodes: StoryNode[]): StoryEdge[] {
 export function loadPartNodeLayout(partId: string): PartNodeLayout | null {
 	assertStoryReady();
 	return getCachedPartStory(partId)?.nodeLayout ?? null;
+}
+
+export function loadPartStoryItems(partId: string): StoryItem[] | null {
+	assertStoryReady();
+	return getCachedPartStory(partId)?.items ?? null;
+}
+
+export async function savePartStory(
+	partId: string,
+	snapshot: {
+		nodes?: StoryNode[];
+		items?: StoryItem[];
+		nodeLayout?: PartNodeLayout | null;
+		itemLayout?: PartItemLayout | null;
+	}
+): Promise<void> {
+	assertStoryReady();
+
+	if (snapshot.nodes) {
+		updateCachedPartStoryNodes(partId, snapshot.nodes);
+	}
+
+	if (snapshot.items) {
+		updateCachedPartStoryItems(partId, snapshot.items);
+	}
+
+	if (snapshot.nodeLayout) {
+		updateCachedPartNodeLayout(partId, snapshot.nodeLayout);
+	}
+
+	if (snapshot.itemLayout) {
+		updateCachedPartItemLayout(partId, snapshot.itemLayout);
+	}
+
+	await persistPartStory({
+		partId,
+		nodes: snapshot.nodes,
+		items: snapshot.items,
+		nodeLayout: snapshot.nodeLayout ?? undefined,
+		itemLayout: snapshot.itemLayout ?? undefined
+	});
 }
 
 export async function savePartNodeLayout(partId: string, layout: PartNodeLayout): Promise<void> {
@@ -887,20 +912,6 @@ function layoutParentAttachables(
 	const unsavedItems = parentItems.filter((item) => !savedLayout[item.item_id]);
 
 	if (unsavedItems.length === 0) {
-		if (parentItems.length === 0) {
-			return savedLayout;
-		}
-
-		if (itemsLayoutOverlaps(parentItems, savedLayout, sizes)) {
-			return layoutSiblingItemsWithoutOverlap(
-				parentPosition,
-				nodeSize,
-				parentItems,
-				sizes,
-				layoutOptions
-			);
-		}
-
 		return savedLayout;
 	}
 
@@ -943,7 +954,7 @@ export function resolvePartItemLayout(
 	nodes: StoryNode[] = []
 ): PartItemLayout {
 	const attachables = partCanvasAttachables(nodes, items);
-	const saved = filterStackedSavedItemLayout(loadPartItemLayout(partId), attachables, items, nodes);
+	const saved = filterStackedSavedItemLayout(loadPartItemLayout(partId), attachables);
 	const resolvedNodeLayout = liveNodeLayout ?? nodeLayout;
 	const itemsByParent = attachables.reduce<Record<string, StoryItem[]>>((groups, item) => {
 		const group = groups[item.parent_node_id] ?? [];
@@ -984,4 +995,167 @@ export function resolvePartItemLayout(
 
 function centerX(canvasWidth: number, nodeSize: number): number {
 	return canvasWidth / 2 - nodeSize / 2;
+}
+
+export function canvasDimensions() {
+	const canvasWidth = getPartStoryCanvasWidth();
+	const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+
+	return { canvasWidth, canvasHeight: canvasHeight || 1 };
+}
+
+export function createStoryNode(
+	title: string,
+	kind: StoryNodeKind,
+	summary = '',
+	parentNodeId?: string
+): StoryNode {
+	const node: StoryNode = {
+		node_id: `node-${crypto.randomUUID()}`,
+		kind,
+		title: title.trim(),
+		summary: summary.trim(),
+		parent_node_ids: parentNodeId ? [parentNodeId] : []
+	};
+
+	if (kind === 'encounter') {
+		node.difficulty = null;
+	}
+
+	return node;
+}
+
+export function createChainedStoryNodes(
+	lines: { title: string; kind: StoryNodeKind }[],
+	initialParentId?: string
+): StoryNode[] {
+	const nodes: StoryNode[] = [];
+	let parentId = initialParentId;
+
+	for (const line of lines) {
+		const node = createStoryNode(line.title, line.kind, '', parentId);
+		nodes.push(node);
+		parentId = node.node_id;
+	}
+
+	return nodes;
+}
+
+export function nodeIdsWithRewardXp(nodes: StoryNode[], items: StoryItem[]): string[] {
+	return nodes
+		.filter((node) => {
+			const rewards = items.filter(
+				(item) => item.is_reward && item.parent_node_id === node.node_id
+			);
+			return rewardXpFromItems(rewards) > 0;
+		})
+		.map((node) => node.node_id);
+}
+
+export async function refreshXpAwardedNodeIds(
+	nodes: StoryNode[],
+	items: StoryItem[]
+): Promise<Set<string>> {
+	const nodeIds = nodeIdsWithRewardXp(nodes, items);
+
+	if (nodeIds.length === 0) {
+		return new Set();
+	}
+
+	const awarded = await getEncounterResolutionEventIdsInDb(nodeIds);
+	return new Set(awarded);
+}
+
+export async function appendNodesToPart(
+	partId: string,
+	existingNodes: StoryNode[],
+	newNodes: StoryNode[]
+): Promise<StoryNode[]> {
+	if (newNodes.length === 0) return existingNodes;
+
+	const existingLayout = loadPartNodeLayout(partId) ?? {};
+	const { canvasWidth, canvasHeight } = canvasDimensions();
+	const nextLayout = { ...existingLayout };
+
+	for (const node of newNodes) {
+		nextLayout[node.node_id] = defaultPositionForNewNode(
+			nextLayout,
+			canvasWidth,
+			canvasHeight,
+			STORY_NODE_SIZE
+		);
+	}
+
+	const nextNodes = [...existingNodes, ...newNodes];
+	await savePartStory(partId, { nodes: nextNodes, nodeLayout: nextLayout });
+	return nextNodes;
+}
+
+export async function persistPartStoryItems(
+	partId: string,
+	storyNodes: StoryNode[],
+	storyItems: StoryItem[],
+	items: StoryItem[]
+): Promise<StoryItem[]> {
+	const attachableIds = new Set(partCanvasAttachables(storyNodes, items).map((item) => item.item_id));
+	const previousAttachableIds = partCanvasAttachables(storyNodes, storyItems)
+		.map((item) => item.item_id)
+		.sort()
+		.join(',');
+	const nextAttachableIds = [...attachableIds].sort().join(',');
+	const attachablesChanged = previousAttachableIds !== nextAttachableIds;
+
+	const itemLayout = loadPartItemLayout(partId) ?? {};
+	const nextItemLayout = Object.fromEntries(
+		Object.entries(itemLayout).filter(([itemId]) => attachableIds.has(itemId))
+	);
+	const nodeLayout = loadPartNodeLayout(partId) ?? {};
+	const resolvedLayout = resolvePartItemLayout(
+		partId,
+		items,
+		nodeLayout,
+		STORY_NODE_SIZE,
+		undefined,
+		buildStoryEdges(storyNodes),
+		storyNodes
+	);
+
+	if (attachablesChanged) {
+		for (const itemId of attachableIds) {
+			if (resolvedLayout[itemId]) {
+				nextItemLayout[itemId] = resolvedLayout[itemId];
+			}
+		}
+	} else {
+		for (const itemId of attachableIds) {
+			if (!nextItemLayout[itemId] && resolvedLayout[itemId]) {
+				nextItemLayout[itemId] = resolvedLayout[itemId];
+			}
+		}
+	}
+
+	await savePartStory(partId, { items, itemLayout: nextItemLayout });
+	return items;
+}
+
+export async function replacePartStoryNodes(
+	partId: string,
+	nodes: StoryNode[],
+	storyItems: StoryItem[]
+): Promise<{ nodes: StoryNode[]; items: StoryItem[] }> {
+	const normalized = nodes.map(normalizeStoryNode);
+	const nodeIds = new Set(normalized.map((node) => node.node_id));
+	const existingLayout = loadPartNodeLayout(partId) ?? {};
+	const nextLayout: PartNodeLayout = Object.fromEntries(
+		Object.entries(existingLayout).filter(([nodeId]) => nodeIds.has(nodeId))
+	);
+	const nextItems = storyItems.filter((item) => nodeIds.has(item.parent_node_id));
+
+	await savePartStory(partId, {
+		nodes: normalized,
+		nodeLayout: nextLayout
+	});
+
+	const items = await persistPartStoryItems(partId, normalized, storyItems, nextItems);
+	return { nodes: normalized, items };
 }

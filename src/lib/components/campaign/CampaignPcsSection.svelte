@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Button, Label } from 'bits-ui';
-	import { tick } from 'svelte';
+	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
+	import CampaignCharacterListItem from '$lib/components/campaign/CampaignCharacterListItem.svelte';
+	import CampaignLinkExistingCharacterForm from '$lib/components/campaign/CampaignLinkExistingCharacterForm.svelte';
 	import { getCampaignMembers, getUserById } from '$lib/data';
 	import { resolveCharacterHref } from '$lib/navigation/hrefs';
 	import {
@@ -34,6 +36,7 @@
 	let addingExistingCharacterId = $state<string | null>(null);
 	let selectedExistingCharacterId = $state('');
 	let error = $state<string | null>(null);
+	let draftPlayerNameInputs = $state<Record<string, HTMLInputElement | undefined>>({});
 
 	const pcs = $derived(getReactivePcsForCampaign(campaignId));
 	const availablePcs = $derived(getReactiveAvailablePcsForCampaign(campaignId));
@@ -57,11 +60,9 @@
 		if (event.key !== 'Enter') return;
 
 		event.preventDefault();
-		addDraftLine();
-		await tick();
-
-		const inputs = document.querySelectorAll<HTMLInputElement>('.pc-draft-line input[type="text"]');
-		inputs[inputs.length - 2]?.focus();
+		const newLine = createDraftLine();
+		draftLines = [...draftLines, newLine];
+		await focusDraftRowInput(() => draftPlayerNameInputs[newLine.id]);
 	}
 
 	function playerNameForPc(pc: Character): string | null {
@@ -74,17 +75,6 @@
 		if (!member) return null;
 
 		return getUserById(member.user_id)?.username ?? null;
-	}
-
-	function pcSummary(pc: Character): string | null {
-		const parts: string[] = [];
-
-		if (pc.level > 0) parts.push(`Level ${pc.level}`);
-		if (pc.hp_max > 0) parts.push(`HP ${pc.hp_current}/${pc.hp_max}`);
-		if (pc.experience > 0) parts.push(`${pc.experience} XP`);
-		if (pc.reputation) parts.push(pc.reputation);
-
-		return parts.length ? parts.join(' · ') : null;
 	}
 
 	function draftHasContent(line: PlayerDraftLine): boolean {
@@ -161,29 +151,17 @@
 	</p>
 
 	{#if pcs.length}
-		<ul class="pc-list list-plain">
+		<ul class="character-list list-plain">
 			{#each pcs as pc (pc.character_id)}
 				{@const playerName = playerNameForPc(pc)}
-				<li class="pc-list-item">
-					<a class="pc-main" href={resolveCharacterHref(campaignId, pc.character_id)}>
-						<span class="pc-name">{pc.display_name}</span>
-						{#if playerName}
-							<p class="pc-player-name">Player: {playerName}</p>
-						{/if}
-						{#if pcSummary(pc)}
-							<p class="pc-summary">{pcSummary(pc)}</p>
-						{/if}
-					</a>
-					<Button.Root
-						type="button"
-						data-variant="ghost"
-						disabled={removingCharacterId === pc.character_id}
-						onclick={() => handleRemove(pc)}
-						aria-label={`Remove ${pc.display_name} from campaign`}
-					>
-						{removingCharacterId === pc.character_id ? 'Removing…' : 'Remove'}
-					</Button.Root>
-				</li>
+				<CampaignCharacterListItem
+					href={resolveCharacterHref(campaignId, pc.character_id)}
+					character={pc}
+					subtitle={playerName ? `Player: ${playerName}` : null}
+					removing={removingCharacterId === pc.character_id}
+					removeAriaLabel={`Remove ${pc.display_name} from campaign`}
+					onRemove={() => handleRemove(pc)}
+				/>
 			{/each}
 		</ul>
 	{:else}
@@ -191,32 +169,27 @@
 	{/if}
 
 	{#if availablePcs.length}
-		<form class="existing-pcs-form" onsubmit={handleAddExistingPc}>
-			<div class="field">
-				<Label.Root for="existing_pc_select">Link existing character</Label.Root>
-				<p class="hint">
-					Characters removed from a campaign stay in your library and can be linked again.
-				</p>
-				<div class="existing-pc-row">
-					<select
-						id="existing_pc_select"
-						bind:value={selectedExistingCharacterId}
-						aria-label="Existing player character"
-					>
-						<option value="">Choose a character…</option>
-						{#each availablePcs as pc (pc.character_id)}
-							<option value={pc.character_id}>{pc.display_name}</option>
-						{/each}
-					</select>
-					<Button.Root
-						type="submit"
-						disabled={!selectedExistingCharacterId || Boolean(addingExistingCharacterId)}
-					>
-						{addingExistingCharacterId ? 'Linking…' : 'Link'}
-					</Button.Root>
-				</div>
-			</div>
-		</form>
+		<CampaignLinkExistingCharacterForm
+			id="existing_pc_select"
+			label="Link existing character"
+			hint="Characters removed from a campaign stay in your library and can be linked again."
+			selectAriaLabel="Existing player character"
+			placeholder="Choose a character…"
+			selectedId={selectedExistingCharacterId}
+			submitting={Boolean(addingExistingCharacterId)}
+			submitBusyLabel="Linking…"
+			submitIdleLabel="Link"
+			onsubmit={handleAddExistingPc}
+			onSelectedIdChange={(value) => {
+				selectedExistingCharacterId = value;
+			}}
+		>
+			{#snippet options()}
+				{#each availablePcs as pc (pc.character_id)}
+					<option value={pc.character_id}>{pc.display_name}</option>
+				{/each}
+			{/snippet}
+		</CampaignLinkExistingCharacterForm>
 	{/if}
 
 	<form class="pcs-form" onsubmit={saveNewPlayers}>
@@ -230,6 +203,7 @@
 					<li class="pc-draft-line">
 						<input
 							type="text"
+							bind:this={draftPlayerNameInputs[line.id]}
 							bind:value={line.player_name}
 							placeholder="Player name"
 							aria-label="Player name"
@@ -288,49 +262,9 @@
 		margin: 0;
 	}
 
-	.pc-list {
+	.character-list {
 		display: grid;
 		gap: 0.5rem;
-	}
-
-	.pc-list-item {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 0.75rem;
-		align-items: start;
-		padding: 0.65rem 0.75rem;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.pc-main {
-		min-width: 0;
-		display: grid;
-		gap: 0.25rem;
-		padding: 0;
-		text-decoration: none;
-		color: inherit;
-	}
-
-	.pc-main:hover .pc-name {
-		color: var(--color-accent);
-	}
-
-	.pc-name {
-		font-weight: 600;
-	}
-
-	.pc-player-name {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
-	}
-
-	.pc-summary {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
 	}
 
 	.pcs-form {
@@ -361,21 +295,6 @@
 
 	.pcs-form .field {
 		margin-bottom: 0;
-	}
-
-	.existing-pcs-form .field {
-		margin-bottom: 0;
-	}
-
-	.existing-pc-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.existing-pc-row select {
-		flex: 1;
-		min-width: 0;
 	}
 
 	.hint.error {

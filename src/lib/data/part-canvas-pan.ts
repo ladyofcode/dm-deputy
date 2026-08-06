@@ -1,4 +1,4 @@
-import type { NodePosition } from '$lib/data/part-story';
+import type { NodePosition } from '$lib/data/part-story-layout';
 
 const PAN_STORAGE_PREFIX = 'dm-deputy:part-canvas-pan:';
 

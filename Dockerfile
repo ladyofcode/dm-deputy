@@ -22,6 +22,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 USER sveltekit
 
 COPY --from=builder --chown=sveltekit:nodejs /app/build ./build
+COPY --from=builder --chown=sveltekit:nodejs /app/server.js ./
 COPY --from=builder --chown=sveltekit:nodejs /app/package.json ./
 COPY --from=deps --chown=sveltekit:nodejs /app/node_modules ./node_modules
 
@@ -29,4 +30,4 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 EXPOSE 3000
-CMD ["node", "build"]
+CMD ["node", "server.js"]

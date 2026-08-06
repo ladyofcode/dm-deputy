@@ -1,17 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
-	import { fromStore } from 'svelte/store';
 	import { getCampaigns } from '$lib/data';
 	import { getReactiveCampaignListForUser } from '$lib/stores/campaign-list.svelte';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
-	import { dbIsReady } from '$lib/stores/database.svelte';
+	import { database } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 
-	const dbReady = fromStore(dbIsReady);
 
 	const campaigns = $derived(
-		dbReady.current ? getReactiveCampaignListForUser(workspace.currentUserId) : []
+		database.isReady ? getReactiveCampaignListForUser(workspace.currentUserId) : []
 	);
 
 	function formatActivityDate(iso: string): string {
@@ -25,7 +23,7 @@
 </svelte:head>
 
 <section class="page-stack home-page">
-	{#if dbReady.current}
+	{#if database.isReady}
 		{#if campaigns.length > 0}
 			<header class="home-header">
 				<Button.Root href={resolve('/onboarding/campaign')} data-variant="ghost"

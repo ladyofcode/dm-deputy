@@ -9,7 +9,7 @@
 		type FullAdventureNodeSection,
 		type NodeXpAwardLine
 	} from '$lib/domain/full-adventure';
-	import { getNpcsForCampaign } from '$lib/data';
+	import { getReactiveNpcsForCampaign } from '$lib/stores/campaign-characters.svelte';
 	import type { StoryItem } from '$lib/types/schema';
 
 	type Props = {
@@ -20,7 +20,9 @@
 
 	let { section, campaignId, xpAwards = [] }: Props = $props();
 
-	const npcsById = $derived(new Map(getNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc])));
+	const npcsById = $derived(
+		new Map(getReactiveNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc]))
+	);
 	const xpTotal = $derived(totalRewardXp(section.rewardItems));
 	const showSection = $derived(hasRewardContent(section) || xpAwards.length > 0);
 	const xpPending = $derived(xpTotal != null && xpAwards.length === 0);
@@ -55,7 +57,7 @@
 			<div class="xp-assigned">
 				<p class="xp-assigned-label">Assigned</p>
 				<ul class="xp-assigned-list list-plain">
-					{#each xpAwards as award (award.characterName + award.amount + (award.description ?? ''))}
+					{#each xpAwards as award (award.id)}
 						<li>
 							<span class="xp-assigned-name">{award.characterName}</span>
 							<span class="xp-assigned-amount">{award.amount} XP</span>

@@ -1,4 +1,3 @@
-import { derived, get, writable } from 'svelte/store';
 import {
 	clearAllLocalAppStorage,
 	clearLocalStorageStoryMigration,
@@ -11,7 +10,6 @@ import {
 	isDatabaseClientInitialized,
 	loadCampaignSnapshot,
 	loadCatalogSnapshot,
-	loadPartStory,
 	resetDatabaseWorker
 } from '$lib/db/client';
 import {
@@ -23,6 +21,7 @@ import {
 import { clearCatalogCache, setCatalogSnapshot } from '$lib/db/catalog-cache';
 import { bumpCatalogRevision } from '$lib/stores/catalog.svelte';
 import { clearCampaignMapObjectUrlCache } from '$lib/data/map-blob-cache';
+import { clearCharacterPortraitObjectUrlCache } from '$lib/data/character-blob-cache';
 import { LOCAL_USER_ID } from '$lib/constants/user';
 import { getCampaignListForUser } from '$lib/data';
 import { preferences } from '$lib/stores/preferences.svelte';
@@ -30,11 +29,15 @@ import { workspace } from '$lib/stores/workspace.svelte';
 
 export type DbStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-export const dbStatus = writable<DbStatus>('idle');
-export const dbError = writable<string | null>(null);
-export const dbIsReady = derived(dbStatus, ($status) => $status === 'ready');
-
 class DatabaseController {
+	status = $state<DbStatus>('idle');
+	error = $state<string | null>(null);
+	catalogError = $state<string | null>(null);
+
+	get isReady(): boolean {
+		return this.status === 'ready';
+	}
+
 	private bootstrapInFlight: Promise<void> | null = null;
 
 	private ensureWorkspaceUserCanSeeCampaigns(): void {
@@ -58,17 +61,21 @@ class DatabaseController {
 	}
 
 	private async populateCache(): Promise<void> {
-		await reloadDatabaseCache(loadCampaignSnapshot, loadPartStory);
+		await reloadDatabaseCache(loadCampaignSnapshot);
 		this.ensureWorkspaceUserCanSeeCampaigns();
 	}
 
 	private loadCatalogInBackground(): void {
+		this.catalogError = null;
+
 		void loadCatalogSnapshot()
 			.then((snapshot) => {
 				setCatalogSnapshot(snapshot);
 				bumpCatalogRevision();
 			})
-			.catch(() => {});
+			.catch((cause) => {
+				this.catalogError = cause instanceof Error ? cause.message : String(cause);
+			});
 	}
 
 	private async bootstrap(forceReload = false): Promise<void> {
@@ -89,18 +96,19 @@ class DatabaseController {
 	}
 
 	private async runBootstrap(forceReload: boolean): Promise<void> {
-		if (!forceReload && get(dbStatus) === 'ready' && isDatabaseCacheReady()) {
+		if (!forceReload && this.status === 'ready' && isDatabaseCacheReady()) {
 			return;
 		}
 
-		dbStatus.set('loading');
-		dbError.set(null);
+		this.status = 'loading';
+		this.error = null;
 
 		try {
 			if (forceReload) {
 				clearDatabaseCache();
 				clearCatalogCache();
 				clearCampaignMapObjectUrlCache();
+				clearCharacterPortraitObjectUrlCache();
 			}
 
 			await this.ensureWorkerInitialized();
@@ -110,13 +118,13 @@ class DatabaseController {
 				throw new Error('Database cache did not initialize');
 			}
 
-			dbStatus.set('ready');
+			this.status = 'ready';
 			this.loadCatalogInBackground();
 		} catch (error) {
 			if (forceReload) {
 				resetDatabaseWorker();
-				dbStatus.set('idle');
-				dbError.set(null);
+				this.status = 'idle';
+				this.error = null;
 
 				try {
 					await this.ensureWorkerInitialized();
@@ -126,24 +134,24 @@ class DatabaseController {
 						throw new Error('Database cache did not initialize', { cause: error });
 					}
 
-					dbStatus.set('ready');
+					this.status = 'ready';
 					this.loadCatalogInBackground();
 				} catch (retryError) {
-					dbStatus.set('error');
-					dbError.set(retryError instanceof Error ? retryError.message : String(retryError));
+					this.status = 'error';
+					this.error = retryError instanceof Error ? retryError.message : String(retryError);
 				}
 
 				return;
 			}
 
-			dbStatus.set('error');
-			dbError.set(error instanceof Error ? error.message : String(error));
+			this.status = 'error';
+			this.error = error instanceof Error ? error.message : String(error);
 		}
 	}
 
 	async init(): Promise<void> {
 		if (typeof window === 'undefined') return;
-		if (get(dbStatus) === 'ready' && isDatabaseCacheReady()) return;
+		if (this.status === 'ready' && isDatabaseCacheReady()) return;
 
 		return this.bootstrap(false);
 	}
@@ -178,9 +186,11 @@ class DatabaseController {
 		clearDatabaseCache();
 		clearCatalogCache();
 		clearCampaignMapObjectUrlCache();
+		clearCharacterPortraitObjectUrlCache();
 		this.bootstrapInFlight = null;
-		dbStatus.set('idle');
-		dbError.set(null);
+		this.status = 'idle';
+		this.error = null;
+		this.catalogError = null;
 		void this.init();
 	}
 }
