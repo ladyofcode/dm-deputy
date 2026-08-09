@@ -1,7 +1,4 @@
-@custom-media --tablet (min-width: 24rem);
-@custom-media --layout (min-width: 40rem);
-@custom-media --desktop (min-width: 48rem);
-@custom-media --wide (min-width: 72rem);
+@import './custom-media.css';
 
 :root,
 [data-theme='default'] {

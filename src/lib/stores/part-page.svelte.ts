@@ -17,6 +17,7 @@ import {
 } from '$lib/data/part-story';
 import { addPartNpc, getInitialPartNpcs, removePartNpc } from '$lib/data/part-npcs';
 import { database } from '$lib/stores/database.svelte';
+import { timeAsync, timeSync } from '$lib/debug/load-timing';
 import type { AwardXpMode } from '$lib/components/part/AwardEncounterXpModal.svelte';
 import {
 	type StoryItem,
@@ -96,14 +97,20 @@ export function createPartPageState(
 		storyItems = [];
 		partNpcs = [];
 
-		void ensurePartStoryInCache(partId, loadPartStory).then(() => {
+		void timeAsync('part: load story into cache', () =>
+			ensurePartStoryInCache(partId, loadPartStory)
+		).then(() => {
 			if (cancelled) return;
 
-			storyNodes = getInitialStoryNodes(partId);
-			storyItems = getInitialStoryItems(partId);
-			partNpcs = getInitialPartNpcs(partId);
+			timeSync('part: read story from cache', () => {
+				storyNodes = getInitialStoryNodes(partId);
+				storyItems = getInitialStoryItems(partId);
+				partNpcs = getInitialPartNpcs(partId);
+			});
 			storyLoaded = true;
-			void refreshXpAwardedNodeIds(storyNodes, storyItems).then((ids) => {
+			void timeAsync('part: refresh awarded xp', () =>
+				refreshXpAwardedNodeIds(storyNodes, storyItems)
+			).then((ids) => {
 				if (!cancelled) {
 					xpAwardedNodeIds.clear();
 					for (const id of ids) xpAwardedNodeIds.add(id);
@@ -300,12 +307,24 @@ export function createPartPageState(
 		get error() {
 			return error;
 		},
-		part,
-		campaign,
-		adventure,
-		armsModalNode,
-		awardXpNode,
-		awardXpRewardTotal,
+		get part() {
+			return part;
+		},
+		get campaign() {
+			return campaign;
+		},
+		get adventure() {
+			return adventure;
+		},
+		get armsModalNode() {
+			return armsModalNode;
+		},
+		get awardXpNode() {
+			return awardXpNode;
+		},
+		get awardXpRewardTotal() {
+			return awardXpRewardTotal;
+		},
 		openArmsModal,
 		handleSaveNodeArms,
 		handleSaveEditedNodes,

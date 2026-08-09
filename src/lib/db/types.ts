@@ -52,6 +52,12 @@ export type InitResult = {
 	persistent: boolean;
 };
 
+/**
+ * `needsTemplate` asks the caller to fetch the seed database and call `init`
+ * again on the same worker, so the SQLite module is only compiled once.
+ */
+export type InitOutcome = InitResult | { needsTemplate: true };
+
 export type CatalogSnapshot = {
 	spells: import('$lib/types/schema').Spell[];
 	weapons: import('$lib/types/schema').Weapon[];
@@ -371,7 +377,7 @@ export type LoadCampaignMapBlobArgs = [string, 'thumb' | 'full'];
 export type CatalogKind = import('$lib/domain/catalog').CatalogKind;
 
 export type WorkerRequest =
-	| { id: number; method: 'init'; args: [LocalStorageStoryMigration[], ArrayBuffer] }
+	| { id: number; method: 'init'; args: [LocalStorageStoryMigration[], ArrayBuffer | null] }
 	| { id: number; method: 'loadCampaignSnapshot'; args: [] }
 	| { id: number; method: 'loadCatalogSnapshot'; args: [] }
 	| { id: number; method: 'loadPartStory'; args: [string] }

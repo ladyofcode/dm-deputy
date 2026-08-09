@@ -54,138 +54,123 @@
 </script>
 
 <div class="sheet-form">
-	{#if sheet.loading}
-		<LoadingState message="Loading sheet…" />
-	{:else}
-		<CharacterSheetIdentitySection
-			{mode}
-			bind:kind={sheet.kind}
-			bind:name={sheet.name}
-			bind:playerName={sheet.playerName}
-			bind:description={sheet.description}
-			bind:identity={sheet.identity}
-			bind:extras={sheet.extras}
-			{characterId}
-			bind:portraitFile={sheet.portraitFile}
-			bind:portraitImageSource={sheet.portraitImageSource}
-			{showPortrait}
-			descriptionBeforeNotes={templateMode}
-			{onPortraitFileChange}
-			loading={sheet.loading}
-			{readOnly}
-		/>
-
-		{#if mode === 'npc' && !templateMode}
-			<CharacterSheetPresentationSection
-				bind:identity={sheet.identity}
+	<Tooltip.Provider delayDuration={200}>
+		{#if sheet.loading}
+			<LoadingState message="Loading sheet…" />
+		{:else}
+			<CharacterSheetIdentitySection
+				{sheet}
+				{mode}
 				{characterId}
-				bind:presentationFile={sheet.presentationFile}
-				bind:presentationImageSource={sheet.presentationImageSource}
+				{showPortrait}
+				descriptionBeforeNotes={templateMode}
+				{onPortraitFileChange}
 				loading={sheet.loading}
 				{readOnly}
 			/>
-		{/if}
 
-		{#if showAbilities}
-			<section class="sheet-section">
-				<h2>Abilities</h2>
-				{#if readOnly}
-					<div class="abilities-grid" role="group" aria-label="Ability scores">
-						{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
-							{@const abilityKey = key as AbilityKey}
-							{@const score = sheet.extras.abilities[abilityKey]}
-							{@const modifier = abilityModifier(score)}
-							<div class="ability-row ability-row-readonly">
-								<span class="ability-short">{label.short}</span>
-								<span class="ability-score-readonly">{score}</span>
-								<span class="ability-modifier">{formatSignedModifier(modifier)}</span>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<p class="hint abilities-hint">Score on the left, modifier on the right.</p>
-					<div class="abilities-grid" role="group" aria-label="Ability scores">
-						{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
-							{@const abilityKey = key as AbilityKey}
-							{@const score = sheet.extras.abilities[abilityKey]}
-							{@const modifier = abilityModifier(score)}
-							<div class="ability-row">
-								<Tooltip.Root>
-									<Tooltip.Trigger class="ability-short" type="button">
-										{label.short}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Content>{label.name}</Tooltip.Content>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-								<InlineEditableField
-									id={`character_sheet_${abilityKey}_score`}
-									class="ability-score-field"
-									hideLabel
-									type="number"
-									min={1}
-									max={30}
-									step={1}
-									value={score}
-									oncommit={(next) =>
-										updateAbility(abilityKey, typeof next === 'number' ? next : 10)}
-									aria-label="{label.name} score"
-								/>
-								<span class="ability-modifier" aria-label="{label.name} modifier">
-									{formatSignedModifier(modifier)}
-								</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
-		{/if}
-
-		<fieldset class="sheet-editable-body" disabled={readOnly}>
-			{#if mode === 'pc'}
-				<CharacterPcVitalitySection
-					bind:extras={sheet.extras}
-					statEvents={sheet.statEvents}
-					{statBases}
-					disabled={sheet.loading || readOnly}
-				/>
-			{:else}
-				<CharacterSheetCombatSection
-					{mode}
-					bind:extras={sheet.extras}
-					{showCombat}
-					bind:combatExpanded={sheet.combatExpanded}
+			{#if mode === 'npc' && !templateMode}
+				<CharacterSheetPresentationSection
+					{sheet}
+					{characterId}
+					loading={sheet.loading}
 					{readOnly}
-					statEvents={sheet.statEvents}
-					{statBases}
 				/>
 			{/if}
 
-			{#if mode === 'pc' || showCombat}
-				<CharacterSheetEquipmentSection bind:extras={sheet.extras} />
-
-				<CharacterSpellcastingSection
-					bind:spellcasting={sheet.extras.spellcasting}
-					bind:spells={sheet.extras.loadout.spells}
-					abilities={sheet.extras.abilities}
-					level={sheet.extras.level}
-					defaultClassName={sheet.identity.class_name}
-					catalogSpells={spells}
-					disabled={sheet.loading || readOnly}
-				/>
+			{#if showAbilities}
+				<section class="sheet-section">
+					<h2>Abilities</h2>
+					{#if readOnly}
+						<div class="abilities-grid" role="group" aria-label="Ability scores">
+							{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
+								{@const abilityKey = key as AbilityKey}
+								{@const score = sheet.extras.abilities[abilityKey]}
+								{@const modifier = abilityModifier(score)}
+								<div class="ability-row ability-row-readonly">
+									<span class="ability-short">{label.short}</span>
+									<span class="ability-score-readonly">{score}</span>
+									<span class="ability-modifier">{formatSignedModifier(modifier)}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="hint abilities-hint">Score on the left, modifier on the right.</p>
+						<div class="abilities-grid" role="group" aria-label="Ability scores">
+							{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
+								{@const abilityKey = key as AbilityKey}
+								{@const score = sheet.extras.abilities[abilityKey]}
+								{@const modifier = abilityModifier(score)}
+								<div class="ability-row">
+									<Tooltip.Root>
+										<Tooltip.Trigger class="ability-short" type="button">
+											{label.short}
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Content>{label.name}</Tooltip.Content>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+									<InlineEditableField
+										id={`character_sheet_${abilityKey}_score`}
+										class="ability-score-field"
+										hideLabel
+										type="number"
+										min={1}
+										max={30}
+										step={1}
+										value={score}
+										oncommit={(next) =>
+											updateAbility(abilityKey, typeof next === 'number' ? next : 10)}
+										aria-label="{label.name} score"
+									/>
+									<span class="ability-modifier" aria-label="{label.name} modifier">
+										{formatSignedModifier(modifier)}
+									</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</section>
 			{/if}
 
-			{#if mode === 'pc'}
-				<CharacterPcStorySection
-					bind:identity={sheet.identity}
-					bind:physical={sheet.extras.physical}
-					bind:roleplay={sheet.extras.roleplay}
-					bind:description={sheet.description}
-					disabled={sheet.loading || readOnly}
-				/>
-			{/if}
-		</fieldset>
-	{/if}
+			<fieldset class="sheet-editable-body" disabled={readOnly}>
+				{#if mode === 'pc'}
+					<CharacterPcVitalitySection
+						{sheet}
+						statEvents={sheet.statEvents}
+						{statBases}
+						disabled={sheet.loading || readOnly}
+					/>
+				{:else}
+					<CharacterSheetCombatSection
+						{sheet}
+						{mode}
+						{showCombat}
+						{readOnly}
+						statEvents={sheet.statEvents}
+						{statBases}
+					/>
+				{/if}
+
+				{#if mode === 'pc' || showCombat}
+					<CharacterSheetEquipmentSection {sheet} />
+
+					<CharacterSpellcastingSection
+						{sheet}
+						abilities={sheet.extras.abilities}
+						level={sheet.extras.level}
+						defaultClassName={sheet.identity.class_name}
+						catalogSpells={spells}
+						disabled={sheet.loading || readOnly}
+					/>
+				{/if}
+
+				{#if mode === 'pc'}
+					<CharacterPcStorySection {sheet} disabled={sheet.loading || readOnly} />
+				{/if}
+			</fieldset>
+		{/if}
+	</Tooltip.Provider>
 </div>
 
 <style>

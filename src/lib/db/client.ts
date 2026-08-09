@@ -3,6 +3,7 @@ import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout
 import type {
 	CampaignSnapshot,
 	CatalogSnapshot,
+	InitOutcome,
 	InitResult,
 	LocalStorageStoryMigration,
 	PartStorySnapshot,
@@ -13,6 +14,7 @@ import type {
 	WorkerResponse
 } from './types';
 import { APP_DB_URL } from './app-db';
+import { timeAsync } from '$lib/debug/load-timing';
 
 type PendingRequest = {
 	resolve: (value: unknown) => void;
@@ -199,16 +201,31 @@ export async function fetchAppDatabaseTemplate(): Promise<ArrayBuffer> {
 	return response.arrayBuffer();
 }
 
+async function runWorkerInit(migrations: LocalStorageStoryMigration[]): Promise<InitResult> {
+	const outcome = await timeAsync('db: worker init (no template)', () =>
+		callWorker<InitOutcome>('init', [migrations, null])
+	);
+	if (!('needsTemplate' in outcome)) {
+		return outcome;
+	}
+
+	const templateBuffer = await timeAsync('db: fetch template', fetchAppDatabaseTemplate);
+	const seeded = await timeAsync('db: worker init (with template)', () =>
+		callWorkerWithTransfer<InitOutcome>('init', [migrations, templateBuffer], [templateBuffer])
+	);
+
+	if ('needsTemplate' in seeded) {
+		throw new Error('App database template did not contain the expected seed data.');
+	}
+
+	return seeded;
+}
+
 export async function initDatabaseClient(
-	migrations: LocalStorageStoryMigration[],
-	templateBuffer: ArrayBuffer
+	migrations: LocalStorageStoryMigration[]
 ): Promise<InitResult> {
 	if (!initPromise) {
-		initPromise = callWorkerWithTransfer<InitResult>(
-			'init',
-			[migrations, templateBuffer],
-			[templateBuffer]
-		).catch((error) => {
+		initPromise = runWorkerInit(migrations).catch((error) => {
 			initPromise = null;
 			throw error;
 		});

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Tooltip } from 'bits-ui';
+	import { Button } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -59,9 +59,7 @@
 			void onSubmit();
 		}}
 	>
-		<Tooltip.Provider delayDuration={200}>
-			{@render form()}
-		</Tooltip.Provider>
+		{@render form()}
 
 		{#if extraSections}
 			{@render extraSections()}

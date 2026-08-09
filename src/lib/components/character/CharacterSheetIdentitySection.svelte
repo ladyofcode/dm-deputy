@@ -5,31 +5,19 @@
 	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
 	import InlineEditableSelect from '$lib/components/shared/InlineEditableSelect.svelte';
 	import { CHARACTER_ALIGNMENTS } from '$lib/domain/character-alignments';
-	import {
-		createDefaultCharacterIdentity,
-		createDefaultCharacterExtras,
-		type CharacterIdentityDraft,
-		type CharacterExtrasDraft
-	} from '$lib/domain/npc-draft';
 	import { identityDisplayContext } from '$lib/domain/character-sheet-fields';
 	import { applySpeciesToIdentity, resolveIdentitySizeType } from '$lib/domain/species-display';
 	import { getSpeciesByName, listSelectableSpecies } from '$lib/games/dnd5e/data/species';
 	import { listSelectableClasses } from '$lib/games/dnd5e/data/classes';
 	import { getReactiveCatalogSpecies } from '$lib/stores/catalog.svelte';
-	import { CHARACTER_KIND_LABELS, type NpcCharacterKind } from '$lib/types/schema';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
+	import { CHARACTER_KIND_LABELS } from '$lib/types/schema';
 	import type { ImageUploadResult } from '$lib/types/image-upload';
 
 	type Props = {
+		sheet: CharacterSheetStore;
 		mode?: 'npc' | 'pc';
-		kind?: NpcCharacterKind;
-		name?: string;
-		playerName?: string;
-		description?: string;
-		identity?: CharacterIdentityDraft;
-		extras?: CharacterExtrasDraft;
 		characterId?: string;
-		portraitFile?: File | null;
-		portraitImageSource?: string | null;
 		showPortrait?: boolean;
 		descriptionBeforeNotes?: boolean;
 		onPortraitFileChange?: (result: ImageUploadResult) => void;
@@ -38,16 +26,9 @@
 	};
 
 	let {
+		sheet,
 		mode = 'pc',
-		kind = $bindable('npc_general' as NpcCharacterKind),
-		name = $bindable(''),
-		playerName = $bindable(''),
-		description = $bindable(''),
-		identity = $bindable(createDefaultCharacterIdentity()),
-		extras = $bindable(createDefaultCharacterExtras()),
 		characterId,
-		portraitFile = $bindable(null),
-		portraitImageSource = $bindable(null),
 		showPortrait = true,
 		descriptionBeforeNotes = false,
 		onPortraitFileChange,
@@ -60,32 +41,32 @@
 		return listSelectableSpecies();
 	});
 
-	const matchedSpecies = $derived(getSpeciesByName(identity.race));
+	const matchedSpecies = $derived(getSpeciesByName(sheet.identity.race));
 	const selectedSpeciesId = $derived(matchedSpecies?.species_id ?? '');
-	const sizeTypeLabel = $derived(resolveIdentitySizeType(identity) || '—');
-	const classOptions = $derived(listSelectableClasses(identity.class_name));
+	const sizeTypeLabel = $derived(resolveIdentitySizeType(sheet.identity) || '—');
+	const classOptions = $derived(listSelectableClasses(sheet.identity.class_name));
 	let speciesSelectId = $derived(selectedSpeciesId);
 
 	function handleSpeciesChange(event: Event & { currentTarget: HTMLSelectElement }) {
 		const speciesId = event.currentTarget.value;
 		const species = catalogSpecies.find((entry) => entry.species_id === speciesId);
 		if (!species) {
-			identity = { ...identity, race: '', creature_type: '' };
+			sheet.identity = { ...sheet.identity, race: '', creature_type: '' };
 			return;
 		}
 
-		identity = applySpeciesToIdentity(identity, species);
+		sheet.identity = applySpeciesToIdentity(sheet.identity, species);
 	}
 
 	const displayContext = $derived(
 		identityDisplayContext({
 			mode,
-			kind,
-			name,
-			playerName,
-			description,
-			identity,
-			extras,
+			kind: sheet.kind,
+			name: sheet.name,
+			playerName: sheet.playerName,
+			description: sheet.description,
+			identity: sheet.identity,
+			extras: sheet.extras,
 			sizeTypeLabel,
 			descriptionBeforeNotes
 		})
@@ -98,9 +79,8 @@
 	{#if readOnly}
 		<CharacterSheetIdentityReadonly
 			{displayContext}
+			{sheet}
 			{characterId}
-			bind:portraitFile
-			bind:portraitImageSource
 			{showPortrait}
 			{onPortraitFileChange}
 		/>
@@ -109,8 +89,8 @@
 			{#snippet portrait()}
 				<CharacterPortraitField
 					{characterId}
-					bind:file={portraitFile}
-					bind:imageSource={portraitImageSource}
+					bind:file={sheet.portraitFile}
+					bind:imageSource={sheet.portraitImageSource}
 					disabled={loading}
 					onFileChange={onPortraitFileChange}
 				/>
@@ -122,7 +102,7 @@
 						<InlineEditableField
 							id="character_sheet_player_name"
 							label="Player name"
-							bind:value={playerName}
+							bind:value={sheet.playerName}
 							placeholder="Player name"
 							disabled={loading}
 						/>
@@ -133,7 +113,7 @@
 					<InlineEditableField
 						id="character_sheet_name"
 						label="Name"
-						bind:value={name}
+						bind:value={sheet.name}
 						placeholder="Character name"
 						truncate
 						disabled={loading}
@@ -142,7 +122,7 @@
 					<InlineEditableField
 						id="character_sheet_age"
 						label="Age"
-						bind:value={identity.age}
+						bind:value={sheet.identity.age}
 						placeholder="Age"
 						disabled={loading}
 					/>
@@ -153,7 +133,7 @@
 						id="character_sheet_species"
 						label="Species"
 						bind:value={speciesSelectId}
-						displayValue={identity.race}
+						displayValue={sheet.identity.race}
 						emptyLabel="Choose species…"
 						disabled={loading}
 						onchange={handleSpeciesChange}
@@ -175,8 +155,8 @@
 					<InlineEditableSelect
 						id="character_sheet_class"
 						label="Class"
-						bind:value={identity.class_name}
-						displayValue={identity.class_name}
+						bind:value={sheet.identity.class_name}
+						displayValue={sheet.identity.class_name}
 						emptyLabel="Choose class…"
 						disabled={loading}
 					>
@@ -194,7 +174,7 @@
 						min={1}
 						max={20}
 						step={1}
-						bind:value={extras.level}
+						bind:value={sheet.extras.level}
 						placeholder="1"
 						disabled={loading}
 					/>
@@ -204,8 +184,8 @@
 					<InlineEditableSelect
 						id="character_sheet_alignment"
 						label="Alignment"
-						bind:value={identity.alignment}
-						displayValue={identity.alignment}
+						bind:value={sheet.identity.alignment}
+						displayValue={sheet.identity.alignment}
 						emptyLabel="Choose alignment…"
 						disabled={loading}
 					>
@@ -220,8 +200,8 @@
 						<InlineEditableSelect
 							id="character_sheet_type"
 							label="Type"
-							bind:value={kind}
-							displayValue={CHARACTER_KIND_LABELS[kind]}
+							bind:value={sheet.kind}
+							displayValue={CHARACTER_KIND_LABELS[sheet.kind]}
 							emptyLabel="Choose type…"
 							disabled={loading}
 							aria-label="NPC type"
@@ -244,7 +224,7 @@
 						label="Description"
 						type="textarea"
 						wide
-						bind:value={identity.presentation}
+						bind:value={sheet.identity.presentation}
 						placeholder="How this character presents — appearance, mannerisms, voice…"
 						disabled={loading}
 					/>
@@ -255,7 +235,7 @@
 					label="Notes"
 					type="textarea"
 					wide
-					bind:value={description}
+					bind:value={sheet.description}
 					placeholder="Optional description or notes"
 					disabled={loading}
 				/>

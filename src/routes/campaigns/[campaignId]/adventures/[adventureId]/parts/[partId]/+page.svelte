@@ -11,6 +11,7 @@
 	import PartStoryCanvas from '$lib/components/part/PartStoryCanvas.svelte';
 	import StoryNodeArmsModal from '$lib/components/part/StoryNodeArmsModal.svelte';
 	import StoryNodesEmptyForm from '$lib/components/part/StoryNodesEmptyForm.svelte';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import { createPartPageState } from '$lib/stores/part-page.svelte';
 	import { database } from '$lib/stores/database.svelte';
 
@@ -21,6 +22,8 @@
 	const partId = $derived(page.params.partId ?? '');
 
 	const partPage = createPartPageState(() => ({ campaignId, adventureId, partId }));
+
+	const partLoadingMessage = $derived(!database.isReady ? 'Loading database…' : 'Loading story…');
 </script>
 
 <svelte:head>
@@ -62,7 +65,11 @@
 			/>
 		{/if}
 
-		{#if partPage.storyLoaded && partPage.hasStoryNodes}
+		{#if !database.isReady || !partPage.storyLoaded}
+			<div class="part-loading" in:fade={STORY_CONTENT_FADE}>
+				<LoadingState message={partLoadingMessage} />
+			</div>
+		{:else if partPage.hasStoryNodes}
 			<CreateStoryNodeModal
 				bind:open={partPage.showCreateModal}
 				nodes={partPage.storyNodes}
@@ -87,7 +94,7 @@
 					onStoryItemUpdate={partPage.handleStoryItemUpdate}
 				/>
 			</div>
-		{:else if partPage.storyLoaded}
+		{:else}
 			<div in:fade={STORY_CONTENT_FADE}>
 				<StoryNodesEmptyForm onSave={partPage.handleSaveEmptyForm} />
 			</div>
@@ -145,6 +152,14 @@
 		flex: 1;
 		min-height: 0;
 		width: 100%;
+	}
+
+	.part-loading {
+		flex: 1;
+		display: grid;
+		place-items: center;
+		min-height: 0;
+		padding: 2rem;
 	}
 
 	.part-page-back {

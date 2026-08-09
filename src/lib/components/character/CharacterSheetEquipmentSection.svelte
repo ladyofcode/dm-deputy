@@ -14,14 +14,14 @@
 		ITEM_CATEGORY_ORDER
 	} from '$lib/domain/catalog-select';
 	import { ITEM_CATEGORY_LABELS } from '$lib/domain/catalog';
-	import type { CharacterExtrasDraft } from '$lib/domain/npc-draft';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 	import type { ItemCategory } from '$lib/types/schema';
 
 	type Props = {
-		extras?: CharacterExtrasDraft;
+		sheet: CharacterSheetStore;
 	};
 
-	let { extras = $bindable() }: Props = $props();
+	let { sheet }: Props = $props();
 
 	let itemCategoryFilter = $state<ItemCategory | ''>('');
 	let weaponRowKeys = $state<string[]>([]);
@@ -39,74 +39,70 @@
 	);
 
 	function updateWeapons(values: string[]) {
-		if (!extras) return;
-		extras = {
-			...extras,
-			loadout: { ...extras.loadout, weapons: values }
+		sheet.extras = {
+			...sheet.extras,
+			loadout: { ...sheet.extras.loadout, weapons: values }
 		};
 	}
 
 	function updateItems(values: string[]) {
-		if (!extras) return;
-		extras = {
-			...extras,
-			loadout: { ...extras.loadout, items: values }
+		sheet.extras = {
+			...sheet.extras,
+			loadout: { ...sheet.extras.loadout, items: values }
 		};
 	}
 </script>
 
-{#if extras}
-	<section class="sheet-section">
-		<h2>Equipment</h2>
+<section class="sheet-section">
+	<h2>Equipment</h2>
 
-		<LoadoutRowList
-			field="weapons"
-			heading="Weapons"
-			values={extras.loadout.weapons}
-			rowKeys={weaponRowKeys}
-			groups={weaponGroups}
-			emptyLabel="Choose weapon…"
-			addLabel="Add weapon"
-			removeLabel="Remove weapon"
-			onValuesChange={updateWeapons}
-			onRowKeysChange={(keys) => (weaponRowKeys = keys)}
-		/>
+	<LoadoutRowList
+		field="weapons"
+		heading="Weapons"
+		values={sheet.extras.loadout.weapons}
+		rowKeys={weaponRowKeys}
+		groups={weaponGroups}
+		emptyLabel="Choose weapon…"
+		addLabel="Add weapon"
+		removeLabel="Remove weapon"
+		onValuesChange={updateWeapons}
+		onRowKeysChange={(keys) => (weaponRowKeys = keys)}
+	/>
 
-		<InlineEditableCatalogSelect
-			id="character_sheet_armor"
-			kind="armor"
-			label="Armor"
-			layout="inline"
-			groups={armorGroups}
-			bind:value={extras.loadout.armor}
-		/>
+	<InlineEditableCatalogSelect
+		id="character_sheet_armor"
+		kind="armor"
+		label="Armor"
+		layout="inline"
+		groups={armorGroups}
+		bind:value={sheet.extras.loadout.armor}
+	/>
 
-		<InlineEditableSelect
-			id="character_sheet_item_category"
-			label="Gear category"
-			layout="inline"
-			bind:value={itemCategoryFilter}
-			displayValue={itemCategoryLabel}
-			emptyLabel="All categories"
-		>
-			{#snippet options()}
-				{#each ITEM_CATEGORY_ORDER as category (category)}
-					<option value={category}>{ITEM_CATEGORY_LABELS[category]}</option>
-				{/each}
-			{/snippet}
-		</InlineEditableSelect>
+	<InlineEditableSelect
+		id="character_sheet_item_category"
+		label="Gear category"
+		layout="inline"
+		bind:value={itemCategoryFilter}
+		displayValue={itemCategoryLabel}
+		emptyLabel="All categories"
+	>
+		{#snippet options()}
+			{#each ITEM_CATEGORY_ORDER as category (category)}
+				<option value={category}>{ITEM_CATEGORY_LABELS[category]}</option>
+			{/each}
+		{/snippet}
+	</InlineEditableSelect>
 
-		<LoadoutRowList
-			field="items"
-			heading="Items"
-			values={extras.loadout.items}
-			rowKeys={itemRowKeys}
-			groups={itemGroups}
-			emptyLabel="Choose item…"
-			addLabel="Add item"
-			removeLabel="Remove item"
-			onValuesChange={updateItems}
-			onRowKeysChange={(keys) => (itemRowKeys = keys)}
-		/>
-	</section>
-{/if}
+	<LoadoutRowList
+		field="items"
+		heading="Items"
+		values={sheet.extras.loadout.items}
+		rowKeys={itemRowKeys}
+		groups={itemGroups}
+		emptyLabel="Choose item…"
+		addLabel="Add item"
+		removeLabel="Remove item"
+		onValuesChange={updateItems}
+		onRowKeysChange={(keys) => (itemRowKeys = keys)}
+	/>
+</section>

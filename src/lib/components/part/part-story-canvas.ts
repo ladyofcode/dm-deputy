@@ -27,6 +27,7 @@ import {
 	type StoryEdge
 } from '$lib/data/part-story';
 import type { StoryItem, StoryNode } from '$lib/types/schema';
+import { startTimer } from '$lib/debug/load-timing';
 
 export type StoryNodeCanvasContext = {
 	registerElement: (nodeId: string, element: HTMLDivElement) => void;
@@ -1082,6 +1083,7 @@ export function createStoryCanvasDraggableController(deps: StoryCanvasDraggableD
 
 	function scheduleSetup() {
 		const generation = ++setupGeneration;
+		const finish = startTimer('canvas: setup draggables');
 
 		void (async () => {
 			for (let attempt = 0; attempt < 12; attempt++) {
@@ -1095,9 +1097,12 @@ export function createStoryCanvasDraggableController(deps: StoryCanvasDraggableD
 					await tick();
 					deps.syncConnectors();
 					deps.initializePan();
+					finish(`settled after ${attempt + 1} attempt(s)`);
 					return;
 				}
 			}
+
+			finish('gave up after 12 attempts');
 		})();
 	}
 

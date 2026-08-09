@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Dialog, Tooltip } from 'bits-ui';
+	import { Dialog } from 'bits-ui';
 	import CharacterSheetForm from '$lib/components/character/CharacterSheetForm.svelte';
 	import LoadMonsterTemplateModal from '$lib/components/character/LoadMonsterTemplateModal.svelte';
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
@@ -122,9 +122,7 @@
 			{/if}
 		</div>
 	{/snippet}
-	<Tooltip.Provider delayDuration={200}>
-		<CharacterSheetForm {sheet} {mode} />
-	</Tooltip.Provider>
+	<CharacterSheetForm {sheet} {mode} />
 	{#snippet footer()}
 		<DialogFormFooter
 			submitLabel={saving ? 'Saving…' : 'Save'}

@@ -5,22 +5,21 @@
 		IDENTITY_DISPLAY_FIELDS,
 		type IdentityDisplayContext
 	} from '$lib/domain/character-sheet-fields';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 	import type { ImageUploadResult } from '$lib/types/image-upload';
 
 	type Props = {
 		displayContext: IdentityDisplayContext;
+		sheet: CharacterSheetStore;
 		characterId?: string;
-		portraitFile?: File | null;
-		portraitImageSource?: string | null;
 		showPortrait?: boolean;
 		onPortraitFileChange?: (result: ImageUploadResult) => void;
 	};
 
 	let {
 		displayContext,
+		sheet,
 		characterId,
-		portraitFile = $bindable(null),
-		portraitImageSource = $bindable(null),
 		showPortrait = true,
 		onPortraitFileChange
 	}: Props = $props();
@@ -34,8 +33,8 @@
 	{#snippet portrait()}
 		<CharacterPortraitField
 			{characterId}
-			bind:file={portraitFile}
-			bind:imageSource={portraitImageSource}
+			bind:file={sheet.portraitFile}
+			bind:imageSource={sheet.portraitImageSource}
 			readOnly
 			onFileChange={onPortraitFileChange}
 		/>

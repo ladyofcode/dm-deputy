@@ -15,6 +15,14 @@ import { bumpCampaignListRevision } from '$lib/stores/campaign-list-revision.sve
 import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout';
 import type { StoryItem, StoryNode } from '$lib/types/schema';
 import type { CampaignSnapshot, PartStorySnapshot } from './types';
+import { writeCampaignSessionCache, clearCampaignSessionCache } from './campaign-session-cache';
+import {
+	clearAllPartStorySessionCache,
+	clearPartStorySessionCache,
+	isLoadedPartStorySnapshot,
+	readPartStorySessionCache,
+	writePartStorySessionCache
+} from './part-story-session-cache';
 
 let campaignSnapshot: CampaignSnapshot | null = null;
 const partStoryCache = new Map<string, PartStorySnapshot>();
@@ -41,10 +49,15 @@ export function setCampaignSnapshot(snapshot: CampaignSnapshot): void {
 		maps: snapshot.maps ?? [],
 		sessionZero: snapshot.sessionZero ?? []
 	};
+	writeCampaignSessionCache(campaignSnapshot);
 }
 
 export function setPartStorySnapshot(partId: string, snapshot: PartStorySnapshot): void {
 	partStoryCache.set(partId, snapshot);
+
+	if (loadedPartStoryIds.has(partId) && isLoadedPartStorySnapshot(snapshot)) {
+		writePartStorySessionCache(partId, snapshot);
+	}
 }
 
 export function clearDatabaseCache(): void {
@@ -52,6 +65,8 @@ export function clearDatabaseCache(): void {
 	partStoryCache.clear();
 	loadedPartStoryIds.clear();
 	partStoryLoadPromises.clear();
+	clearAllPartStorySessionCache();
+	clearCampaignSessionCache();
 	bumpCampaignMapsRevision();
 	bumpCampaignCharactersRevision();
 	bumpCampaignListRevision();
@@ -67,6 +82,13 @@ export async function ensurePartStoryInCache(
 ): Promise<void> {
 	if (loadedPartStoryIds.has(partId)) return;
 
+	const sessionCached = readPartStorySessionCache(partId);
+	if (sessionCached) {
+		loadedPartStoryIds.add(partId);
+		setPartStorySnapshot(partId, sessionCached);
+		return;
+	}
+
 	const existing = partStoryLoadPromises.get(partId);
 	if (existing) {
 		await existing;
@@ -75,8 +97,8 @@ export async function ensurePartStoryInCache(
 
 	const promise = loadPartStory(partId)
 		.then((story) => {
-			setPartStorySnapshot(partId, story);
 			loadedPartStoryIds.add(partId);
+			setPartStorySnapshot(partId, story);
 		})
 		.finally(() => {
 			partStoryLoadPromises.delete(partId);
@@ -560,6 +582,7 @@ export function syncAdventurePartsInCache(adventureId: string, parts: Part[]): v
 		partStoryCache.delete(part.part_id);
 		loadedPartStoryIds.delete(part.part_id);
 		partStoryLoadPromises.delete(part.part_id);
+		clearPartStorySessionCache(part.part_id);
 	}
 
 	campaignSnapshot = {
@@ -586,14 +609,11 @@ export function touchCampaignInCache(userId: string, campaignId: string): void {
 				: member
 		)
 	};
+	writeCampaignSessionCache(campaignSnapshot);
 	bumpCampaignListRevision();
 }
 
-export async function reloadDatabaseCache(
-	loadCampaign: () => Promise<CampaignSnapshot>
-): Promise<void> {
-	const snapshot = await loadCampaign();
-
+export function applyCampaignSnapshot(snapshot: CampaignSnapshot): void {
 	partStoryCache.clear();
 	loadedPartStoryIds.clear();
 	partStoryLoadPromises.clear();
@@ -601,10 +621,17 @@ export async function reloadDatabaseCache(
 	setCampaignSnapshot(snapshot);
 
 	for (const part of snapshot.parts) {
-		setPartStorySnapshot(part.part_id, emptyPartStorySnapshot());
+		partStoryCache.set(part.part_id, emptyPartStorySnapshot());
 	}
 
 	bumpCampaignMapsRevision();
 	bumpCampaignCharactersRevision();
 	bumpCampaignListRevision();
+}
+
+export async function reloadDatabaseCache(
+	loadCampaign: () => Promise<CampaignSnapshot>
+): Promise<void> {
+	const snapshot = await loadCampaign();
+	applyCampaignSnapshot(snapshot);
 }

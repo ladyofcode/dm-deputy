@@ -30,10 +30,10 @@
 	} from '$lib/games/dnd5e/rules/formulae';
 	import type { AbilityScores, Spell, SpellSlotLevel } from '$lib/types/schema';
 	import { SPELL_SLOT_LEVELS } from '$lib/types/schema';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 
 	type Props = {
-		spellcasting?: CharacterSpellcastingDraft;
-		spells?: CharacterSpellDraft[];
+		sheet: CharacterSheetStore;
 		abilities: AbilityScores;
 		level: number;
 		defaultClassName?: string;
@@ -42,8 +42,7 @@
 	};
 
 	let {
-		spellcasting = $bindable(),
-		spells = $bindable([]),
+		sheet,
 		abilities,
 		level,
 		defaultClassName = '',
@@ -52,6 +51,9 @@
 	}: Props = $props();
 
 	let spellRowKeys = $state<string[]>([]);
+
+	const spellcasting = $derived(sheet.extras.spellcasting);
+	const spells = $derived(sheet.extras.loadout.spells);
 
 	const spellsById = $derived(new Map(catalogSpells.map((spell) => [spell.spell_id, spell])));
 	const spellsByLevel = $derived(groupSpellsByLevel(catalogSpells));
@@ -90,39 +92,48 @@
 	});
 
 	function updateSpellcasting(patch: Partial<CharacterSpellcastingDraft>) {
-		if (!spellcasting) return;
-		spellcasting = { ...spellcasting, ...patch };
+		sheet.extras = {
+			...sheet.extras,
+			spellcasting: { ...sheet.extras.spellcasting, ...patch }
+		};
+	}
+
+	function updateSpells(next: CharacterSpellDraft[]) {
+		sheet.extras = {
+			...sheet.extras,
+			loadout: { ...sheet.extras.loadout, spells: next }
+		};
 	}
 
 	function updateSpellEntry(index: number, patch: Partial<CharacterSpellDraft>) {
-		spells = spells.map((entry, entryIndex) =>
-			entryIndex === index ? { ...entry, ...patch } : entry
+		updateSpells(
+			spells.map((entry, entryIndex) => (entryIndex === index ? { ...entry, ...patch } : entry))
 		);
 	}
 
 	function removeSpellEntry(index: number) {
 		spellRowKeys = removeLoadoutRowKey(spellRowKeys, index);
-		spells = removeLoadoutEntry(spells, index, createEmptyCharacterSpellDraft());
+		updateSpells(removeLoadoutEntry(spells, index, createEmptyCharacterSpellDraft()));
 	}
 
 	function addSpellAtLevel(spellLevel: number) {
 		spellRowKeys = appendLoadoutRowKey(spellRowKeys, 'spells');
-		spells = addLoadoutEntry(spells, {
-			spell_id: '',
-			prepared: spellLevel > 0 ? false : true,
-			draft_level: spellLevel
-		});
+		updateSpells(
+			addLoadoutEntry(spells, {
+				spell_id: '',
+				prepared: spellLevel > 0 ? false : true,
+				draft_level: spellLevel
+			})
+		);
 	}
 
 	function updateSlotTotal(slotLevel: SpellSlotLevel, value: number) {
-		if (!spellcasting) return;
 		updateSpellcasting({
 			slots_total: updateSpellSlot(spellcasting.slots_total, slotLevel, value)
 		});
 	}
 
 	function updateSlotExpended(slotLevel: SpellSlotLevel, value: number) {
-		if (!spellcasting) return;
 		updateSpellcasting({
 			slots_expended: updateSpellSlot(spellcasting.slots_expended, slotLevel, value)
 		});
@@ -166,7 +177,7 @@
 					id="character_sheet_spellcasting_class"
 					label="Spellcasting class"
 					layout="inline"
-					bind:value={spellcasting.spellcasting_class}
+					bind:value={sheet.extras.spellcasting.spellcasting_class}
 					placeholder="Wizard, Cleric, Bard…"
 					{disabled}
 				/>
@@ -174,7 +185,7 @@
 					id="character_sheet_spellcasting_ability"
 					label="Spellcasting ability"
 					layout="inline"
-					bind:value={spellcasting.spellcasting_ability}
+					bind:value={sheet.extras.spellcasting.spellcasting_ability}
 					displayValue={spellcastingAbilityLabel}
 					emptyLabel="Choose ability…"
 					{disabled}

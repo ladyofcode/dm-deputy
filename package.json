@@ -20,6 +20,7 @@
 		"format": "prettier --write ."
 	},
 	"devDependencies": {
+		"@csstools/postcss-global-data": "^4.0.0",
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
 		"@panzoom/panzoom": "^4.6.2",

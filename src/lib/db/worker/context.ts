@@ -35,6 +35,10 @@ export function getSqlite3(): SqliteModule {
 	return sqlite3;
 }
 
+export function peekSqlite3(): SqliteModule | null {
+	return sqlite3;
+}
+
 export function setSqlite3(module: SqliteModule): void {
 	sqlite3 = module;
 }

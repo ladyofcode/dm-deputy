@@ -1,94 +1,80 @@
 <script lang="ts">
 	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
 	import { PHYSICAL_FIELD_CONFIG, STORY_FIELD_CONFIG } from '$lib/domain/character-sheet-fields';
-	import type {
-		CharacterIdentityDraft,
-		CharacterPhysicalDraft,
-		CharacterRoleplayDraft
-	} from '$lib/domain/npc-draft';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
+	import type { CharacterRoleplayDraft } from '$lib/domain/npc-draft';
 
 	type Props = {
-		identity?: CharacterIdentityDraft;
-		physical?: CharacterPhysicalDraft;
-		roleplay?: CharacterRoleplayDraft;
-		description?: string;
+		sheet: CharacterSheetStore;
 		disabled?: boolean;
 	};
 
-	let {
-		identity = $bindable(),
-		physical = $bindable(),
-		roleplay = $bindable(),
-		description = $bindable(''),
-		disabled = false
-	}: Props = $props();
+	let { sheet, disabled = false }: Props = $props();
 </script>
 
-{#if identity && physical && roleplay}
-	<section class="sheet-section">
-		<h2>Appearance &amp; body</h2>
-		<div class="detail-grid stats-grid--dense">
-			{#each PHYSICAL_FIELD_CONFIG as field (field.id)}
-				<InlineEditableField
-					id={field.id}
-					label={field.label}
-					layout="inline"
-					bind:value={physical[field.key]}
-					placeholder={field.placeholder}
-					{disabled}
-				/>
-			{/each}
-		</div>
-		<InlineEditableField
-			id="pc_sheet_presentation"
-			label="Appearance notes"
-			type="textarea"
-			wide
-			rows={3}
-			bind:value={identity.presentation}
-			placeholder="Mannerisms, voice, distinguishing marks…"
-			{disabled}
-		/>
-	</section>
-
-	<section class="sheet-section">
-		<h2>Character story</h2>
-		<div class="detail-grid">
+<section class="sheet-section">
+	<h2>Appearance &amp; body</h2>
+	<div class="detail-grid stats-grid--dense">
+		{#each PHYSICAL_FIELD_CONFIG as field (field.id)}
 			<InlineEditableField
-				id="pc_sheet_background"
-				label="Background"
+				id={field.id}
+				label={field.label}
 				layout="inline"
-				bind:value={roleplay.background}
-				placeholder="Soldier, Sage, Criminal…"
+				bind:value={sheet.extras.physical[field.key]}
+				placeholder={field.placeholder}
 				{disabled}
 			/>
-		</div>
-		<div class="story-grid">
-			{#each STORY_FIELD_CONFIG.filter((field) => field.key !== 'description') as field (field.id)}
-				<InlineEditableField
-					id={field.id}
-					label={field.label}
-					type="textarea"
-					wide
-					rows={field.rows}
-					bind:value={roleplay[field.key as keyof CharacterRoleplayDraft]}
-					placeholder={field.placeholder}
-					{disabled}
-				/>
-			{/each}
-		</div>
+		{/each}
+	</div>
+	<InlineEditableField
+		id="pc_sheet_presentation"
+		label="Appearance notes"
+		type="textarea"
+		wide
+		rows={3}
+		bind:value={sheet.identity.presentation}
+		placeholder="Mannerisms, voice, distinguishing marks…"
+		{disabled}
+	/>
+</section>
+
+<section class="sheet-section">
+	<h2>Character story</h2>
+	<div class="detail-grid">
 		<InlineEditableField
-			id="pc_sheet_notes"
-			label="DM / session notes"
-			type="textarea"
-			wide
-			rows={4}
-			bind:value={description}
-			placeholder="Private notes, reminders, ongoing plot hooks…"
+			id="pc_sheet_background"
+			label="Background"
+			layout="inline"
+			bind:value={sheet.extras.roleplay.background}
+			placeholder="Soldier, Sage, Criminal…"
 			{disabled}
 		/>
-	</section>
-{/if}
+	</div>
+	<div class="story-grid">
+		{#each STORY_FIELD_CONFIG.filter((field) => field.key !== 'description') as field (field.id)}
+			<InlineEditableField
+				id={field.id}
+				label={field.label}
+				type="textarea"
+				wide
+				rows={field.rows}
+				bind:value={sheet.extras.roleplay[field.key as keyof CharacterRoleplayDraft]}
+				placeholder={field.placeholder}
+				{disabled}
+			/>
+		{/each}
+	</div>
+	<InlineEditableField
+		id="pc_sheet_notes"
+		label="DM / session notes"
+		type="textarea"
+		wide
+		rows={4}
+		bind:value={sheet.description}
+		placeholder="Private notes, reminders, ongoing plot hooks…"
+		{disabled}
+	/>
+</section>
 
 <style>
 	.detail-grid {

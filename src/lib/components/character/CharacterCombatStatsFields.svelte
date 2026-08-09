@@ -11,12 +11,13 @@
 		type CombatTextareaFieldConfig
 	} from '$lib/domain/character-sheet-fields';
 	import type { CharacterExtrasDraft } from '$lib/domain/npc-draft';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 	import type { CharacterStatEvent, StatKind } from '$lib/types/schema';
 
 	type Props = {
+		sheet: CharacterSheetStore;
 		mode?: 'pc' | 'npc';
 		idPrefix?: string;
-		extras?: CharacterExtrasDraft;
 		statEvents?: CharacterStatEvent[];
 		statBases?: {
 			experience: number;
@@ -37,9 +38,9 @@
 	};
 
 	let {
+		sheet,
 		mode = 'npc',
 		idPrefix = 'character_sheet',
-		extras = $bindable(),
 		statEvents = [],
 		statBases = { experience: 0, hp_max: 0, hp_current: 0 },
 		disabled = false,
@@ -66,24 +67,22 @@
 	}
 
 	function updateExtras(next: CharacterExtrasDraft) {
-		extras = next;
+		sheet.extras = next;
 	}
 
 	function updateStat(stat: StatKind, value: number) {
-		if (!extras) return;
-		updateExtras({ ...extras, [stat]: value });
+		updateExtras({ ...sheet.extras, [stat]: value });
 	}
 
 	function updateCombatField(
 		path: CombatScalarFieldConfig['path'] | CombatTextareaFieldConfig['path'],
 		value: string | number
 	) {
-		if (!extras) return;
-		updateExtras(setCombatFieldValue(extras, path, value));
+		updateExtras(setCombatFieldValue(sheet.extras, path, value));
 	}
 </script>
 
-{#if extras}
+{#if sheet.extras}
 	{#if showStatHistory}
 		{#if bareStatHistory}
 			{#each statHistoryFields as field (field.stat)}
@@ -94,7 +93,7 @@
 					type="number"
 					min={0}
 					step={1}
-					value={field.getValue(extras)}
+					value={field.getValue(sheet.extras)}
 					oncommit={(next) =>
 						updateStat(field.stat, typeof next === 'number' ? next : Number(next) || 0)}
 					{disabled}
@@ -103,7 +102,7 @@
 						<StatHistoryTooltip
 							stat={field.stat}
 							events={statEvents}
-							currentValue={field.getValue(extras!)}
+							currentValue={field.getValue(sheet.extras!)}
 							baseValue={statBases[field.stat]}
 							label={field.label}
 							variant="icon"
@@ -121,7 +120,7 @@
 						type="number"
 						min={0}
 						step={1}
-						value={field.getValue(extras)}
+						value={field.getValue(sheet.extras)}
 						oncommit={(next) =>
 							updateStat(field.stat, typeof next === 'number' ? next : Number(next) || 0)}
 						{disabled}
@@ -130,7 +129,7 @@
 							<StatHistoryTooltip
 								stat={field.stat}
 								events={statEvents}
-								currentValue={field.getValue(extras!)}
+								currentValue={field.getValue(sheet.extras!)}
 								baseValue={statBases[field.stat]}
 								label={field.label}
 								variant="icon"
@@ -147,7 +146,7 @@
 			id={fieldId('reputation')}
 			label="Reputation"
 			layout="inline"
-			bind:value={extras.reputation}
+			bind:value={sheet.extras.reputation}
 			placeholder="Optional reputation note"
 			{disabled}
 		/>
@@ -163,7 +162,7 @@
 					type={field.type ?? 'text'}
 					min={field.min}
 					step={field.step}
-					value={getCombatFieldValue(extras, field.path)}
+					value={getCombatFieldValue(sheet.extras, field.path)}
 					oncommit={(next) =>
 						updateCombatField(
 							field.path,
@@ -189,7 +188,7 @@
 						type={field.type ?? 'text'}
 						min={field.min}
 						step={field.step}
-						value={getCombatFieldValue(extras, field.path)}
+						value={getCombatFieldValue(sheet.extras, field.path)}
 						oncommit={(next) =>
 							updateCombatField(
 								field.path,
@@ -218,7 +217,7 @@
 					type="textarea"
 					wide
 					rows={field.rows}
-					value={getCombatFieldValue(extras, field.path)}
+					value={getCombatFieldValue(sheet.extras, field.path)}
 					oncommit={(next) =>
 						updateCombatField(field.path, typeof next === 'string' ? next : String(next ?? ''))}
 					placeholder={field.placeholder}

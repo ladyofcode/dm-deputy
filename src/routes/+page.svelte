@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import { getCampaigns } from '$lib/data';
 	import { getReactiveCampaignListForUser } from '$lib/stores/campaign-list.svelte';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
@@ -23,39 +24,39 @@
 </svelte:head>
 
 <section class="page-stack home-page">
-	{#if database.isReady}
-		{#if campaigns.length > 0}
-			<header class="home-header">
-				<Button.Root href={resolve('/onboarding/campaign')} data-variant="ghost"
-					>Create campaign</Button.Root
-				>
-			</header>
+	{#if !database.isReady}
+		<LoadingState message="Loading campaigns…" />
+	{:else if campaigns.length > 0}
+		<header class="home-header">
+			<Button.Root href={resolve('/onboarding/campaign')} data-variant="ghost"
+				>Create campaign</Button.Root
+			>
+		</header>
 
-			<ul class="campaign-list list-plain">
-				{#each campaigns as entry (entry.campaign.campaign_id)}
-					<li class="campaign-item">
-						<a class="campaign-link" href={resolveCampaignHref(entry.campaign.campaign_id)}>
-							<div class="campaign-main">
-								<h2>{entry.campaign.campaign_name}</h2>
-								{#if entry.campaign.description}
-									<p>{entry.campaign.description}</p>
-								{/if}
-							</div>
-							<span class="campaign-activity">
-								{entry.activity.label}: {formatActivityDate(entry.activity.at)}
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<EmptyState message="No campaigns yet. Create one to get started." />
-			{#if getCampaigns().length > 0}
-				<p class="hint">
-					There are campaigns in the local database, but none are linked to the current user ({workspace.currentUserId}).
-				</p>
-			{/if}
-			<Button.Root href={resolve('/onboarding/campaign')}>Create campaign</Button.Root>
+		<ul class="campaign-list list-plain">
+			{#each campaigns as entry (entry.campaign.campaign_id)}
+				<li class="campaign-item">
+					<a class="campaign-link" href={resolveCampaignHref(entry.campaign.campaign_id)}>
+						<div class="campaign-main">
+							<h2>{entry.campaign.campaign_name}</h2>
+							{#if entry.campaign.description}
+								<p>{entry.campaign.description}</p>
+							{/if}
+						</div>
+						<span class="campaign-activity">
+							{entry.activity.label}: {formatActivityDate(entry.activity.at)}
+						</span>
+					</a>
+				</li>
+			{/each}
+		</ul>
+	{:else}
+		<EmptyState message="No campaigns yet. Create one to get started." />
+		{#if getCampaigns().length > 0}
+			<p class="hint">
+				There are campaigns in the local database, but none are linked to the current user ({workspace.currentUserId}).
+			</p>
 		{/if}
+		<Button.Root href={resolve('/onboarding/campaign')}>Create campaign</Button.Root>
 	{/if}
 </section>

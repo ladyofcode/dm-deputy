@@ -56,7 +56,7 @@
 	{/if}
 	{#if storyLoaded}
 		<Button.Root type="button" data-variant="icon" aria-label="View NPCs" onclick={onViewNpcs}>
-			<AddressCardIcon size={18} />
+			<AddressCardIcon size={20} />
 		</Button.Root>
 	{/if}
 	{#if storyLoaded && hasStoryNodes}
@@ -75,7 +75,11 @@
 		gap: 0.5rem;
 	}
 
-	.part-actions :global([data-button-root]) {
+	.part-actions :global([data-button-root]),
+	.part-actions :global([data-dialog-trigger][data-variant='icon']) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		min-inline-size: 2.75rem;
 		min-block-size: 2.75rem;
 		width: 2.5rem;
@@ -90,8 +94,9 @@
 		line-height: 1;
 	}
 
-	.part-actions :global([data-button-root][data-variant='icon'] svg),
-	.part-actions :global([data-button-root][data-variant='icon']) {
+	.part-actions :global([data-button-root] svg),
+	.part-actions :global([data-dialog-trigger][data-variant='icon'] svg) {
 		display: block;
+		flex-shrink: 0;
 	}
 </style>

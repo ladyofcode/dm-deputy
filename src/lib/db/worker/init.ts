@@ -2,13 +2,14 @@ import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import { REPAIR_MIGRATION_VERSIONS, SCHEMA_VERSION } from '../migrations';
 import { ensureDefaultUser } from '../seed';
 import { execSql, selectObjects } from '../bind';
-import type { InitResult, LocalStorageStoryMigration } from '../types';
+import type { InitOutcome, LocalStorageStoryMigration } from '../types';
 import {
 	DB_FILENAME,
 	asDbExec,
 	getDb,
 	getSqlite3,
 	isOpfsAvailable,
+	peekSqlite3,
 	setDb,
 	setSqlite3,
 	type AppDb,
@@ -18,6 +19,7 @@ import {
 import { savePartItemLayout, savePartNodeLayout, savePartStoryNodes } from './part-story';
 import { applyMigration, repairSchemaColumns, tableExists } from './schema-repair';
 import { DEFAULT_SPECIES } from '$lib/games/dnd5e/data/default-species';
+import { timeAsync, timeSync } from '$lib/debug/load-timing';
 
 const REQUIRED_TABLES = [
 	'schema_meta',
@@ -168,18 +170,17 @@ function copyCatalogTable(source: AppDb, destination: AppDb, table: string): voi
 	}
 }
 
-function ensureSpeciesSeeded(database: AppDb, templateBuffer: ArrayBuffer): void {
+function ensureSpeciesSeeded(database: AppDb, templateBuffer: ArrayBuffer | null): boolean {
 	if (!tableExists(database, 'species')) {
-		return;
+		return false;
 	}
 
 	if (countTableRows(database, 'species') === 0) {
-		const module = getSqlite3();
-		if (!module) {
-			throw new Error('SQLite module not initialized');
+		if (!templateBuffer) {
+			return true;
 		}
 
-		const templateDatabase = deserializeDatabaseFromBuffer(module, templateBuffer);
+		const templateDatabase = deserializeDatabaseFromBuffer(getSqlite3(), templateBuffer);
 
 		try {
 			for (const table of ['species', 'species_traits', 'species_trait_effects'] as const) {
@@ -208,19 +209,20 @@ function ensureSpeciesSeeded(database: AppDb, templateBuffer: ArrayBuffer): void
 			}
 		});
 	}
+
+	return false;
 }
 
-function ensureCatalogSeeded(database: AppDb, templateBuffer: ArrayBuffer): void {
+function ensureCatalogSeeded(database: AppDb, templateBuffer: ArrayBuffer | null): boolean {
 	if (!tableExists(database, 'weapons') || countTableRows(database, 'weapons') > 0) {
-		return;
+		return false;
 	}
 
-	const module = getSqlite3();
-	if (!module) {
-		throw new Error('SQLite module not initialized');
+	if (!templateBuffer) {
+		return true;
 	}
 
-	const templateDatabase = deserializeDatabaseFromBuffer(module, templateBuffer);
+	const templateDatabase = deserializeDatabaseFromBuffer(getSqlite3(), templateBuffer);
 
 	try {
 		for (const table of [
@@ -241,6 +243,8 @@ function ensureCatalogSeeded(database: AppDb, templateBuffer: ArrayBuffer): void
 	} finally {
 		templateDatabase.close();
 	}
+
+	return false;
 }
 
 function deserializeDatabaseFromBuffer(module: SqliteModule, buffer: ArrayBuffer): MemoryDb {
@@ -265,16 +269,21 @@ function deserializeDatabaseFromBuffer(module: SqliteModule, buffer: ArrayBuffer
 	return database;
 }
 
+type OpenedDatabase = { database: AppDb; persistent: boolean } | { needsTemplate: true };
+
 async function openDatabaseFromTemplate(
 	module: SqliteModule,
-	templateBuffer: ArrayBuffer
-): Promise<{ database: AppDb; persistent: boolean }> {
+	templateBuffer: ArrayBuffer | null
+): Promise<OpenedDatabase> {
 	if (isOpfsAvailable(module)) {
 		try {
 			let database = new module.oo1.OpfsDb(DB_FILENAME, 'c');
 
 			if (!hasSchemaMetaTable(database)) {
 				database.close();
+				if (!templateBuffer) {
+					return { needsTemplate: true };
+				}
 				await module.oo1.OpfsDb.importDb(DB_FILENAME, templateBuffer);
 				database = new module.oo1.OpfsDb(DB_FILENAME, 'c');
 			}
@@ -285,6 +294,10 @@ async function openDatabaseFromTemplate(
 		}
 	}
 
+	if (!templateBuffer) {
+		return { needsTemplate: true };
+	}
+
 	return {
 		database: deserializeDatabaseFromBuffer(module, templateBuffer),
 		persistent: false
@@ -293,17 +306,36 @@ async function openDatabaseFromTemplate(
 
 export async function initDatabase(
 	migrations: LocalStorageStoryMigration[],
-	templateBuffer: ArrayBuffer
-): Promise<InitResult> {
-	const sqliteModule = await sqlite3InitModule();
+	templateBuffer: ArrayBuffer | null
+): Promise<InitOutcome> {
+	const sqliteModule =
+		peekSqlite3() ?? (await timeAsync('worker: compile sqlite wasm', () => sqlite3InitModule()));
 	setSqlite3(sqliteModule);
-	const { database, persistent } = await openDatabaseFromTemplate(sqliteModule, templateBuffer);
+
+	const opened = await timeAsync('worker: open database', () =>
+		openDatabaseFromTemplate(sqliteModule, templateBuffer)
+	);
+	if ('needsTemplate' in opened) {
+		return opened;
+	}
+
+	const { database, persistent } = opened;
 	setDb(database);
-	runMigrations(getDb());
-	repairMissingRequiredTables(getDb());
-	repairSchemaColumns(getDb());
-	ensureCatalogSeeded(getDb(), templateBuffer);
-	ensureSpeciesSeeded(getDb(), templateBuffer);
+	timeSync('worker: migrations and repairs', () => {
+		runMigrations(getDb());
+		repairMissingRequiredTables(getDb());
+		repairSchemaColumns(getDb());
+	});
+
+	const needsTemplate = timeSync(
+		'worker: seed catalog and species',
+		() =>
+			ensureCatalogSeeded(getDb(), templateBuffer) || ensureSpeciesSeeded(getDb(), templateBuffer)
+	);
+	if (needsTemplate) {
+		return { needsTemplate: true };
+	}
+
 	verifyRequiredTables(getDb());
 
 	const wasSeeded = isSeeded(getDb());

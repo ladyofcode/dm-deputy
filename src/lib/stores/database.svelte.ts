@@ -13,12 +13,15 @@ import {
 	resetDatabaseWorker
 } from '$lib/db/client';
 import { formatErrorMessage } from '$lib/domain/errors';
+import { timeAsync, timeSync } from '$lib/debug/load-timing';
 import {
 	clearDatabaseCache,
+	applyCampaignSnapshot,
 	getCachedCampaigns,
 	isDatabaseCacheReady,
 	reloadDatabaseCache
 } from '$lib/db/cache';
+import { readCampaignSessionCache } from '$lib/db/campaign-session-cache';
 import { clearCatalogCache, setCatalogSnapshot } from '$lib/db/catalog-cache';
 import { bumpCatalogRevision } from '$lib/stores/catalog.svelte';
 import { clearCampaignMapObjectUrlCache } from '$lib/data/map-blob-cache';
@@ -54,8 +57,8 @@ class DatabaseController {
 		if (isDatabaseClientInitialized()) return;
 
 		const migrations = collectAllLocalStorageStoryMigration();
-		const templateBuffer = await fetchAppDatabaseTemplate();
-		await initDatabaseClient(migrations, templateBuffer);
+
+		await timeAsync('db: total worker init', () => initDatabaseClient(migrations));
 
 		if (migrations.length > 0) {
 			clearLocalStorageStoryMigration(migrations.map((entry) => entry.partId));
@@ -63,7 +66,7 @@ class DatabaseController {
 	}
 
 	private async populateCache(): Promise<void> {
-		await reloadDatabaseCache(loadCampaignSnapshot);
+		await timeAsync('db: load campaign snapshot', () => reloadDatabaseCache(loadCampaignSnapshot));
 		this.ensureWorkspaceUserCanSeeCampaigns();
 	}
 
@@ -97,9 +100,36 @@ class DatabaseController {
 		}
 	}
 
+	private async syncFromWorker(): Promise<void> {
+		try {
+			await this.ensureWorkerInitialized();
+			await this.populateCache();
+
+			if (!isDatabaseCacheReady()) {
+				throw new Error('Database cache did not initialize');
+			}
+
+			this.loadCatalogInBackground();
+		} catch (error) {
+			this.error = formatErrorMessage(error, String(error));
+		}
+	}
+
 	private async runBootstrap(forceReload: boolean): Promise<void> {
 		if (!forceReload && this.status === 'ready' && isDatabaseCacheReady()) {
 			return;
+		}
+
+		if (!forceReload) {
+			const cachedSnapshot = timeSync('db: read campaign session cache', readCampaignSessionCache);
+			if (cachedSnapshot) {
+				timeSync('db: apply cached campaign snapshot', () => applyCampaignSnapshot(cachedSnapshot));
+				this.ensureWorkspaceUserCanSeeCampaigns();
+				this.status = 'ready';
+				this.error = null;
+				void this.syncFromWorker();
+				return;
+			}
 		}
 
 		this.status = 'loading';

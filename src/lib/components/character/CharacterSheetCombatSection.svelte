@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { Label, Switch } from 'bits-ui';
 	import CharacterCombatStatsFields from '$lib/components/character/CharacterCombatStatsFields.svelte';
-	import type { CharacterExtrasDraft } from '$lib/domain/npc-draft';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 
 	type Props = {
+		sheet: CharacterSheetStore;
 		mode?: 'npc' | 'pc';
-		extras?: CharacterExtrasDraft;
 		showCombat?: boolean;
-		combatExpanded: boolean | null;
 		readOnly?: boolean;
 		statEvents?: import('$lib/types/schema').CharacterStatEvent[];
 		statBases?: {
@@ -18,16 +17,15 @@
 	};
 
 	let {
+		sheet,
 		mode = 'npc',
-		extras = $bindable(),
 		showCombat = false,
-		combatExpanded = $bindable<boolean | null>(null),
 		readOnly = false,
 		statEvents = [],
 		statBases = { experience: 0, hp_max: 0, hp_current: 0 }
 	}: Props = $props();
 
-	const combatToggleChecked = $derived(combatExpanded ?? showCombat);
+	const combatToggleChecked = $derived(sheet.combatExpanded ?? showCombat);
 </script>
 
 {#if mode === 'npc' && !readOnly}
@@ -36,17 +34,17 @@
 		<Switch.Root
 			id="character_sheet_combat_toggle"
 			checked={combatToggleChecked}
-			onCheckedChange={(checked) => (combatExpanded = checked)}
+			onCheckedChange={(checked) => (sheet.combatExpanded = checked)}
 		>
 			<Switch.Thumb />
 		</Switch.Root>
 	</div>
 {/if}
 
-{#if mode === 'npc' && showCombat && extras}
+{#if mode === 'npc' && showCombat}
 	<section class="sheet-section">
 		<h2>Stats</h2>
-		<CharacterCombatStatsFields mode="npc" bind:extras {statEvents} {statBases} />
+		<CharacterCombatStatsFields {sheet} mode="npc" {statEvents} {statBases} />
 	</section>
 {/if}
 

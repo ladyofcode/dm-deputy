@@ -3,27 +3,18 @@
 	import CharacterSheetPortraitLayout from '$lib/components/character/CharacterSheetPortraitLayout.svelte';
 	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
 	import { readonlyPresentationText } from '$lib/domain/character-sheet-fields';
-	import type { CharacterIdentityDraft } from '$lib/domain/npc-draft';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 
 	type Props = {
-		identity?: CharacterIdentityDraft;
+		sheet: CharacterSheetStore;
 		characterId?: string;
-		presentationFile?: File | null;
-		presentationImageSource?: string | null;
 		loading?: boolean;
 		readOnly?: boolean;
 	};
 
-	let {
-		identity = $bindable(),
-		characterId,
-		presentationFile = $bindable(null),
-		presentationImageSource = $bindable(null),
-		loading = false,
-		readOnly = false
-	}: Props = $props();
+	let { sheet, characterId, loading = false, readOnly = false }: Props = $props();
 
-	const readonlyPresentation = $derived(identity ? readonlyPresentationText(identity) : '');
+	const readonlyPresentation = $derived(readonlyPresentationText(sheet.identity));
 </script>
 
 <section class="sheet-section presentation-section">
@@ -34,8 +25,8 @@
 			<CharacterPortraitField
 				variant="presentation"
 				{characterId}
-				bind:file={presentationFile}
-				bind:imageSource={presentationImageSource}
+				bind:file={sheet.presentationFile}
+				bind:imageSource={sheet.presentationImageSource}
 				disabled={loading}
 				{readOnly}
 			/>
@@ -50,7 +41,7 @@
 					</div>
 				</div>
 			{/if}
-		{:else if identity}
+		{:else}
 			<div class="presentation-fields sheet-portrait-fields">
 				<div class="presentation-description-field">
 					<InlineEditableField
@@ -58,7 +49,7 @@
 						label="Description"
 						type="textarea"
 						wide
-						bind:value={identity.presentation}
+						bind:value={sheet.identity.presentation}
 						placeholder="How this character presents — appearance, mannerisms, voice…"
 						disabled={loading}
 					/>
