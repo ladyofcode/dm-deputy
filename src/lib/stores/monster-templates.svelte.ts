@@ -5,47 +5,39 @@ import {
 	saveStoredMonsterTemplates
 } from '$lib/domain/monster-template-storage';
 import type { MonsterTemplate } from '$lib/games/dnd5e/data/monsters';
+import { createRevisionSignal } from '$lib/stores/revision.svelte';
 
-let templates = $state.raw<MonsterTemplate[] | null>(null);
-let revision = $state(0);
+const revision = createRevisionSignal();
 
-function ensureTemplatesLoaded(): MonsterTemplate[] {
-	if (templates === null) {
-		templates = loadStoredMonsterTemplates();
-	}
-
-	return templates;
-}
+let templates = loadStoredMonsterTemplates();
 
 export function trackMonsterTemplatesRevision(): number {
-	return revision;
+	return revision.track();
 }
 
 export function getMonsterTemplates(): MonsterTemplate[] {
-	trackMonsterTemplatesRevision();
-	return ensureTemplatesLoaded();
+	revision.track();
+	return templates;
 }
 
 export function getStoredMonsterTemplateById(id: string): MonsterTemplate | undefined {
-	trackMonsterTemplatesRevision();
-	return ensureTemplatesLoaded().find((template) => template.id === id);
+	revision.track();
+	return templates.find((template) => template.id === id);
 }
 
 export function replaceMonsterTemplate(template: MonsterTemplate): void {
-	const loaded = ensureTemplatesLoaded();
-	templates = loaded.map((entry) =>
+	templates = templates.map((entry) =>
 		entry.id === template.id ? cloneMonsterTemplate(template) : entry
 	);
 	saveStoredMonsterTemplates(templates);
-	revision += 1;
+	revision.bump();
 }
 
 export function resetMonsterTemplate(id: string): void {
 	const defaultTemplate = getDefaultMonsterTemplate(id);
 	if (!defaultTemplate) return;
 
-	const loaded = ensureTemplatesLoaded();
-	templates = loaded.map((entry) => (entry.id === id ? defaultTemplate : entry));
+	templates = templates.map((entry) => (entry.id === id ? defaultTemplate : entry));
 	saveStoredMonsterTemplates(templates);
-	revision += 1;
+	revision.bump();
 }

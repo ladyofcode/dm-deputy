@@ -115,6 +115,7 @@ See Chrome DevTools → Application to verify the manifest and service worker.
 ## Credits
 
 - **Session 0 question inspiration:** [Session 0 topic checklist and guide](https://www.reddit.com/r/dndnext/comments/601awb/session0_topic_checklist_and_guide/) (r/dndnext)
+- **Goblin name list:** [My list of 100 goblin names for your consideration](https://www.reddit.com/r/d100/comments/i0f9rx/my_list_of_100_goblin_names_for_your_consideration/) (r/d100)
 
 ## What is committed vs local
 

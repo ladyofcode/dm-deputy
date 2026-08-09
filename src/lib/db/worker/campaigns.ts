@@ -35,6 +35,7 @@ export function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 		'SELECT * FROM campaigns'
 	).map((campaign) => ({
 		...campaign,
+		nickname: campaign.nickname ?? null,
 		date_deleted: campaign.date_deleted ?? null
 	}));
 	const campaignMembers = selectObjects<CampaignSnapshot['campaignMembers'][number]>(
@@ -50,6 +51,7 @@ export function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 		'SELECT * FROM adventures'
 	).map((adventure) => ({
 		...adventure,
+		shorthand: adventure.shorthand ?? null,
 		can_promote_to_campaign: Boolean(adventure.can_promote_to_campaign)
 	}));
 	const parts = selectObjects<CampaignSnapshot['parts'][number]>(database, 'SELECT * FROM parts');
@@ -567,15 +569,17 @@ export function updateCampaignDetails(
 		throw new Error('Campaign name is required');
 	}
 
+	const nickname = input.nickname?.trim() || null;
 	const description = input.description?.trim() || null;
 
 	execSql(database, {
 		sql: `UPDATE campaigns
-			SET campaign_name = $campaign_name, description = $description
+			SET campaign_name = $campaign_name, nickname = $nickname, description = $description
 			WHERE campaign_id = $campaign_id`,
 		bind: {
 			campaign_id: input.campaign_id,
 			campaign_name: campaignName,
+			nickname,
 			description
 		}
 	});
@@ -583,7 +587,42 @@ export function updateCampaignDetails(
 	return {
 		...existing,
 		campaign_name: campaignName,
+		nickname,
 		description
+	};
+}
+
+export function updateAdventureShorthand(
+	database: AppDb,
+	input: import('../types').UpdateAdventureShorthandInput
+): import('$lib/types/schema').Adventure {
+	const rows = selectObjects<import('$lib/types/schema').Adventure>(
+		database,
+		`SELECT * FROM adventures WHERE adventure_id = $adventure_id LIMIT 1`,
+		{ adventure_id: input.adventure_id }
+	);
+
+	const existing = rows[0];
+	if (!existing) {
+		throw new Error('Adventure not found');
+	}
+
+	const shorthand = input.shorthand?.trim() || null;
+
+	execSql(database, {
+		sql: `UPDATE adventures
+			SET shorthand = $shorthand
+			WHERE adventure_id = $adventure_id`,
+		bind: {
+			adventure_id: input.adventure_id,
+			shorthand
+		}
+	});
+
+	return {
+		...existing,
+		shorthand,
+		can_promote_to_campaign: Boolean(existing.can_promote_to_campaign)
 	};
 }
 

@@ -11,6 +11,7 @@ export type Campaign = {
 	campaign_id: string;
 	owner_user_id: string;
 	campaign_name: string;
+	nickname: string | null;
 	description: string | null;
 	game_schema: string;
 	theme: 'default' | 'medieval';
@@ -46,6 +47,7 @@ export type Adventure = {
 	adventure_id: string;
 	campaign_id: string;
 	name: string;
+	shorthand: string | null;
 	overview: string | null;
 	adventure_hook: string | null;
 	can_promote_to_campaign: boolean;

@@ -6,6 +6,7 @@
 	import {
 		persistAdventurePromotion,
 		persistAdventurePromoteSetting,
+		persistAdventureShorthand,
 		persistCampaignTheme
 	} from '$lib/data/writes';
 	import { preferences } from '$lib/stores/preferences.svelte';
@@ -19,6 +20,7 @@
 		campaignName: string;
 		adventureId: string;
 		adventureName: string;
+		shorthand?: string;
 		open?: boolean;
 	};
 
@@ -27,12 +29,18 @@
 		campaignName,
 		adventureId,
 		adventureName,
+		shorthand = '',
 		open = $bindable(false)
 	}: Props = $props();
 
 	const adventure = $derived(getAdventureById(adventureId));
 	const selectedTheme = $derived(getCampaignTheme(campaignId, preferences.campaignThemes));
 	const canPromote = $derived(adventure?.can_promote_to_campaign ?? false);
+
+	let adventureNickname = $state('');
+	let formKey = $state('');
+	let isSaving = $state(false);
+	let saveError = $state<string | null>(null);
 
 	let isSavingTheme = $state(false);
 	let isSavingPromoteSetting = $state(false);
@@ -43,6 +51,41 @@
 	let copyMaps = $state(true);
 	let copyNpcs = $state(true);
 	let promoteError = $state<string | null>(null);
+
+	$effect(() => {
+		if (!open) {
+			formKey = '';
+			return;
+		}
+
+		const nextKey = adventureId;
+		if (formKey === nextKey) return;
+
+		formKey = nextKey;
+		adventureNickname = shorthand;
+		saveError = null;
+	});
+
+	async function handleDone() {
+		if (isSaving || isPromoting || isSavingPromoteSetting) return;
+
+		if (adventureNickname === shorthand) {
+			open = false;
+			return;
+		}
+
+		isSaving = true;
+		saveError = null;
+
+		try {
+			await persistAdventureShorthand(adventureId, adventureNickname);
+			open = false;
+		} catch (cause) {
+			saveError = cause instanceof Error ? cause.message : 'Could not save adventure settings';
+		} finally {
+			isSaving = false;
+		}
+	}
 
 	async function handleThemeChange(event: Event) {
 		const value = (event.currentTarget as HTMLSelectElement).value as CampaignTheme;
@@ -122,6 +165,21 @@
 			</Dialog.Description>
 
 			<div class="settings-sections">
+				<div class="field">
+					<Label.Root for="adventure_settings_nickname">Nickname</Label.Root>
+					<input
+						id="adventure_settings_nickname"
+						bind:value={adventureNickname}
+						disabled={isSaving}
+						placeholder="Short name for navigation (optional)"
+					/>
+					<p class="hint">Shown in menu</p>
+				</div>
+
+				{#if saveError}
+					<p class="error" role="alert">{saveError}</p>
+				{/if}
+
 				<section class="settings-section">
 					<h3>Campaign theme</h3>
 					<p class="hint">
@@ -189,9 +247,12 @@
 			<div class="dialog-footer">
 				<Dialog.Close>
 					{#snippet child({ props })}
-						<Button.Root {...props}>Done</Button.Root>
+						<Button.Root {...props} disabled={isSaving}>Cancel</Button.Root>
 					{/snippet}
 				</Dialog.Close>
+				<Button.Root type="button" data-variant="primary" disabled={isSaving} onclick={handleDone}>
+					{isSaving ? 'Saving…' : 'Done'}
+				</Button.Root>
 			</div>
 		</Dialog.Content>
 	</Dialog.Portal>

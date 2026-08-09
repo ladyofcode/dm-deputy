@@ -12,6 +12,7 @@
 	import { syncThemesWithDatabase } from '$lib/data/writes';
 	import { installCampaignDbInspect } from '$lib/debug/campaign-db-inspect';
 	import LibraryNavMenu from '$lib/components/LibraryNavMenu.svelte';
+	import AppBrand from '$lib/components/AppBrand.svelte';
 	import AuthGate from '$lib/components/AuthGate.svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import '../app.css';
@@ -93,9 +94,9 @@
 
 <AuthGate />
 
-<div class="shell">
+<div class="shell" class:shell--canvas={isPartStoryPage}>
 	<header class="app-header">
-		<a href={resolve('/')} class="brand">DM Deputy</a>
+		<AppBrand />
 		<nav class="app-nav">
 			<a href={resolve('/')} aria-current={page.url.pathname === '/' ? 'page' : undefined}>Home</a>
 			<LibraryNavMenu />

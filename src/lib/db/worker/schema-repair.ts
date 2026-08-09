@@ -228,6 +228,16 @@ function repairCharacterSheetColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'characters', 'treasure', 'TEXT');
 }
 
+function repairCampaignAdventureDisplayColumns(database: AppDb): void {
+	if (tableExists(database, 'campaigns')) {
+		addColumnIfMissing(database, 'campaigns', 'nickname', 'TEXT');
+	}
+
+	if (tableExists(database, 'adventures')) {
+		addColumnIfMissing(database, 'adventures', 'shorthand', 'TEXT');
+	}
+}
+
 export function repairSchemaColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'story_nodes', 'activated_at', 'TEXT');
 	addColumnIfMissing(database, 'story_nodes', 'completed_at', 'TEXT');
@@ -241,6 +251,7 @@ export function repairSchemaColumns(database: AppDb): void {
 	repairCharacterStatEventDescriptionColumn(database);
 	repairStoryNodeXpAwardColumn(database);
 	repairCharacterSheetColumns(database);
+	repairCampaignAdventureDisplayColumns(database);
 }
 
 export function applyMigration(database: AppDb, version: number): void {
@@ -281,6 +292,11 @@ export function applyMigration(database: AppDb, version: number): void {
 
 	if (version === 18) {
 		repairStoryNodeXpAwardColumn(database);
+		return;
+	}
+
+	if (version === 30) {
+		repairCampaignAdventureDisplayColumns(database);
 		return;
 	}
 

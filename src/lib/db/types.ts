@@ -328,7 +328,13 @@ export type PersistEncounterXpBatchResult = {
 export type UpdateCampaignDetailsInput = {
 	campaign_id: string;
 	campaign_name: string;
+	nickname: string | null;
 	description: string | null;
+};
+
+export type UpdateAdventureShorthandInput = {
+	adventure_id: string;
+	shorthand: string | null;
 };
 
 export type UpdateSessionZeroAnswersInput = {
@@ -372,6 +378,7 @@ export type WorkerRequest =
 			args: [string, import('$lib/types/schema').Campaign['theme']];
 	  }
 	| { id: number; method: 'updateCampaignDetails'; args: [UpdateCampaignDetailsInput] }
+	| { id: number; method: 'updateAdventureShorthand'; args: [UpdateAdventureShorthandInput] }
 	| { id: number; method: 'updateSessionZeroAnswers'; args: [UpdateSessionZeroAnswersInput] }
 	| { id: number; method: 'touchCampaign'; args: [string, string] }
 	| { id: number; method: 'exportDatabase'; args: [] }

@@ -8,13 +8,21 @@
 	type Props = {
 		campaignId: string;
 		campaignName: string;
+		nickname?: string;
 		description?: string;
 		open?: boolean;
 	};
 
-	let { campaignId, campaignName, description = '', open = $bindable(false) }: Props = $props();
+	let {
+		campaignId,
+		campaignName,
+		nickname = '',
+		description = '',
+		open = $bindable(false)
+	}: Props = $props();
 
 	let name = $state('');
+	let campaignNickname = $state('');
 	let details = $state('');
 	let saving = $state(false);
 	let deleting = $state(false);
@@ -33,6 +41,7 @@
 
 		formKey = nextKey;
 		name = campaignName;
+		campaignNickname = nickname;
 		details = description;
 		error = null;
 	});
@@ -47,6 +56,7 @@
 		try {
 			await persistCampaignDetails(campaignId, {
 				campaign_name: name,
+				nickname: campaignNickname,
 				description: details
 			});
 			open = false;
@@ -90,7 +100,7 @@
 		<Dialog.Overlay />
 		<Dialog.Content>
 			<Dialog.Title>Campaign settings</Dialog.Title>
-			<Dialog.Description>Edit the campaign name and description.</Dialog.Description>
+			<Dialog.Description>Edit the campaign name, nickname, and description.</Dialog.Description>
 
 			<form class="settings-form" onsubmit={handleSave}>
 				<div class="field">
@@ -102,6 +112,17 @@
 						disabled={saving || deleting}
 						placeholder="Campaign name"
 					/>
+				</div>
+
+				<div class="field">
+					<Label.Root for="campaign_settings_nickname">Nickname</Label.Root>
+					<input
+						id="campaign_settings_nickname"
+						bind:value={campaignNickname}
+						disabled={saving || deleting}
+						placeholder="Short name for navigation (optional)"
+					/>
+					<p class="hint">Shown in menu</p>
 				</div>
 
 				<div class="field">

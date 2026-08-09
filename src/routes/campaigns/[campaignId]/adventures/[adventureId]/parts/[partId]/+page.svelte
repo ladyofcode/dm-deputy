@@ -225,33 +225,24 @@
 	</section>
 {:else}
 	<div class="part-page">
-		<header>
-			<div class="part-header-row">
-				<h1>{part?.title ?? ''}</h1>
-				{#if part && adventure}
-					<PartSettingsModal
-						{campaignId}
-						{adventureId}
-						partId={part.part_id}
-						partTitle={part.title}
-						adventureName={adventure.name}
-					/>
-				{/if}
-			</div>
-		</header>
-
-		<nav aria-label="Back to adventure">
+		<nav class="part-page-back" aria-label="Back to adventure">
 			<Button.Root href={resolve(`/campaigns/${campaignId}/adventures/${adventureId}`)}
 				>←</Button.Root
 			>
 		</nav>
 
-		{#if storyLoaded && hasStoryNodes}
-			<nav
-				aria-label="Story node actions"
-				class="part-actions"
-				in:fade={STORY_CONTENT_FADE}
-			>
+		<nav aria-label="Part actions" class="part-actions">
+			{#if part && adventure}
+				<PartSettingsModal
+					{campaignId}
+					{adventureId}
+					partId={part.part_id}
+					partTitle={part.title}
+					adventureName={adventure.name}
+				/>
+			{/if}
+
+			{#if storyLoaded && hasStoryNodes}
 				<Button.Root
 					type="button"
 					data-variant="icon"
@@ -277,8 +268,10 @@
 					XP
 				</Button.Root>
 				<OcrScanButton />
-			</nav>
+			{/if}
+		</nav>
 
+		{#if storyLoaded && hasStoryNodes}
 			<CreateStoryNodeModal bind:open={showCreateModal} nodes={storyNodes} onCreate={handleCreateNode} />
 			<EditStoryNodesModal
 				bind:open={showEditModal}
@@ -338,13 +331,9 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		height: calc(100dvh - 4.25rem);
+		height: 100%;
 		min-height: 0;
 		overflow: hidden;
-	}
-
-	header {
-		flex-shrink: 0;
 	}
 
 	.story-canvas-shell {
@@ -353,42 +342,14 @@
 		width: 100%;
 	}
 
-	header {
-		position: sticky;
-		top: 0;
-		z-index: 3;
-		padding: 0.75rem 4.5rem 0.75rem 1.5rem;
-		background: color-mix(in srgb, var(--color-bg) 90%, transparent);
-		backdrop-filter: blur(6px);
-		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
-	}
-
-	.part-header-row {
-		display: grid;
-		grid-template-columns: 2.5rem 1fr 2.5rem;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	h1 {
-		margin: 0;
-		grid-column: 2;
-		text-align: center;
-		font-size: clamp(1.2rem, 3.8vw, 1.65rem);
-	}
-
-	.part-header-row :global([data-button-root]) {
-		grid-column: 3;
-		justify-self: end;
-	}
-
-	nav {
-		position: fixed;
-		top: 5.25rem;
+	.part-page-back,
+	.part-actions {
+		position: absolute;
+		top: var(--space-page);
 		z-index: 4;
 	}
 
-	nav:first-of-type {
+	.part-page-back {
 		left: var(--space-page);
 	}
 
@@ -399,7 +360,8 @@
 		gap: 0.5rem;
 	}
 
-	nav :global([data-button-root]) {
+	.part-page-back :global([data-button-root]),
+	.part-actions :global([data-button-root]) {
 		width: 2.5rem;
 		height: 2.5rem;
 		padding: 0;
@@ -412,7 +374,8 @@
 		line-height: 1;
 	}
 
-	.part-actions :global([data-button-root][data-variant='icon'] svg) {
+	.part-actions :global([data-button-root][data-variant='icon'] svg),
+	.part-actions :global([data-button-root][data-variant='icon']) {
 		display: block;
 	}
 </style>

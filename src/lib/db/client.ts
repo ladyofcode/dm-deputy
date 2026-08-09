@@ -316,6 +316,12 @@ export async function updateCampaignDetailsInDb(
 	return callWorker('updateCampaignDetails', [input]);
 }
 
+export async function updateAdventureShorthandInDb(
+	input: import('./types').UpdateAdventureShorthandInput
+): Promise<import('$lib/types/schema').Adventure> {
+	return callWorker('updateAdventureShorthand', [input]);
+}
+
 export async function updateSessionZeroAnswersInDb(
 	input: import('./types').UpdateSessionZeroAnswersInput
 ): Promise<import('$lib/types/schema').CampaignSessionZero> {

@@ -30,6 +30,7 @@ import {
 	softDeleteCampaign,
 	updateCampaignTheme,
 	updateCampaignDetails,
+	updateAdventureShorthand,
 	updateSessionZeroAnswers,
 	touchCampaign,
 	addCampaignPlayer,
@@ -166,6 +167,10 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 	updateCampaignDetails: (request) => ({
 		id: request.id,
 		result: updateCampaignDetails(getDb(), request.args[0])
+	}),
+	updateAdventureShorthand: (request) => ({
+		id: request.id,
+		result: updateAdventureShorthand(getDb(), request.args[0])
 	}),
 	updateSessionZeroAnswers: (request) => ({
 		id: request.id,

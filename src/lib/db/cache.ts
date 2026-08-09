@@ -482,7 +482,7 @@ export function mergeAdventureIntoCache(adventure: Adventure): void {
 
 export function updateAdventureInCache(
 	adventureId: string,
-	patch: Pick<Adventure, 'can_promote_to_campaign'>
+	patch: Partial<Pick<Adventure, 'can_promote_to_campaign' | 'shorthand'>>
 ): void {
 	if (!campaignSnapshot) return;
 
@@ -510,7 +510,7 @@ export function updateUserInCache(
 
 export function updateCampaignInCache(
 	campaignId: string,
-	patch: Partial<Pick<Campaign, 'theme' | 'campaign_name' | 'description'>>
+	patch: Partial<Pick<Campaign, 'theme' | 'campaign_name' | 'nickname' | 'description'>>
 ): void {
 	if (!campaignSnapshot) return;
 
@@ -521,7 +521,7 @@ export function updateCampaignInCache(
 		)
 	};
 
-	if ('campaign_name' in patch || 'description' in patch) {
+	if ('campaign_name' in patch || 'nickname' in patch || 'description' in patch) {
 		bumpCampaignListRevision();
 	}
 }

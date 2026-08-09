@@ -1,4 +1,5 @@
 import type { Character, StoryItem, StoryItemCatalogType, StoryItemKind } from '$lib/types/schema';
+import { getStoredMonsterTemplateById } from '$lib/stores/monster-templates.svelte';
 
 export const NOTE_DEFAULT_WIDTH = 160;
 export const NOTE_DEFAULT_HEIGHT = 72;
@@ -13,6 +14,8 @@ export type StoryArmLine = {
 	kind: StoryItemKind;
 	xp_amount: number;
 	character_id: string;
+	monster_template_id: string;
+	npc_name: string;
 	gold: number;
 	silver: number;
 	copper: number;
@@ -32,6 +35,8 @@ export function createEmptyArmLine(): StoryArmLine {
 		kind: 'xp',
 		xp_amount: 0,
 		character_id: '',
+		monster_template_id: '',
+		npc_name: '',
 		gold: 0,
 		silver: 0,
 		copper: 0,
@@ -52,6 +57,8 @@ export function storyItemToArmLine(item: StoryItem): StoryArmLine {
 		kind: item.kind,
 		xp_amount: item.xp_amount ?? 0,
 		character_id: item.character_id ?? '',
+		monster_template_id: '',
+		npc_name: '',
 		gold: item.gold ?? 0,
 		silver: item.silver ?? 0,
 		copper: item.copper ?? 0,
@@ -98,6 +105,12 @@ export function buildStoryItemLabel(
 		case 'xp':
 			return `${Math.max(0, item.xp_amount ?? 0)} XP`;
 		case 'npc': {
+			if ('monster_template_id' in item && item.monster_template_id) {
+				const customName = 'npc_name' in item ? item.npc_name?.trim() : '';
+				if (customName) return customName;
+				return getStoredMonsterTemplateById(item.monster_template_id)?.name ?? 'Foe template';
+			}
+
 			const npc = item.character_id ? npcsById.get(item.character_id) : undefined;
 			return npc?.display_name ?? 'NPC';
 		}
@@ -221,6 +234,7 @@ export function isArmLineBlank(line: StoryArmLine): boolean {
 		case 'xp':
 			return line.xp_amount <= 0;
 		case 'npc':
+			if (line.monster_template_id) return !line.npc_name.trim();
 			return !line.character_id;
 		case 'money':
 			return line.gold <= 0 && line.silver <= 0 && line.copper <= 0;

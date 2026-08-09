@@ -44,6 +44,7 @@ import {
 	updateCharacterPortraitInDb,
 	updateCharacterStatCacheInDb,
 	updateCampaignDetailsInDb,
+	updateAdventureShorthandInDb,
 	updateSessionZeroAnswersInDb,
 	updateCampaignThemeInDb,
 	updateUserThemeInDb,
@@ -195,6 +196,7 @@ export async function persistCampaign(
 		campaign_id: campaignId,
 		owner_user_id: ownerUserId,
 		campaign_name: draft.campaign_name.trim(),
+		nickname: null,
 		description: draft.description.trim() || null,
 		game_schema: draft.game_schema.trim() || 'dnd5e',
 		theme: 'default',
@@ -279,6 +281,7 @@ export async function persistAdventure(
 		adventure_id: adventureId,
 		campaign_id: campaignId,
 		name: draft.name.trim(),
+		shorthand: null,
 		overview: draft.overview.trim() || null,
 		adventure_hook: draft.adventure_hook.trim() || null,
 		can_promote_to_campaign: false,
@@ -348,22 +351,38 @@ export async function persistCampaignTheme(
 
 export async function persistCampaignDetails(
 	campaignId: string,
-	draft: { campaign_name: string; description: string }
+	draft: { campaign_name: string; nickname: string; description: string }
 ): Promise<Campaign> {
 	const campaign_name = draft.campaign_name.trim();
 	if (!campaign_name) {
 		throw new Error('Campaign name is required');
 	}
 
+	const nickname = draft.nickname.trim() || null;
 	const description = draft.description.trim() || null;
 	const campaign = await updateCampaignDetailsInDb({
 		campaign_id: campaignId,
 		campaign_name,
+		nickname,
 		description
 	});
 
-	updateCampaignInCache(campaignId, { campaign_name, description });
+	updateCampaignInCache(campaignId, { campaign_name, nickname, description });
 	return campaign;
+}
+
+export async function persistAdventureShorthand(
+	adventureId: string,
+	shorthand: string
+): Promise<Adventure> {
+	const normalized = shorthand.trim() || null;
+	const adventure = await updateAdventureShorthandInDb({
+		adventure_id: adventureId,
+		shorthand: normalized
+	});
+
+	updateAdventureInCache(adventureId, { shorthand: normalized });
+	return adventure;
 }
 
 export async function deleteCampaign(campaignId: string): Promise<void> {

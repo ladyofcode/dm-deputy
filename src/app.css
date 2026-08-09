@@ -136,15 +136,22 @@ button:focus-visible,
 	z-index: 1;
 	min-height: 100vh;
 	display: grid;
-	grid-template-rows: auto 1fr;
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.shell--canvas {
+	height: 100dvh;
+	overflow: hidden;
 }
 
 .app-header {
 	position: relative;
-	z-index: 2;
+	z-index: 10;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	gap: 1rem;
+	min-width: 0;
 	padding: 1rem 1.5rem;
 	border-bottom: 1px solid var(--color-border);
 	background: var(--color-surface);
@@ -155,10 +162,14 @@ button:focus-visible,
 	font-weight: 700;
 	text-decoration: none;
 	color: inherit;
+	flex: 1 1 0;
+	min-width: 0;
+	overflow: hidden;
 }
 
 .app-nav {
 	display: flex;
+	flex: 0 0 auto;
 	gap: 1rem;
 }
 
@@ -182,6 +193,8 @@ button:focus-visible,
 .app-main--canvas {
 	max-width: none;
 	padding: 0;
+	min-height: 0;
+	overflow: hidden;
 }
 
 .page-stack {

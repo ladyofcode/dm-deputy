@@ -45,6 +45,7 @@
 					<CampaignSettingsModal
 						campaignId={campaign.campaign_id}
 						campaignName={campaign.campaign_name}
+						nickname={campaign.nickname ?? ''}
 						description={campaign.description ?? ''}
 					/>
 				{/if}

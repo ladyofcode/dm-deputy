@@ -2,6 +2,7 @@
 	import { Button, Dialog } from 'bits-ui';
 	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
 	import StoryArmLineRow from '$lib/components/part/StoryArmLineRow.svelte';
+	import { createCampaignNpcFromTemplate } from '$lib/data/campaign-npc-from-template';
 	import {
 		armLineToStoryItem,
 		buildStoryItemLabel,
@@ -14,6 +15,11 @@
 	} from '$lib/domain/story-item';
 	import { getReactiveNpcsForCampaign } from '$lib/stores/campaign-characters.svelte';
 	import { getReactiveCampaignMapsForCampaign } from '$lib/stores/campaign-maps.svelte';
+	import {
+		getMonsterTemplates,
+		trackMonsterTemplatesRevision
+	} from '$lib/stores/monster-templates.svelte';
+	import { workspace } from '$lib/stores/workspace.svelte';
 	import {
 		getReactiveCatalogArmor,
 		getReactiveCatalogItems,
@@ -55,6 +61,12 @@
 	const npcs = $derived(getReactiveNpcsForCampaign(campaignId));
 	const generalNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_general'));
 	const foeNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_foe'));
+	const foeTemplates = $derived.by(() => {
+		trackMonsterTemplatesRevision();
+		return getMonsterTemplates()
+			.filter((template) => template.kind === 'npc_foe')
+			.sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+	});
 	const npcsById = $derived(new Map(npcs.map((npc) => [npc.character_id, npc])));
 	const campaignMaps = $derived(getReactiveCampaignMapsForCampaign(campaignId));
 	const mapsById = $derived(new Map(campaignMaps.map((map) => [map.map_id, map])));
@@ -157,6 +169,8 @@
 						kind,
 						xp_amount: 0,
 						character_id: '',
+						monster_template_id: '',
+						npc_name: '',
 						gold: 0,
 						silver: 0,
 						copper: 0,
@@ -191,16 +205,47 @@
 		);
 	}
 
+	async function resolveTemplateArmLines(lines: StoryArmLine[]): Promise<StoryArmLine[]> {
+		const resolved: StoryArmLine[] = [];
+
+		for (const line of lines) {
+			if (line.kind !== 'npc' || !line.monster_template_id || line.character_id) {
+				resolved.push(line);
+				continue;
+			}
+
+			const character = await createCampaignNpcFromTemplate(
+				campaignId,
+				workspace.currentUserId,
+				line.monster_template_id,
+				line.npc_name
+			);
+
+			resolved.push({
+				...line,
+				character_id: character.character_id,
+				monster_template_id: '',
+				npc_name: ''
+			});
+		}
+
+		return resolved;
+	}
+
 	async function handleSave(event: SubmitEvent) {
 		event.preventDefault();
 		if (saving || !nodeId) return;
 
 		const validLines = armLines.filter(isArmLineValid);
-		const items = validLines.map((line) => {
+		const resolvedLines = await resolveTemplateArmLines(validLines);
+		const freshNpcsById = new Map(
+			getReactiveNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc])
+		);
+		const items = resolvedLines.map((line) => {
 			const draft = armLineToStoryItem(
 				line,
 				nodeId,
-				buildStoryItemLabel(line, npcsById, labelNameForLine(line))
+				buildStoryItemLabel(line, freshNpcsById, labelNameForLine(line))
 			);
 			return draft;
 		});
@@ -235,13 +280,14 @@
 				<ul class="arm-lines list-plain">
 					{#each armLines as line, index (line.id)}
 						<StoryArmLineRow
-							{line}
+							bind:line={armLines[index]!}
 							{index}
 							armLineCount={armLines.length}
 							showRemove={armLines.length > 1 || isArmLineValid(line)}
 							bind:kindSelect={armKindSelects[line.id]}
 							{generalNpcs}
 							{foeNpcs}
+							{foeTemplates}
 							{campaignMaps}
 							{weaponGroups}
 							{armorGroups}

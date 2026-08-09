@@ -4,6 +4,7 @@
 	import CatalogEntryDialog from '$lib/components/catalog/CatalogEntryDialog.svelte';
 	import CatalogTable from '$lib/components/catalog/CatalogTable.svelte';
 	import SpeciesEntryDialog from '$lib/components/catalog/SpeciesEntryDialog.svelte';
+	import NameGeneratorsSection from '$lib/components/library/NameGeneratorsSection.svelte';
 	import {
 		loadCatalogIfNeeded,
 		removeArmor,
@@ -316,7 +317,9 @@
 						{/snippet}
 					</CatalogTable>
 				{:else if activeTab === 'species'}
-					<CatalogTable
+					<div class="species-stack">
+						<NameGeneratorsSection />
+						<CatalogTable
 						items={species}
 						getId={(entry) => entry.species_id}
 						emptyMessage="No species yet."
@@ -337,6 +340,7 @@
 							<td class="description-cell">{formatSpeciesTraitNames(entry)}</td>
 						{/snippet}
 					</CatalogTable>
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -387,5 +391,10 @@
 
 	.hint.error {
 		color: var(--color-danger, #b42318);
+	}
+
+	.species-stack {
+		display: grid;
+		gap: 1.5rem;
 	}
 </style>

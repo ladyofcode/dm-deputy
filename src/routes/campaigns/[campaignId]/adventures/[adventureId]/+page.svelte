@@ -241,6 +241,7 @@
 					campaignName={campaign.campaign_name}
 					adventureId={adventure.adventure_id}
 					adventureName={adventure.name}
+					shorthand={adventure.shorthand ?? ''}
 				/>
 			{/if}
 		</div>

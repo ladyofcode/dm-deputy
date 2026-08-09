@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -555,6 +555,10 @@ Any attack that hits the creature is a critical hit if the attacker is within 5 
 		CREATE INDEX IF NOT EXISTS idx_encounter_resolutions_event ON encounter_resolutions (event_id);
 		CREATE INDEX IF NOT EXISTS idx_character_stat_events_character_stat ON character_stat_events (character_id, stat);
 		CREATE INDEX IF NOT EXISTS idx_character_stat_events_batch ON character_stat_events (batch_id);
+	`,
+	30: `
+		ALTER TABLE campaigns ADD COLUMN nickname TEXT;
+		ALTER TABLE adventures ADD COLUMN shorthand TEXT;
 	`
 };
 

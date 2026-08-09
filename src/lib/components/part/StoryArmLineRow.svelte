@@ -10,6 +10,12 @@
 	import { ITEM_CATEGORY_LABELS } from '$lib/domain/catalog';
 	import type { StoryArmLine } from '$lib/domain/story-item';
 	import {
+		decodeStoryNpcSelection,
+		encodeStoryNpcSelection
+	} from '$lib/domain/story-npc-selection';
+	import { generateRandomNameForTemplate } from '$lib/domain/template-npc-name';
+	import type { MonsterTemplate } from '$lib/games/dnd5e/data/monsters';
+	import {
 		STORY_ITEM_KIND_LABELS,
 		type Armor,
 		type CampaignMap,
@@ -29,6 +35,7 @@
 		kindSelect?: HTMLSelectElement;
 		generalNpcs: Character[];
 		foeNpcs: Character[];
+		foeTemplates: MonsterTemplate[];
 		campaignMaps: CampaignMap[];
 		weaponGroups: CatalogOptionGroup<Weapon>[];
 		armorGroups: CatalogOptionGroup<Armor>[];
@@ -43,13 +50,14 @@
 	};
 
 	let {
-		line,
+		line = $bindable(),
 		index,
 		armLineCount,
 		showRemove,
 		kindSelect = $bindable(),
 		generalNpcs,
 		foeNpcs,
+		foeTemplates,
 		campaignMaps,
 		weaponGroups,
 		armorGroups,
@@ -62,6 +70,25 @@
 		onAddLine,
 		onRemoveLine
 	}: Props = $props();
+
+	const npcSelection = $derived(
+		encodeStoryNpcSelection(line.character_id, line.monster_template_id)
+	);
+
+	function handleNpcSelectionChange(event: Event) {
+		const value = (event.currentTarget as HTMLSelectElement).value;
+		const decoded = decodeStoryNpcSelection(value);
+		line.character_id = decoded.characterId;
+		line.monster_template_id = decoded.monsterTemplateId;
+		line.npc_name = decoded.monsterTemplateId
+			? generateRandomNameForTemplate(decoded.monsterTemplateId)
+			: '';
+	}
+
+	function shuffleNpcName() {
+		if (!line.monster_template_id) return;
+		line.npc_name = generateRandomNameForTemplate(line.monster_template_id);
+	}
 </script>
 
 <li class="arm-line">
@@ -97,24 +124,58 @@
 		{:else if line.kind === 'npc'}
 			<div class="field arm-line-value">
 				<Label.Root for={`arm_npc_${line.id}`}>NPC</Label.Root>
-				<select id={`arm_npc_${line.id}`} bind:value={line.character_id} onkeydown={onKeydown}>
+				<select
+					id={`arm_npc_${line.id}`}
+					value={npcSelection}
+					onchange={handleNpcSelectionChange}
+					onkeydown={onKeydown}
+				>
 					<option value="">None</option>
 					{#if generalNpcs.length}
 						<optgroup label="NPCs">
 							{#each generalNpcs as npc (npc.character_id)}
-								<option value={npc.character_id}>{npc.display_name}</option>
+								<option value="character:{npc.character_id}">{npc.display_name}</option>
 							{/each}
 						</optgroup>
 					{/if}
 					{#if foeNpcs.length}
 						<optgroup label="Foes">
 							{#each foeNpcs as npc (npc.character_id)}
-								<option value={npc.character_id}>{npc.display_name}</option>
+								<option value="character:{npc.character_id}">{npc.display_name}</option>
+							{/each}
+						</optgroup>
+					{/if}
+					{#if foeTemplates.length}
+						<optgroup label="Templates">
+							{#each foeTemplates as template (template.id)}
+								<option value="template:{template.id}">{template.name}</option>
 							{/each}
 						</optgroup>
 					{/if}
 				</select>
 			</div>
+			{#if line.monster_template_id}
+				<div class="field arm-line-value">
+					<Label.Root for={`arm_npc_name_${line.id}`}>Name</Label.Root>
+					<div class="npc-name-controls">
+						<input
+							id={`arm_npc_name_${line.id}`}
+							type="text"
+							bind:value={line.npc_name}
+							onkeydown={onKeydown}
+							placeholder="Foe name"
+						/>
+						<Button.Root
+							type="button"
+							data-variant="icon"
+							aria-label="Random name"
+							onclick={shuffleNpcName}
+						>
+							↻
+						</Button.Root>
+					</div>
+				</div>
+			{/if}
 		{:else if line.kind === 'money'}
 			<div class="field arm-line-value">
 				<Label.Root for={`arm_gold_${line.id}`}>Gold</Label.Root>
@@ -248,29 +309,31 @@
 			</div>
 		{/if}
 
-		{#if line.kind !== 'xp'}
-			<label for={`arm_reward_${line.id}`} class="reward-toggle arm-line-extra">
-				<input id={`arm_reward_${line.id}`} type="checkbox" bind:checked={line.is_reward} />
-				<RewardIcon title="Reward" />
-			</label>
-		{/if}
+		<div class="arm-line-trailing">
+			{#if line.kind !== 'xp'}
+				<label for={`arm_reward_${line.id}`} class="reward-toggle arm-line-extra">
+					<input id={`arm_reward_${line.id}`} type="checkbox" bind:checked={line.is_reward} />
+					<RewardIcon title="Reward" />
+				</label>
+			{/if}
 
-		<div class="arm-line-actions">
-			{#if index === armLineCount - 1}
-				<Button.Root type="button" data-variant="icon" aria-label="Add item row" onclick={onAddLine}>
-					+
-				</Button.Root>
-			{/if}
-			{#if showRemove}
-				<Button.Root
-					type="button"
-					data-variant="icon"
-					aria-label="Remove item row"
-					onclick={() => onRemoveLine?.(line.id)}
-				>
-					×
-				</Button.Root>
-			{/if}
+			<div class="arm-line-actions">
+				{#if index === armLineCount - 1}
+					<Button.Root type="button" data-variant="icon" aria-label="Add item row" onclick={onAddLine}>
+						+
+					</Button.Root>
+				{/if}
+				{#if showRemove}
+					<Button.Root
+						type="button"
+						data-variant="icon"
+						aria-label="Remove item row"
+						onclick={() => onRemoveLine?.(line.id)}
+					>
+						×
+					</Button.Root>
+				{/if}
+			</div>
 		</div>
 	</div>
 </li>
@@ -291,13 +354,14 @@
 	}
 
 	.arm-line-type {
-		flex: 0 1 8.5rem;
-		min-width: min(100%, 8.5rem);
+		flex: 0 0 4.75rem;
+		min-width: 4.75rem;
+		max-width: 4.75rem;
 	}
 
 	.arm-line-value {
-		flex: 1 1 5.5rem;
-		min-width: min(100%, 5.5rem);
+		flex: 1 1 6rem;
+		min-width: min(100%, 6rem);
 	}
 
 	.arm-line-value-wide {
@@ -308,6 +372,15 @@
 	.arm-line-extra {
 		flex: 0 0 auto;
 		align-self: center;
+	}
+
+	.arm-line-trailing {
+		display: flex;
+		flex: 0 0 auto;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.35rem;
+		margin-left: auto;
 	}
 
 	.treasure-toggle {
@@ -379,6 +452,18 @@
 		width: 100%;
 	}
 
+	.npc-name-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.npc-name-controls input {
+		width: auto;
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
 	.arm-line-value textarea {
 		min-height: 4.5rem;
 		resize: vertical;
@@ -387,8 +472,8 @@
 	.arm-line-actions {
 		display: flex;
 		flex: 0 0 auto;
+		flex-shrink: 0;
 		align-items: center;
 		gap: 0.35rem;
-		margin-left: auto;
 	}
 </style>
