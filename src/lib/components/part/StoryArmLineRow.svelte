@@ -3,10 +3,7 @@
 	import CatalogSelect from '$lib/components/shared/CatalogSelect.svelte';
 	import RewardIcon from '$lib/components/icons/RewardIcon.svelte';
 	import TreasureIcon from '$lib/components/icons/TreasureIcon.svelte';
-	import {
-		ITEM_CATEGORY_ORDER,
-		type CatalogOptionGroup
-	} from '$lib/domain/catalog-select';
+	import { ITEM_CATEGORY_ORDER, type CatalogOptionGroup } from '$lib/domain/catalog-select';
 	import { ITEM_CATEGORY_LABELS } from '$lib/domain/catalog';
 	import type { StoryArmLine } from '$lib/domain/story-item';
 	import {
@@ -319,7 +316,12 @@
 
 			<div class="arm-line-actions">
 				{#if index === armLineCount - 1}
-					<Button.Root type="button" data-variant="icon" aria-label="Add item row" onclick={onAddLine}>
+					<Button.Root
+						type="button"
+						data-variant="icon"
+						aria-label="Add item row"
+						onclick={onAddLine}
+					>
 						+
 					</Button.Root>
 				{/if}
@@ -396,7 +398,7 @@
 	}
 
 	.treasure-toggle:has(:checked) {
-		color: #b8860b;
+		color: var(--color-node-reward-accent);
 		opacity: 1;
 	}
 

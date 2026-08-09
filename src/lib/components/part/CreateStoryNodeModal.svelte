@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Button, Dialog } from 'bits-ui';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
 	import StoryNodeFields from '$lib/components/shared/StoryNodeFields.svelte';
 	import { normalizeStoryNode } from '$lib/data/part-story';
 	import { wouldCreateParentCycle } from '$lib/domain/story-node-tree';
@@ -62,45 +63,33 @@
 	}
 </script>
 
-<Dialog.Root
+<AppDialog
 	bind:open
+	title="Add story node"
+	description="Add a new node to this part's story canvas."
+	wide
 	onOpenChange={(isOpen) => {
 		if (isOpen) resetForm();
 	}}
 >
-	<Dialog.Portal>
-		<Dialog.Overlay />
-		<Dialog.Content class="dialog-wide">
-			<Dialog.Title>Add story node</Dialog.Title>
-			<Dialog.Description>Add a new node to this part&apos;s story canvas.</Dialog.Description>
+	<form onsubmit={handleCreate}>
+		<StoryNodeFields
+			idPrefix="story_node"
+			bind:title
+			bind:kind
+			bind:summary
+			bind:parentNodeIds
+			bind:difficulty
+			parentOptions={nodes}
+		/>
 
-			<form onsubmit={handleCreate}>
-				<StoryNodeFields
-					idPrefix="story_node"
-					bind:title
-					bind:kind
-					bind:summary
-					bind:parentNodeIds
-					bind:difficulty
-					parentOptions={nodes}
-				/>
+		{#if error}
+			<p class="hint error">{error}</p>
+		{/if}
 
-				{#if error}
-					<p class="hint">{error}</p>
-				{/if}
-
-				<div class="dialog-footer">
-					<Dialog.Close>
-						{#snippet child({ props })}
-							<Button.Root {...props} type="button">Cancel</Button.Root>
-						{/snippet}
-					</Dialog.Close>
-					<Button.Root type="submit" data-variant="primary">Create node</Button.Root>
-				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+		<DialogFormFooter submitLabel="Create node" />
+	</form>
+</AppDialog>
 
 <style>
 	form {

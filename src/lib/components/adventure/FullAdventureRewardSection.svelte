@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CatalogItemTooltip from '$lib/components/adventure/CatalogItemTooltip.svelte';
-	import StoryMapPreview from '$lib/components/part/StoryMapPreview.svelte';
+	import MediaThumb from '$lib/components/shared/MediaThumb.svelte';
 	import {
 		formatRewardMoney,
 		hasRewardContent,
@@ -92,7 +92,7 @@
 			{:else if item.kind === 'note' && item.note_text?.trim()}
 				<p class="reward-note">{item.note_text}</p>
 			{:else if item.kind === 'map' && item.map_id}
-				<StoryMapPreview mapId={item.map_id} label={item.label} />
+				<MediaThumb variant="map" mapId={item.map_id} label={item.label} showCaption />
 			{/if}
 		{/each}
 	</section>

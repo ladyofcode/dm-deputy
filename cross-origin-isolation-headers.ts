@@ -4,9 +4,7 @@ export const crossOriginIsolationHeaders = {
 	'Cross-Origin-Resource-Policy': 'same-origin'
 };
 
-export function applyCrossOriginIsolationHeaders(
-	setHeader: (name: string, value: string) => void
-) {
+export function applyCrossOriginIsolationHeaders(setHeader: (name: string, value: string) => void) {
 	for (const [name, value] of Object.entries(crossOriginIsolationHeaders)) {
 		setHeader(name, value);
 	}

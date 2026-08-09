@@ -1,6 +1,8 @@
 import type { Adventure, Campaign } from '$lib/types/schema';
 
-export function getCampaignDisplayName(campaign: Pick<Campaign, 'nickname' | 'campaign_name'>): string {
+export function getCampaignDisplayName(
+	campaign: Pick<Campaign, 'nickname' | 'campaign_name'>
+): string {
 	return campaign.nickname?.trim() || campaign.campaign_name;
 }
 

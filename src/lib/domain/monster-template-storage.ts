@@ -27,6 +27,29 @@ export function cloneMonsterTemplate(template: MonsterTemplate): MonsterTemplate
 	return structuredClone(template);
 }
 
+export function createBlankMonsterTemplate(): MonsterTemplate {
+	return {
+		id: `custom-${crypto.randomUUID()}`,
+		name: 'New template',
+		kind: 'npc_foe',
+		creature_type: 'Medium humanoid',
+		alignment: 'Unaligned',
+		armor_class: 10,
+		armor_class_notes: '',
+		hp_max: 1,
+		hp_dice: '1d4',
+		speed: '30 ft.',
+		abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+		skills: '',
+		senses: 'passive Perception 10',
+		languages: '',
+		challenge_rating: '0',
+		experience: 0,
+		traits: '',
+		actions: ''
+	};
+}
+
 export function loadStoredMonsterTemplates(): MonsterTemplate[] {
 	if (typeof localStorage === 'undefined') {
 		return MONSTER_TEMPLATES.map(cloneMonsterTemplate);
@@ -43,13 +66,20 @@ export function loadStoredMonsterTemplates(): MonsterTemplate[] {
 	}
 
 	const storedById = new Map(stored.map((template) => [template.id, template]));
+	const defaultIds = new Set(MONSTER_TEMPLATES.map((template) => template.id));
 
-	return MONSTER_TEMPLATES.map((defaultTemplate) => {
+	const defaults = MONSTER_TEMPLATES.map((defaultTemplate) => {
 		const saved = storedById.get(defaultTemplate.id);
 		return saved
 			? { ...cloneMonsterTemplate(defaultTemplate), ...saved, id: defaultTemplate.id }
 			: cloneMonsterTemplate(defaultTemplate);
 	});
+
+	const customs = stored
+		.filter((template) => !defaultIds.has(template.id))
+		.map(cloneMonsterTemplate);
+
+	return [...defaults, ...customs];
 }
 
 export function saveStoredMonsterTemplates(templates: MonsterTemplate[]): void {

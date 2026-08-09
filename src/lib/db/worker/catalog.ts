@@ -2,14 +2,14 @@ import { execSql, selectObjects } from '../bind';
 import { withTransaction } from '../sql';
 import type { CatalogSnapshot } from '../types';
 import type {
-  Armor,
-  Condition,
-  Item,
-  Species,
-  SpeciesTrait,
-  SpeciesTraitEffect,
-  Spell,
-  Weapon
+	Armor,
+	Condition,
+	Item,
+	Species,
+	SpeciesTrait,
+	SpeciesTraitEffect,
+	Spell,
+	Weapon
 } from '$lib/types/schema';
 import type { AppDb, MemoryDb } from './context';
 
@@ -19,12 +19,7 @@ type CatalogUpsertConfig = {
 	columns: readonly string[];
 };
 
-function deleteCatalogEntry(
-	database: AppDb,
-	table: string,
-	idColumn: string,
-	id: string
-): void {
+function deleteCatalogEntry(database: AppDb, table: string, idColumn: string, id: string): void {
 	execSql(database, {
 		sql: `DELETE FROM ${table} WHERE ${idColumn} = $id`,
 		bind: { id }

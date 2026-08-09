@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Tooltip } from 'bits-ui';
+	import { Popover } from 'bits-ui';
+	import CloseIcon from '$lib/components/icons/CloseIcon.svelte';
 	import { formatStoryItemCatalogStats } from '$lib/domain/story-item-catalog';
 	import type { StoryItem } from '$lib/types/schema';
 
@@ -15,20 +16,25 @@
 </script>
 
 {#if hasTooltip}
-	<Tooltip.Root>
-		<Tooltip.Trigger class="catalog-item-trigger" type="button">
+	<Popover.Root>
+		<Popover.Trigger class="catalog-item-trigger" type="button" aria-label="{label} stats">
 			{label}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Content class="catalog-item-tooltip">
-				<ul>
-					{#each stats as stat (stat)}
-						<li>{stat}</li>
-					{/each}
-				</ul>
-			</Tooltip.Content>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Popover.Trigger>
+		<Popover.Portal>
+			<Popover.Content class="tooltip-panel catalog-item-tooltip" side="top" align="start">
+				<div class="catalog-item-header">
+					<ul>
+						{#each stats as stat (stat)}
+							<li>{stat}</li>
+						{/each}
+					</ul>
+					<Popover.Close class="catalog-item-close" aria-label="Close stats">
+						<CloseIcon size={16} />
+					</Popover.Close>
+				</div>
+			</Popover.Content>
+		</Popover.Portal>
+	</Popover.Root>
 {:else}
 	<span>{label}</span>
 {/if}
@@ -41,34 +47,56 @@
 		background: none;
 		font: inherit;
 		color: var(--color-accent);
-		cursor: help;
+		cursor: pointer;
 	}
 
-	:global(.catalog-item-trigger:hover) {
+	:global(.catalog-item-trigger:hover),
+	:global(.catalog-item-trigger:focus-visible) {
 		color: var(--color-accent-hover);
 	}
 
-	:global(.catalog-item-tooltip) {
-		z-index: 60;
-		max-width: 16rem;
-		padding: 0.55rem 0.75rem;
-		border: 1px solid var(--color-border-strong);
+	:global(.catalog-item-trigger):focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
 		border-radius: var(--radius-sm);
-		background: var(--color-surface);
-		box-shadow: 0 8px 24px var(--color-shadow);
 	}
 
-	:global(.catalog-item-tooltip) ul {
+	.catalog-item-header {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+
+	.catalog-item-header ul {
 		margin: 0;
 		padding: 0;
 		list-style: none;
 		display: grid;
 		gap: 0.2rem;
+		flex: 1;
 	}
 
-	:global(.catalog-item-tooltip) li {
+	.catalog-item-header li {
 		font-size: 0.875rem;
 		line-height: 1.35;
 		color: var(--color-text);
+	}
+
+	:global(.catalog-item-close) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		padding: 0.15rem;
+		border: none;
+		background: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		border-radius: var(--radius-sm);
+	}
+
+	:global(.catalog-item-close):focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
 	}
 </style>

@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { Button, Dialog } from 'bits-ui';
-	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { formatErrorMessage } from '$lib/domain/errors';
+	import { useDialogFormReset } from '$lib/stores/dialog-form.svelte';
+	import { createDraftLines } from '$lib/stores/draft-lines.svelte';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
 	import StoryArmLineRow from '$lib/components/part/StoryArmLineRow.svelte';
 	import { createCampaignNpcFromTemplate } from '$lib/data/campaign-npc-from-template';
 	import {
@@ -31,7 +35,12 @@
 		groupWeaponsByCategory,
 		inferItemCategoryForCatalogId
 	} from '$lib/domain/catalog-select';
-	import type { ItemCategory, StoryItem, StoryItemCatalogType, StoryItemKind } from '$lib/types/schema';
+	import type {
+		ItemCategory,
+		StoryItem,
+		StoryItemCatalogType,
+		StoryItemKind
+	} from '$lib/types/schema';
 
 	type Props = {
 		open?: boolean;
@@ -51,11 +60,11 @@
 		onSave
 	}: Props = $props();
 
-	let armLines = $state<StoryArmLine[]>([createEmptyArmLine()]);
+	const armDraft = createDraftLines(createEmptyArmLine);
+
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 	let itemCategoryFilters = $state<Record<string, ItemCategory | ''>>({});
-	let formKey = $state('');
 	let armKindSelects = $state<Record<string, HTMLSelectElement | undefined>>({});
 
 	const npcs = $derived(getReactiveNpcsForCampaign(campaignId));
@@ -65,9 +74,10 @@
 		trackMonsterTemplatesRevision();
 		return getMonsterTemplates()
 			.filter((template) => template.kind === 'npc_foe')
-			.sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+			.sort((left, right) =>
+				left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+			);
 	});
-	const npcsById = $derived(new Map(npcs.map((npc) => [npc.character_id, npc])));
 	const campaignMaps = $derived(getReactiveCampaignMapsForCampaign(campaignId));
 	const mapsById = $derived(new Map(campaignMaps.map((map) => [map.map_id, map])));
 	const weapons = $derived(getReactiveCatalogWeapons());
@@ -77,9 +87,9 @@
 	const armorGroups = $derived(groupArmorByCategory(armor));
 
 	const itemGroupsByLineId = $derived.by(() => {
-		const groups = new Map<string, ReturnType<typeof groupItemsByCategory>>();
+		const groups = new SvelteMap<string, ReturnType<typeof groupItemsByCategory>>();
 
-		for (const line of armLines) {
+		for (const line of armDraft.lines) {
 			if (line.kind !== 'item') continue;
 			groups.set(
 				line.id,
@@ -94,7 +104,10 @@
 		return itemCategoryFilters[lineId] ?? inferItemCategoryForCatalogId(gear, catalogId);
 	}
 
-	function getCatalogName(catalogType: StoryItemCatalogType | '', catalogId: string): string | null {
+	function getCatalogName(
+		catalogType: StoryItemCatalogType | '',
+		catalogId: string
+	): string | null {
 		if (!catalogType || !catalogId) return null;
 
 		switch (catalogType) {
@@ -126,43 +139,32 @@
 		nodeId ? existingItems.some((item) => item.parent_node_id === nodeId) : false
 	);
 
-	$effect(() => {
-		if (!open || !nodeId) {
-			formKey = '';
-			return;
+	useDialogFormReset(
+		() => open && Boolean(nodeId),
+		() => {
+			if (!nodeId) return null;
+			const nodeItems = existingItems.filter((item) => item.parent_node_id === nodeId);
+			return `${nodeId}:${nodeItems.map((item) => item.item_id).join('|')}`;
+		},
+		() => {
+			if (!nodeId) return;
+			const nodeItems = existingItems.filter((item) => item.parent_node_id === nodeId);
+			armDraft.lines = nodeItems.length
+				? nodeItems.map(storyItemToArmLine)
+				: [createEmptyArmLine()];
+			error = null;
 		}
-
-		const nodeItems = existingItems.filter((item) => item.parent_node_id === nodeId);
-		const nextKey = `${nodeId}:${nodeItems.map((item) => item.item_id).join('|')}`;
-		if (formKey === nextKey) return;
-
-		formKey = nextKey;
-		armLines = nodeItems.length ? nodeItems.map(storyItemToArmLine) : [createEmptyArmLine()];
-		error = null;
-	});
-
-	function addArmLine() {
-		armLines = [...armLines, createEmptyArmLine()];
-	}
+	);
 
 	async function handleArmKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Enter') return;
-
-		event.preventDefault();
-		const newLine = createEmptyArmLine();
-		armLines = [...armLines, newLine];
-		await focusDraftRowInput(() => armKindSelects[newLine.id]);
-	}
-
-	function removeArmLine(lineId: string) {
-		armLines = armLines.filter((line) => line.id !== lineId);
-		if (armLines.length === 0) {
-			armLines = [createEmptyArmLine()];
-		}
+		await armDraft.handleEnter(event, () => {
+			const newLine = armDraft.lines[armDraft.lines.length - 1];
+			return newLine ? armKindSelects[newLine.id] : undefined;
+		});
 	}
 
 	function handleKindChange(line: StoryArmLine, kind: StoryItemKind) {
-		armLines = armLines.map((entry) =>
+		armDraft.lines = armDraft.lines.map((entry) =>
 			entry.id === line.id
 				? {
 						...entry,
@@ -188,7 +190,7 @@
 	}
 
 	function handleCatalogTypeChange(line: StoryArmLine, catalogType: StoryItemCatalogType | '') {
-		armLines = armLines.map((entry) =>
+		armDraft.lines = armDraft.lines.map((entry) =>
 			entry.id === line.id ? { ...entry, catalog_type: catalogType, catalog_id: '' } : entry
 		);
 		if (catalogType !== 'item') {
@@ -200,7 +202,7 @@
 
 	function handleItemCategoryFilterChange(line: StoryArmLine, category: ItemCategory | '') {
 		itemCategoryFilters = { ...itemCategoryFilters, [line.id]: category };
-		armLines = armLines.map((entry) =>
+		armDraft.lines = armDraft.lines.map((entry) =>
 			entry.id === line.id ? { ...entry, catalog_id: '' } : entry
 		);
 	}
@@ -236,7 +238,7 @@
 		event.preventDefault();
 		if (saving || !nodeId) return;
 
-		const validLines = armLines.filter(isArmLineValid);
+		const validLines = armDraft.lines.filter(isArmLineValid);
 		const resolvedLines = await resolveTemplateArmLines(validLines);
 		const freshNpcsById = new Map(
 			getReactiveNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc])
@@ -257,70 +259,54 @@
 			await onSave?.(nodeId, items);
 			open = false;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save items';
+			error = formatErrorMessage(cause, 'Could not save items');
 		} finally {
 			saving = false;
 		}
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Portal>
-		<Dialog.Overlay />
-		<Dialog.Content class="dialog-wide">
-			<Dialog.Title>{isEditMode ? 'Edit items' : 'Add item'}</Dialog.Title>
-			<Dialog.Description>
-				{#if nodeTitle}
-					Items for <strong>{nodeTitle}</strong>. Add one row per reward, NPC, coin pile, catalog
-					item, note, or map. Press Enter in a field to add another row.
-				{/if}
-			</Dialog.Description>
+<AppDialog bind:open title={isEditMode ? 'Edit items' : 'Add item'} wide>
+	{#snippet descriptionContent()}
+		{#if nodeTitle}
+			Items for <strong>{nodeTitle}</strong>. Add one row per reward, NPC, coin pile, catalog item,
+			note, or map. Press Enter in a field to add another row.
+		{/if}
+	{/snippet}
+	<form onsubmit={handleSave}>
+		<ul class="arm-lines list-plain">
+			{#each armDraft.lines as line, index (line.id)}
+				<StoryArmLineRow
+					bind:line={armDraft.lines[index]!}
+					{index}
+					armLineCount={armDraft.lines.length}
+					showRemove={armDraft.lines.length > 1 || isArmLineValid(line)}
+					bind:kindSelect={armKindSelects[line.id]}
+					{generalNpcs}
+					{foeNpcs}
+					{foeTemplates}
+					{campaignMaps}
+					{weaponGroups}
+					{armorGroups}
+					itemGroups={itemGroupsByLineId.get(line.id) ?? []}
+					itemCategoryFilter={itemCategoryFilterForLine(line.id, line.catalog_id)}
+					onKeydown={handleArmKeydown}
+					onKindChange={handleKindChange}
+					onCatalogTypeChange={handleCatalogTypeChange}
+					onItemCategoryFilterChange={handleItemCategoryFilterChange}
+					onAddLine={armDraft.add}
+					onRemoveLine={armDraft.remove}
+				/>
+			{/each}
+		</ul>
 
-			<form onsubmit={handleSave}>
-				<ul class="arm-lines list-plain">
-					{#each armLines as line, index (line.id)}
-						<StoryArmLineRow
-							bind:line={armLines[index]!}
-							{index}
-							armLineCount={armLines.length}
-							showRemove={armLines.length > 1 || isArmLineValid(line)}
-							bind:kindSelect={armKindSelects[line.id]}
-							{generalNpcs}
-							{foeNpcs}
-							{foeTemplates}
-							{campaignMaps}
-							{weaponGroups}
-							{armorGroups}
-							itemGroups={itemGroupsByLineId.get(line.id) ?? []}
-							itemCategoryFilter={itemCategoryFilterForLine(line.id, line.catalog_id)}
-							onKeydown={handleArmKeydown}
-							onKindChange={handleKindChange}
-							onCatalogTypeChange={handleCatalogTypeChange}
-							onItemCategoryFilterChange={handleItemCategoryFilterChange}
-							onAddLine={addArmLine}
-							onRemoveLine={removeArmLine}
-						/>
-					{/each}
-				</ul>
+		{#if error}
+			<p class="hint">{error}</p>
+		{/if}
 
-				{#if error}
-					<p class="hint">{error}</p>
-				{/if}
-
-				<div class="dialog-footer">
-					<Dialog.Close>
-						{#snippet child({ props })}
-							<Button.Root {...props} type="button">Cancel</Button.Root>
-						{/snippet}
-					</Dialog.Close>
-					<Button.Root type="submit" data-variant="primary" disabled={saving}>
-						{saving ? 'Saving…' : 'Save items'}
-					</Button.Root>
-				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+		<DialogFormFooter submitLabel={saving ? 'Saving…' : 'Save items'} pending={saving} />
+	</form>
+</AppDialog>
 
 <style>
 	form {
@@ -331,7 +317,7 @@
 	.arm-lines {
 		display: grid;
 		gap: 0.75rem;
-		max-height: min(60vh, 28rem);
+		max-height: min(60dvh, 28rem);
 		overflow: auto;
 	}
 </style>

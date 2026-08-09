@@ -15,7 +15,9 @@ export const CHARACTER_SELECT_COLUMNS = `
 	ability_str, ability_dex, ability_con, ability_int, ability_wis, ability_cha,
 	skills, senses, languages, challenge_rating, traits, actions, is_spellcaster,
 	spellcasting_class, spellcasting_ability, spell_slots_total_json, spell_slots_expended_json,
-	mime_type, portrait_width, portrait_height, thumb_width, thumb_height, image_source, date_deleted
+	mime_type, portrait_width, portrait_height, thumb_width, thumb_height, image_source,
+	presentation_mime_type, presentation_width, presentation_height, presentation_thumb_width,
+	presentation_thumb_height, presentation_image_source, date_deleted
 `.replace(/\s+/g, ' ');
 
 export type SqliteModule = Awaited<ReturnType<typeof sqlite3InitModule>>;

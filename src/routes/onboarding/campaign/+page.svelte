@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button, Label } from 'bits-ui';
-	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
+	import DraftLinesForm from '$lib/components/shared/DraftLinesForm.svelte';
 	import { getCampaigns } from '$lib/data';
 	import { persistCampaign } from '$lib/data/writes';
+	import { createDraftLines } from '$lib/stores/draft-lines.svelte';
 	import { database } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import type { CampaignPlayerDraft, OnboardingCampaignDraft } from '$lib/types/convenience-schema';
@@ -18,28 +20,21 @@
 	let campaignName = $state('');
 	let description = $state('');
 	let gameSchema = $state('dnd5e');
-	let playerLines = $state<PlayerLine[]>([
-		{ id: crypto.randomUUID(), player_name: '', character_name: '' }
-	]);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 	let playerNameInputs = $state<Record<string, HTMLInputElement | undefined>>({});
 
-	function createPlayerLine(): PlayerLine {
-		return { id: crypto.randomUUID(), player_name: '', character_name: '' };
-	}
-
-	function addPlayerLine() {
-		playerLines = [...playerLines, createPlayerLine()];
-	}
+	const playerDraft = createDraftLines<PlayerLine>(() => ({
+		id: crypto.randomUUID(),
+		player_name: '',
+		character_name: ''
+	}));
 
 	async function handlePlayerKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Enter') return;
-
-		event.preventDefault();
-		const newLine = createPlayerLine();
-		playerLines = [...playerLines, newLine];
-		await focusDraftRowInput(() => playerNameInputs[newLine.id]);
+		await playerDraft.handleEnter(event, () => {
+			const newLine = playerDraft.lines[playerDraft.lines.length - 1];
+			return newLine ? playerNameInputs[newLine.id] : undefined;
+		});
 	}
 
 	async function handleCreateCampaign(event: SubmitEvent) {
@@ -53,7 +48,7 @@
 			campaign_name: campaignName,
 			description,
 			game_schema: gameSchema,
-			players: playerLines.map((line) => ({
+			players: playerDraft.lines.map((line) => ({
 				player_name: line.player_name,
 				character_name: line.character_name
 			}))
@@ -63,7 +58,7 @@
 			const { campaign } = await persistCampaign(workspace.currentUserId, draft);
 			goto(resolve(`/onboarding/adventure/${campaign.campaign_id}`));
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save campaign';
+			error = formatErrorMessage(cause, 'Could not save campaign');
 			saving = false;
 		}
 	}
@@ -111,34 +106,30 @@
 				Add each player and their character. A user account and character sheet is created for each
 				row.
 			</p>
-			<ul class="player-lines list-plain">
-				{#each playerLines as line, index (line.id)}
-					<li class="player-line">
-						<input
-							bind:this={playerNameInputs[line.id]}
-							bind:value={line.player_name}
-							placeholder="Player name"
-							aria-label="Player name"
-						/>
-						<input
-							bind:value={line.character_name}
-							placeholder="Character name"
-							aria-label="Character name"
-							onkeydown={handlePlayerKeydown}
-						/>
-						{#if index === playerLines.length - 1}
-							<Button.Root
-								type="button"
-								data-variant="icon"
-								onclick={addPlayerLine}
-								aria-label="Add player"
-							>
-								+
-							</Button.Root>
-						{/if}
-					</li>
-				{/each}
-			</ul>
+			<DraftLinesForm
+				lines={playerDraft.lines}
+				listClass="player-lines list-plain"
+				lineClass="player-line"
+				onRemove={playerDraft.remove}
+				onAdd={playerDraft.add}
+				showRemove={() => false}
+			>
+				{#snippet row({ line })}
+					{@const playerLine = line as PlayerLine}
+					<input
+						bind:this={playerNameInputs[playerLine.id]}
+						bind:value={playerLine.player_name}
+						placeholder="Player name"
+						aria-label="Player name"
+					/>
+					<input
+						bind:value={playerLine.character_name}
+						placeholder="Character name"
+						aria-label="Character name"
+						onkeydown={handlePlayerKeydown}
+					/>
+				{/snippet}
+			</DraftLinesForm>
 		</div>
 
 		{#if error}
@@ -155,21 +146,3 @@
 		</div>
 	</form>
 </section>
-
-<style>
-	.player-lines {
-		display: grid;
-		gap: 0.5rem;
-	}
-
-	.player-line {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.player-line input {
-		flex: 1;
-		min-width: 0;
-	}
-</style>

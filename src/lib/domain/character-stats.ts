@@ -46,6 +46,30 @@ export type AwardEncounterXpInput = {
 	context?: EncounterXpContext;
 };
 
+export type StatAuditTrailRow = {
+	event: CharacterStatEvent;
+	total: number;
+};
+
+export function buildStatAuditTrail(
+	events: CharacterStatEvent[],
+	stat: StatKind,
+	baseValue: number
+): { current: number; rows: StatAuditTrailRow[] } {
+	return events
+		.filter((event) => event.stat === stat)
+		.reduce(
+			(accumulator, event) => {
+				const next = accumulator.current + event.delta;
+				return {
+					current: next,
+					rows: [...accumulator.rows, { event, total: next }]
+				};
+			},
+			{ current: baseValue, rows: [] as StatAuditTrailRow[] }
+		);
+}
+
 export function computeCurrentStat(
 	character: Character,
 	events: CharacterStatEvent[],

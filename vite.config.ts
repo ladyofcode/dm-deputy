@@ -2,7 +2,10 @@ import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, type Plugin } from 'vite';
 
-import { crossOriginIsolationHeaders, applyCrossOriginIsolationHeaders } from './cross-origin-isolation-headers.ts';
+import {
+	crossOriginIsolationHeaders,
+	applyCrossOriginIsolationHeaders
+} from './cross-origin-isolation-headers.ts';
 
 function crossOriginIsolationPlugin(): Plugin {
 	return {

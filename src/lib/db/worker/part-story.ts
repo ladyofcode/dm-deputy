@@ -1,8 +1,13 @@
 import { execSql, selectObjects } from '../bind';
 import { withTransaction } from '../sql';
 import { safeJsonParse, safeJsonParseArray, safeJsonParseObject } from '../json';
-import type { PartStorySnapshot, SavePartStoryInput } from '../types';
-import type { StoryItem, StoryNode } from '$lib/types/schema';
+import type {
+	PartStorySnapshot,
+	SavePartStoryInput,
+	AddPartNpcInput,
+	AddPartNpcResult
+} from '../types';
+import type { StoryItem, StoryNode, PartNpc } from '$lib/types/schema';
 import type { PartItemLayout, PartNodeLayout } from '$lib/data/part-story-layout';
 import type { AppDb } from './context';
 
@@ -58,8 +63,75 @@ export function loadPartStory(database: AppDb, partId: string): PartStorySnapsho
 		itemLayout: itemLayoutRow
 			? safeJsonParseObject<PartItemLayout>(itemLayoutRow.layout_json, {})
 			: null,
-		items: loadPartStoryItems(database, partId)
+		items: loadPartStoryItems(database, partId),
+		partNpcs: loadPartNpcs(database, partId)
 	};
+}
+
+export function loadPartNpcs(database: AppDb, partId: string): PartNpc[] | null {
+	const rows = selectObjects<{
+		part_npc_id: string;
+		part_id: string;
+		character_id: string;
+		date_added: string;
+	}>(database, 'SELECT * FROM part_npcs WHERE part_id = $partId ORDER BY date_added', { partId });
+
+	if (!rows.length) return null;
+
+	return rows.map((row) => ({
+		part_npc_id: row.part_npc_id,
+		part_id: row.part_id,
+		character_id: row.character_id,
+		date_added: row.date_added
+	}));
+}
+
+export function addPartNpc(database: AppDb, input: AddPartNpcInput): AddPartNpcResult {
+	const existing = selectObjects<{ part_npc_id: string }>(
+		database,
+		`SELECT part_npc_id FROM part_npcs
+			WHERE part_id = $part_id AND character_id = $character_id LIMIT 1`,
+		{ part_id: input.part_id, character_id: input.character_id }
+	)[0];
+
+	if (existing) {
+		return {
+			partNpc: {
+				part_npc_id: existing.part_npc_id,
+				part_id: input.part_id,
+				character_id: input.character_id,
+				date_added: input.date_added
+			}
+		};
+	}
+
+	execSql(database, {
+		sql: `INSERT INTO part_npcs (part_npc_id, part_id, character_id, date_added)
+			VALUES ($part_npc_id, $part_id, $character_id, $date_added)`,
+		bind: {
+			part_npc_id: input.part_npc_id,
+			part_id: input.part_id,
+			character_id: input.character_id,
+			date_added: input.date_added
+		}
+	});
+
+	return {
+		partNpc: {
+			part_npc_id: input.part_npc_id,
+			part_id: input.part_id,
+			character_id: input.character_id,
+			date_added: input.date_added
+		}
+	};
+}
+
+export function removePartNpc(database: AppDb, partId: string, characterId: string): void {
+	execSql(database, {
+		sql: `DELETE FROM part_npcs
+			WHERE part_id = $part_id AND character_id = $character_id`,
+		bind: { part_id: partId, character_id: characterId }
+	});
 }
 
 export function loadPartStoryItems(database: AppDb, partId: string): StoryItem[] | null {
@@ -94,9 +166,7 @@ export function loadPartStoryItems(database: AppDb, partId: string): StoryItem[]
 			label: row.label,
 			...payload,
 			is_treasure: Boolean(row.is_treasure ?? payload.is_treasure),
-			is_reward: Boolean(
-				kind === 'xp' ? true : row.is_reward ?? payload.is_reward ?? false
-			)
+			is_reward: Boolean(kind === 'xp' ? true : (row.is_reward ?? payload.is_reward ?? false))
 		};
 	});
 }
@@ -225,7 +295,11 @@ export function activateStoryNode(database: AppDb, partId: string, nodeId: strin
 	return now;
 }
 
-export function toggleStoryNodeCompleted(database: AppDb, partId: string, nodeId: string): string | null {
+export function toggleStoryNodeCompleted(
+	database: AppDb,
+	partId: string,
+	nodeId: string
+): string | null {
 	const rows = selectObjects<{ completed_at: string | null }>(
 		database,
 		`SELECT completed_at FROM story_nodes WHERE part_id = $part_id AND node_id = $node_id LIMIT 1`,

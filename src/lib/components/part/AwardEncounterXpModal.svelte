@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { Button, Dialog } from 'bits-ui';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
 	import { computeEqualXpShares } from '$lib/domain/character-stats';
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import {
 		getEncounterResolutionByEventId,
 		persistAwardEncounterXp,
 		persistFreeformXpAwards
 	} from '$lib/data/character-stats-persistence';
+	import { useDialogFormReset } from '$lib/stores/dialog-form.svelte';
 	import { getReactivePcsForCampaign } from '$lib/stores/campaign-characters.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import type { StoryNode } from '$lib/types/schema';
@@ -47,7 +50,6 @@
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 	let alreadyAwarded = $state(false);
-	let formKey = $state('');
 
 	const pcs = $derived(getReactivePcsForCampaign(campaignId));
 
@@ -105,20 +107,17 @@
 		}
 	}
 
-	$effect(() => {
-		if (!open) {
-			formKey = '';
-			return;
-		}
+	useDialogFormReset(
+		() => open,
+		() => `${mode}:${node?.node_id ?? ''}:${rewardXpTotal}:${pcs.length}`,
+		resetForm
+	);
 
-		const nextKey = `${mode}:${node?.node_id ?? ''}:${rewardXpTotal}:${pcs.length}`;
-		if (formKey === nextKey) return;
-
-		formKey = nextKey;
-		resetForm();
-	});
-
-	function buildAwardEntries(): Array<{ characterId: string; amount: number; description: string }> {
+	function buildAwardEntries(): Array<{
+		characterId: string;
+		amount: number;
+		description: string;
+	}> {
 		return pcs
 			.map((pc) => ({
 				characterId: pc.character_id,
@@ -170,9 +169,7 @@
 		const shareDescriptionsByCharacter = Object.fromEntries(
 			entries.map((entry) => [entry.characterId, entry.description])
 		);
-		const shares = Object.fromEntries(
-			entries.map((entry) => [entry.characterId, entry.amount])
-		);
+		const shares = Object.fromEntries(entries.map((entry) => [entry.characterId, entry.amount]));
 
 		try {
 			if (mode === 'reward' && node) {
@@ -203,92 +200,82 @@
 			onAwarded?.();
 			open = false;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not award XP';
+			error = formatErrorMessage(cause, 'Could not award XP');
 		} finally {
 			saving = false;
 		}
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Portal>
-		<Dialog.Overlay class="dialog-stacked-overlay" />
-		<Dialog.Content class="dialog-wide dialog-stacked">
-			<Dialog.Title>Assign XP</Dialog.Title>
-			<Dialog.Description>
-				{#if mode === 'reward' && node}
-					Split {rewardXpTotal} XP from the reward on “{node.title}”.
-				{:else}
-					Assign XP to player characters in this campaign.
-				{/if}
-			</Dialog.Description>
-
-			<form onsubmit={handleSubmit}>
-				{#if alreadyAwarded}
-					<p class="hint awarded">XP for this reward was already assigned.</p>
-				{:else if pcs.length === 0}
-					<p class="hint">No player characters are linked to this campaign.</p>
-				{:else}
-					<fieldset class="recipient-fieldset">
-						<legend>Players</legend>
-						<div class="recipient-header" aria-hidden="true">
-							<span>Name</span>
-							<span>XP</span>
-							<span>Description</span>
-						</div>
-						<ul class="recipient-list list-plain">
-							{#each pcs as pc (pc.character_id)}
-								<li>
-									<span class="player-name">{pc.display_name}</span>
-									<input
-										id={`award_xp_share_${pc.character_id}`}
-										type="number"
-										min="0"
-										step="1"
-										aria-label={`XP for ${pc.display_name}`}
-										value={shareAmounts[pc.character_id] ?? 0}
-										oninput={(event) =>
-											updateShareAmount(pc.character_id, event.currentTarget.value)}
-									/>
-									<input
-										id={`award_xp_description_${pc.character_id}`}
-										type="text"
-										aria-label={`Description for ${pc.display_name}`}
-										placeholder="Reason for this XP"
-										value={shareDescriptions[pc.character_id] ?? ''}
-										oninput={(event) =>
-											updateShareDescription(pc.character_id, event.currentTarget.value)}
-									/>
-								</li>
-							{/each}
-						</ul>
-					</fieldset>
-
-					{#if mode === 'reward'}
-						<p class="allocation-summary" class:is-valid={allocatedXp === rewardXpTotal}>
-							{allocatedXp} / {rewardXpTotal} XP assigned
-						</p>
-					{/if}
-				{/if}
-
-				{#if error}
-					<p class="hint error">{error}</p>
-				{/if}
-
-				<div class="dialog-actions">
-					<Button.Root type="button" onclick={() => (open = false)}>Cancel</Button.Root>
-					<Button.Root
-						type="submit"
-						data-variant="primary"
-						disabled={saving || alreadyAwarded || pcs.length === 0}
-					>
-						{saving ? 'Assigning…' : 'Assign XP'}
-					</Button.Root>
+<AppDialog bind:open title="Assign XP" stacked wide>
+	{#snippet descriptionContent()}
+		{#if mode === 'reward' && node}
+			Split {rewardXpTotal} XP from the reward on “{node.title}”.
+		{:else}
+			Assign XP to player characters in this campaign.
+		{/if}
+	{/snippet}
+	<form onsubmit={handleSubmit}>
+		{#if alreadyAwarded}
+			<p class="hint awarded">XP for this reward was already assigned.</p>
+		{:else if pcs.length === 0}
+			<p class="hint">No player characters are linked to this campaign.</p>
+		{:else}
+			<fieldset class="recipient-fieldset">
+				<legend>Players</legend>
+				<div class="recipient-header" aria-hidden="true">
+					<span>Name</span>
+					<span>XP</span>
+					<span>Description</span>
 				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+				<ul class="recipient-list list-plain">
+					{#each pcs as pc (pc.character_id)}
+						<li>
+							<span class="player-name">{pc.display_name}</span>
+							<input
+								id={`award_xp_share_${pc.character_id}`}
+								type="number"
+								min="0"
+								step="1"
+								aria-label={`XP for ${pc.display_name}`}
+								value={shareAmounts[pc.character_id] ?? 0}
+								oninput={(event) => updateShareAmount(pc.character_id, event.currentTarget.value)}
+							/>
+							<input
+								id={`award_xp_description_${pc.character_id}`}
+								type="text"
+								aria-label={`Description for ${pc.display_name}`}
+								placeholder="Reason for this XP"
+								value={shareDescriptions[pc.character_id] ?? ''}
+								oninput={(event) =>
+									updateShareDescription(pc.character_id, event.currentTarget.value)}
+							/>
+						</li>
+					{/each}
+				</ul>
+			</fieldset>
+
+			{#if mode === 'reward'}
+				<p class="allocation-summary" class:is-valid={allocatedXp === rewardXpTotal}>
+					{allocatedXp} / {rewardXpTotal} XP assigned
+				</p>
+			{/if}
+		{/if}
+
+		{#if error}
+			<p class="hint error">{error}</p>
+		{/if}
+
+		<DialogFormFooter
+			submitLabel={saving ? 'Assigning…' : 'Assign XP'}
+			pending={saving}
+			disabled={alreadyAwarded || pcs.length === 0}
+			useDialogClose={false}
+			onCancel={() => (open = false)}
+			submitType="submit"
+		/>
+	</form>
+</AppDialog>
 
 <style>
 	.recipient-fieldset {
@@ -303,25 +290,36 @@
 	}
 
 	.recipient-header {
+		display: none;
+	}
+
+	.recipient-list li {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 5.5rem minmax(0, 1.5fr);
+		grid-template-columns: minmax(0, 1fr);
+		align-items: start;
 		gap: 0.5rem;
-		margin-bottom: 0.35rem;
-		font-size: 0.8rem;
-		font-weight: 600;
-		color: var(--color-text-muted);
+	}
+
+	@media (--layout) {
+		.recipient-header {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 5.5rem minmax(0, 1.5fr);
+			gap: 0.5rem;
+			margin-bottom: 0.35rem;
+			font-size: 0.8rem;
+			font-weight: 600;
+			color: var(--color-text-muted);
+		}
+
+		.recipient-list li {
+			grid-template-columns: minmax(0, 1fr) 5.5rem minmax(0, 1.5fr);
+			align-items: center;
+		}
 	}
 
 	.recipient-list {
 		display: grid;
 		gap: 0.65rem;
-	}
-
-	.recipient-list li {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 5.5rem minmax(0, 1.5fr);
-		align-items: center;
-		gap: 0.5rem;
 	}
 
 	.player-name {
@@ -339,17 +337,10 @@
 	}
 
 	.hint.awarded {
-		color: var(--color-text-muted, #667085);
+		color: var(--color-text-muted);
 	}
 
 	.hint.error {
-		color: var(--color-danger, #b42318);
-	}
-
-	.dialog-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.5rem;
-		margin-top: var(--space-section);
+		color: var(--color-danger);
 	}
 </style>

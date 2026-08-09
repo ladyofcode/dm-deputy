@@ -12,6 +12,7 @@ import {
 	loadCatalogSnapshot,
 	resetDatabaseWorker
 } from '$lib/db/client';
+import { formatErrorMessage } from '$lib/domain/errors';
 import {
 	clearDatabaseCache,
 	getCachedCampaigns,
@@ -22,6 +23,7 @@ import { clearCatalogCache, setCatalogSnapshot } from '$lib/db/catalog-cache';
 import { bumpCatalogRevision } from '$lib/stores/catalog.svelte';
 import { clearCampaignMapObjectUrlCache } from '$lib/data/map-blob-cache';
 import { clearCharacterPortraitObjectUrlCache } from '$lib/data/character-blob-cache';
+import { clearCharacterPresentationObjectUrlCache } from '$lib/data/character-presentation-blob-cache';
 import { LOCAL_USER_ID } from '$lib/constants/user';
 import { getCampaignListForUser } from '$lib/data';
 import { preferences } from '$lib/stores/preferences.svelte';
@@ -74,7 +76,7 @@ class DatabaseController {
 				bumpCatalogRevision();
 			})
 			.catch((cause) => {
-				this.catalogError = cause instanceof Error ? cause.message : String(cause);
+				this.catalogError = formatErrorMessage(cause, String(cause));
 			});
 	}
 
@@ -109,6 +111,7 @@ class DatabaseController {
 				clearCatalogCache();
 				clearCampaignMapObjectUrlCache();
 				clearCharacterPortraitObjectUrlCache();
+				clearCharacterPresentationObjectUrlCache();
 			}
 
 			await this.ensureWorkerInitialized();
@@ -138,14 +141,14 @@ class DatabaseController {
 					this.loadCatalogInBackground();
 				} catch (retryError) {
 					this.status = 'error';
-					this.error = retryError instanceof Error ? retryError.message : String(retryError);
+					this.error = formatErrorMessage(retryError, String(retryError));
 				}
 
 				return;
 			}
 
 			this.status = 'error';
-			this.error = error instanceof Error ? error.message : String(error);
+			this.error = formatErrorMessage(error, String(error));
 		}
 	}
 
@@ -187,6 +190,7 @@ class DatabaseController {
 		clearCatalogCache();
 		clearCampaignMapObjectUrlCache();
 		clearCharacterPortraitObjectUrlCache();
+		clearCharacterPresentationObjectUrlCache();
 		this.bootstrapInFlight = null;
 		this.status = 'idle';
 		this.error = null;

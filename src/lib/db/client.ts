@@ -204,9 +204,11 @@ export async function initDatabaseClient(
 	templateBuffer: ArrayBuffer
 ): Promise<InitResult> {
 	if (!initPromise) {
-		initPromise = callWorkerWithTransfer<InitResult>('init', [migrations, templateBuffer], [
-			templateBuffer
-		]).catch((error) => {
+		initPromise = callWorkerWithTransfer<InitResult>(
+			'init',
+			[migrations, templateBuffer],
+			[templateBuffer]
+		).catch((error) => {
 			initPromise = null;
 			throw error;
 		});
@@ -241,6 +243,16 @@ export async function savePartStoryItems(partId: string, items: StoryItem[]): Pr
 
 export async function savePartStory(input: SavePartStoryInput): Promise<void> {
 	await callWorker('savePartStory', [input]);
+}
+
+export async function addPartNpcInDb(
+	input: import('./types').AddPartNpcInput
+): Promise<import('./types').AddPartNpcResult> {
+	return callWorker('addPartNpc', [input]);
+}
+
+export async function removePartNpcInDb(partId: string, characterId: string): Promise<void> {
+	await callWorker('removePartNpc', [partId, characterId]);
 }
 
 export async function createCampaignInDb(
@@ -441,9 +453,7 @@ export async function getEncounterResolutionByEventIdInDb(
 	return callWorker('getEncounterResolutionByEventId', [eventId]);
 }
 
-export async function getEncounterResolutionEventIdsInDb(
-	eventIds: string[]
-): Promise<string[]> {
+export async function getEncounterResolutionEventIdsInDb(eventIds: string[]): Promise<string[]> {
 	return callWorker('getEncounterResolutionEventIds', [eventIds]);
 }
 
@@ -477,11 +487,48 @@ export async function updateCharacterPortraitInDb(
 	);
 }
 
+export async function updateCharacterPortraitSourceInDb(
+	characterId: string,
+	imageSource: string | null
+): Promise<import('$lib/types/schema').Character> {
+	return callWorker('updateCharacterPortraitSource', [characterId, imageSource]);
+}
+
 export async function loadCharacterPortraitBlobInDb(
 	characterId: string,
 	variant: 'thumb' | 'full'
 ): Promise<ArrayBuffer | null> {
 	const buffer = await callWorker<ArrayBuffer | null>('loadCharacterPortraitBlob', [
+		characterId,
+		variant
+	]);
+	return buffer ?? null;
+}
+
+export async function updateCharacterPresentationInDb(
+	input: import('./types').UpdateCharacterPresentationInput,
+	thumbBuffer: ArrayBuffer,
+	fullBuffer: ArrayBuffer
+): Promise<import('$lib/types/schema').Character> {
+	return callWorkerWithTransfer(
+		'updateCharacterPresentation',
+		[input, thumbBuffer, fullBuffer],
+		[thumbBuffer, fullBuffer]
+	);
+}
+
+export async function updateCharacterPresentationSourceInDb(
+	characterId: string,
+	presentationImageSource: string | null
+): Promise<import('$lib/types/schema').Character> {
+	return callWorker('updateCharacterPresentationSource', [characterId, presentationImageSource]);
+}
+
+export async function loadCharacterPresentationBlobInDb(
+	characterId: string,
+	variant: 'thumb' | 'full'
+): Promise<ArrayBuffer | null> {
+	const buffer = await callWorker<ArrayBuffer | null>('loadCharacterPresentationBlob', [
 		characterId,
 		variant
 	]);

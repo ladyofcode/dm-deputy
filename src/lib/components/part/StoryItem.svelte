@@ -1,5 +1,6 @@
 <script lang="ts">
-	import CampaignMapThumb from '$lib/components/shared/CampaignMapThumb.svelte';
+	import DragHandleIcon from '$lib/components/icons/DragHandleIcon.svelte';
+	import MediaThumb from '$lib/components/shared/MediaThumb.svelte';
 	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 	import { getReactiveCampaignMapById } from '$lib/stores/campaign-maps.svelte';
 	import { formatStoryItemCatalogStats } from '$lib/domain/story-item-catalog';
@@ -49,9 +50,15 @@
 	data-dimmed={dimmed ? 'true' : undefined}
 >
 	{#if item.kind === 'map'}
-		<span class="drag-handle" data-drag-handle aria-hidden="true">⠿</span>
+		<span class="drag-handle" data-drag-handle aria-hidden="true"><DragHandleIcon size={16} /></span
+		>
 		{#if item.map_id}
-			<CampaignMapThumb mapId={item.map_id} label={displayLabel} class="story-item-map-thumb" />
+			<MediaThumb
+				variant="map"
+				mapId={item.map_id}
+				label={displayLabel}
+				class="story-item-map-thumb"
+			/>
 		{/if}
 		<p class="label map-label">{displayLabel}</p>
 	{:else}
@@ -111,21 +118,21 @@
 	}
 
 	div[data-dimmed='true'] {
-		background: #3a2e23;
-		border-color: #4d3b2c;
-		box-shadow: 0 4px 12px color-mix(in srgb, #2c2416 20%, transparent);
+		background: var(--color-node-dimmed-bg);
+		border-color: var(--color-node-dimmed-border);
+		box-shadow: 0 4px 12px color-mix(in srgb, var(--color-node-dimmed-bg) 22%, transparent);
 	}
 
 	div[data-dimmed='true'] span,
 	div[data-dimmed='true'] .label,
 	div[data-dimmed='true'] .stats li {
-		color: #bda992;
+		color: var(--color-node-dimmed-text);
 	}
 
 	div[data-treasure='true'] {
 		padding-top: 0.7rem;
 		padding-right: 1.85rem;
-		box-shadow: 0 0 0 1px color-mix(in srgb, #b8860b 35%, transparent);
+		box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-node-reward-accent) 35%, transparent);
 	}
 
 	.drag-handle {
@@ -152,7 +159,7 @@
 		top: 0.35rem;
 		right: 0.35rem;
 		display: inline-flex;
-		color: #b8860b;
+		color: var(--color-node-reward-accent);
 		pointer-events: none;
 		line-height: 0;
 	}

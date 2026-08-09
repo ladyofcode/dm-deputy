@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import { getCampaigns } from '$lib/data';
 	import { getReactiveCampaignListForUser } from '$lib/stores/campaign-list.svelte';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
 	import { database } from '$lib/stores/database.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
-
 
 	const campaigns = $derived(
 		database.isReady ? getReactiveCampaignListForUser(workspace.currentUserId) : []
@@ -49,7 +49,7 @@
 				{/each}
 			</ul>
 		{:else}
-			<p>No campaigns yet. Create one to get started.</p>
+			<EmptyState message="No campaigns yet. Create one to get started." />
 			{#if getCampaigns().length > 0}
 				<p class="hint">
 					There are campaigns in the local database, but none are linked to the current user ({workspace.currentUserId}).

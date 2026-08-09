@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import { Label } from 'bits-ui';
 	import { STORY_NODE_KIND_LABELS, type StoryNode, type StoryNodeKind } from '$lib/types/schema';
 
@@ -41,11 +42,7 @@
 
 <div class="field">
 	<Label.Root for="{idPrefix}_summary">Summary</Label.Root>
-	<textarea
-		id="{idPrefix}_summary"
-		bind:value={summary}
-		rows="4"
-		placeholder="What happens here?"
+	<textarea id="{idPrefix}_summary" bind:value={summary} rows="4" placeholder="What happens here?"
 	></textarea>
 </div>
 
@@ -64,7 +61,7 @@
 		subplots (e.g. different dungeon wings) or merge paths back together.
 	</p>
 	{#if parentOptions.length === 0}
-		<p class="hint">No other nodes yet — this will be the first entry point.</p>
+		<EmptyState message="No other nodes yet — this will be the first entry point." />
 	{:else}
 		<ul class="parent-options list-plain">
 			{#each parentOptions as parent (parent.node_id)}

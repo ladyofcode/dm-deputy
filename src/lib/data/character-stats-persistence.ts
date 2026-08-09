@@ -157,9 +157,7 @@ export async function persistAwardEncounterXp(
 					share: amount,
 					...(input.context?.adventureId ? { adventure_id: input.context.adventureId } : {}),
 					...(input.context?.partId ? { part_id: input.context.partId } : {}),
-					...(input.context?.adventureName
-						? { adventure_name: input.context.adventureName }
-						: {}),
+					...(input.context?.adventureName ? { adventure_name: input.context.adventureName } : {}),
 					...(input.context?.partName ? { part_name: input.context.partName } : {})
 				}
 			},
@@ -239,9 +237,7 @@ export async function persistFreeformXpAwards(input: {
 					share: entry.amount,
 					...(input.context?.adventureId ? { adventure_id: input.context.adventureId } : {}),
 					...(input.context?.partId ? { part_id: input.context.partId } : {}),
-					...(input.context?.adventureName
-						? { adventure_name: input.context.adventureName }
-						: {}),
+					...(input.context?.adventureName ? { adventure_name: input.context.adventureName } : {}),
 					...(input.context?.partName ? { part_name: input.context.partName } : {})
 				}
 			},

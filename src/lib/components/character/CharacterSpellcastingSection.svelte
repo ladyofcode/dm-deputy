@@ -1,9 +1,22 @@
 <script lang="ts">
 	import { Button, Label, Switch } from 'bits-ui';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
+	import InlineEditableSelect from '$lib/components/shared/InlineEditableSelect.svelte';
 	import {
+		appendLoadoutRowKey,
+		addLoadoutEntry,
+		removeLoadoutEntry,
+		removeLoadoutRowKey,
+		syncLoadoutRowKeys
+	} from '$lib/domain/loadout-rows';
+	import {
+		createEmptyCharacterSpellDraft,
 		formatSpellSelectLabel,
 		getAbilityScoreForSpellcasting,
 		groupSpellDraftRowsByLevel,
+		groupSpellsByLevel,
+		resolveSpellDisplayLevels,
 		SPELLCASTING_ABILITY_LABELS,
 		spellLevelLabel,
 		updateSpellSlot,
@@ -41,70 +54,39 @@
 	let spellRowKeys = $state<string[]>([]);
 
 	const spellsById = $derived(new Map(catalogSpells.map((spell) => [spell.spell_id, spell])));
-	const spellsByLevel = $derived.by(() => {
-		const grouped = new Map<number, Spell[]>();
-
-		for (const spell of catalogSpells) {
-			const bucket = grouped.get(spell.spell_level);
-			if (bucket) {
-				bucket.push(spell);
-			} else {
-				grouped.set(spell.spell_level, [spell]);
-			}
-		}
-
-		for (const bucket of grouped.values()) {
-			bucket.sort((left, right) => left.spell_name.localeCompare(right.spell_name));
-		}
-
-		return grouped;
-	});
+	const spellsByLevel = $derived(groupSpellsByLevel(catalogSpells));
 	const groupedRows = $derived(groupSpellDraftRowsByLevel(spells, spellsById));
 	const abilityScore = $derived(
-		spellcasting ? getAbilityScoreForSpellcasting(abilities, spellcasting.spellcasting_ability) : null
+		spellcasting
+			? getAbilityScoreForSpellcasting(abilities, spellcasting.spellcasting_ability)
+			: null
 	);
-	const spellSaveDcValue = $derived(
-		abilityScore != null ? spellSaveDc(abilityScore, level) : null
-	);
+	const spellSaveDcValue = $derived(abilityScore != null ? spellSaveDc(abilityScore, level) : null);
 	const spellAttackValue = $derived(
 		abilityScore != null ? spellAttackBonus(abilityScore, level) : null
 	);
+	const spellcastingAbilityLabel = $derived(
+		spellcasting?.spellcasting_ability
+			? SPELLCASTING_ABILITY_LABELS[
+					spellcasting.spellcasting_ability as keyof typeof SPELLCASTING_ABILITY_LABELS
+				]
+			: ''
+	);
 
-	const displayLevels = $derived.by(() => {
-		const levels = new Set<number>([0]);
-
-		for (const spell of catalogSpells) {
-			levels.add(spell.spell_level);
-		}
-
-		for (const rows of groupedRows.values()) {
-			for (const row of rows) {
-				const spell = spellsById.get(row.entry.spell_id);
-				if (spell) levels.add(spell.spell_level);
-			}
-		}
-
-		for (const slotLevel of SPELL_SLOT_LEVELS) {
-			if ((spellcasting?.slots_total[slotLevel] ?? 0) > 0) {
-				levels.add(slotLevel);
-			}
-		}
-
-		return [...levels].sort((left, right) => left - right);
-	});
-
-	function syncSpellRowKeys(rowCount: number) {
-		const next = spellRowKeys.slice(0, rowCount);
-
-		while (next.length < rowCount) {
-			next.push(`spell-row-${crypto.randomUUID()}`);
-		}
-
-		spellRowKeys = next;
-	}
+	const displayLevels = $derived(
+		resolveSpellDisplayLevels(
+			catalogSpells,
+			groupedRows,
+			spellsById,
+			spellcasting?.slots_total ?? {}
+		)
+	);
 
 	$effect(() => {
-		syncSpellRowKeys(spells.length);
+		const nextKeys = syncLoadoutRowKeys(spellRowKeys, 'spells', spells.length);
+		if (nextKeys !== spellRowKeys) {
+			spellRowKeys = nextKeys;
+		}
 	});
 
 	function updateSpellcasting(patch: Partial<CharacterSpellcastingDraft>) {
@@ -119,17 +101,17 @@
 	}
 
 	function removeSpellEntry(index: number) {
-		spellRowKeys = spellRowKeys.filter((_, entryIndex) => entryIndex !== index);
-		const next = spells.filter((_, entryIndex) => entryIndex !== index);
-		spells = next.length ? next : [{ spell_id: '', prepared: false }];
+		spellRowKeys = removeLoadoutRowKey(spellRowKeys, index);
+		spells = removeLoadoutEntry(spells, index, createEmptyCharacterSpellDraft());
 	}
 
 	function addSpellAtLevel(spellLevel: number) {
-		spellRowKeys = [...spellRowKeys, `spell-row-${crypto.randomUUID()}`];
-		spells = [
-			...spells,
-			{ spell_id: '', prepared: spellLevel > 0 ? false : true, draft_level: spellLevel }
-		];
+		spellRowKeys = appendLoadoutRowKey(spellRowKeys, 'spells');
+		spells = addLoadoutEntry(spells, {
+			spell_id: '',
+			prepared: spellLevel > 0 ? false : true,
+			draft_level: spellLevel
+		});
 	}
 
 	function updateSlotTotal(slotLevel: SpellSlotLevel, value: number) {
@@ -144,6 +126,11 @@
 		updateSpellcasting({
 			slots_expended: updateSpellSlot(spellcasting.slots_expended, slotLevel, value)
 		});
+	}
+
+	function spellDisplayLabel(spellId: string): string {
+		const spell = spellsById.get(spellId);
+		return spell ? formatSpellSelectLabel(spell) : '';
 	}
 </script>
 
@@ -166,7 +153,7 @@
 									: spellcasting.spellcasting_class
 						});
 					}}
-					disabled={disabled}
+					{disabled}
 				>
 					<Switch.Thumb />
 				</Switch.Root>
@@ -175,80 +162,87 @@
 
 		{#if spellcasting.enabled}
 			<div class="spellcasting-meta">
-				<div class="field field-inline">
-					<Label.Root for="character_sheet_spellcasting_class">Spellcasting class</Label.Root>
-					<input
-						id="character_sheet_spellcasting_class"
-						bind:value={spellcasting.spellcasting_class}
-						placeholder="Wizard, Cleric, Bard…"
-						disabled={disabled}
-					/>
-				</div>
-				<div class="field field-inline">
-					<Label.Root for="character_sheet_spellcasting_ability">Spellcasting ability</Label.Root>
-					<select
-						id="character_sheet_spellcasting_ability"
-						bind:value={spellcasting.spellcasting_ability}
-						disabled={disabled}
-					>
-						<option value="">Choose ability…</option>
+				<InlineEditableField
+					id="character_sheet_spellcasting_class"
+					label="Spellcasting class"
+					layout="inline"
+					bind:value={spellcasting.spellcasting_class}
+					placeholder="Wizard, Cleric, Bard…"
+					{disabled}
+				/>
+				<InlineEditableSelect
+					id="character_sheet_spellcasting_ability"
+					label="Spellcasting ability"
+					layout="inline"
+					bind:value={spellcasting.spellcasting_ability}
+					displayValue={spellcastingAbilityLabel}
+					emptyLabel="Choose ability…"
+					{disabled}
+				>
+					{#snippet options()}
 						{#each Object.entries(SPELLCASTING_ABILITY_LABELS) as [key, label] (key)}
 							<option value={key}>{label}</option>
 						{/each}
-					</select>
-				</div>
-				<div class="field field-inline spellcasting-stat">
+					{/snippet}
+				</InlineEditableSelect>
+				<div class="spellcasting-stat">
 					<span class="stat-label">Spell save DC</span>
 					<strong>{spellSaveDcValue ?? '—'}</strong>
 				</div>
-				<div class="field field-inline spellcasting-stat">
+				<div class="spellcasting-stat">
 					<span class="stat-label">Spell attack</span>
 					<strong>{spellAttackValue != null ? formatSignedModifier(spellAttackValue) : '—'}</strong>
 				</div>
 			</div>
 
-			<div class="field">
-				<Label.Root>Spell slots</Label.Root>
-				<table class="data-table spell-slots-table">
-					<thead>
-						<tr>
-							<th scope="col">Level</th>
-							<th scope="col">Total</th>
-							<th scope="col">Expended</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each SPELL_SLOT_LEVELS as slotLevel (slotLevel)}
+			<div class="spell-slots-block">
+				<span class="spell-slots-heading">Spell slots</span>
+				<div class="table-wrap">
+					<table class="data-table spell-slots-table">
+						<thead>
 							<tr>
-								<th scope="row">{slotLevel}</th>
-								<td>
-									<input
-										type="number"
-										min="0"
-										step="1"
-										value={spellcasting.slots_total[slotLevel] ?? 0}
-										oninput={(event) =>
-											updateSlotTotal(slotLevel, Number(event.currentTarget.value) || 0)}
-										disabled={disabled}
-										aria-label={`Level ${slotLevel} slots total`}
-									/>
-								</td>
-								<td>
-									<input
-										type="number"
-										min="0"
-										step="1"
-										value={spellcasting.slots_expended[slotLevel] ?? 0}
-										oninput={(event) =>
-											updateSlotExpended(slotLevel, Number(event.currentTarget.value) || 0)}
-										disabled={disabled}
-										aria-label={`Level ${slotLevel} slots expended`}
-									/>
-								</td>
+								<th scope="col">Level</th>
+								<th scope="col">Total</th>
+								<th scope="col">Expended</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
+						</thead>
+						<tbody>
+							{#each SPELL_SLOT_LEVELS as slotLevel (slotLevel)}
+								<tr>
+									<th scope="row">{slotLevel}</th>
+									<td>
+										<InlineEditableField
+											hideLabel
+											type="number"
+											min={0}
+											step={1}
+											class="slot-field"
+											value={spellcasting.slots_total[slotLevel] ?? 0}
+											oncommit={(next) =>
+												updateSlotTotal(slotLevel, typeof next === 'number' ? next : 0)}
+											aria-label={`Level ${slotLevel} slots total`}
+											{disabled}
+										/>
+									</td>
+									<td>
+										<InlineEditableField
+											hideLabel
+											type="number"
+											min={0}
+											step={1}
+											class="slot-field"
+											value={spellcasting.slots_expended[slotLevel] ?? 0}
+											oncommit={(next) =>
+												updateSlotExpended(slotLevel, typeof next === 'number' ? next : 0)}
+											aria-label={`Level ${slotLevel} slots expended`}
+											{disabled}
+										/>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
 			</div>
 
 			<div class="spell-level-grid">
@@ -256,74 +250,80 @@
 					<div class="spell-level-block">
 						<div class="spell-level-heading">
 							<h3>{spellLevelLabel(spellLevel)}</h3>
-							<Button.Root type="button" disabled={disabled} onclick={() => addSpellAtLevel(spellLevel)}>
+							<Button.Root type="button" {disabled} onclick={() => addSpellAtLevel(spellLevel)}>
 								Add spell
 							</Button.Root>
 						</div>
 
 						{#if (groupedRows.get(spellLevel) ?? []).length}
-							<table class="data-table spell-list-table">
-								<thead>
-									<tr>
-										{#if spellLevel > 0}
-											<th scope="col">Prepared</th>
-										{/if}
-										<th scope="col">Spell</th>
-										<th scope="col"></th>
-									</tr>
-								</thead>
-								<tbody>
-									{#each groupedRows.get(spellLevel) ?? [] as row (spellRowKeys[row.index] ?? row.index)}
+							<div class="table-wrap">
+								<table class="data-table spell-list-table">
+									<thead>
 										<tr>
 											{#if spellLevel > 0}
-												<td class="prepared-cell">
-													<input
-														type="checkbox"
-														checked={row.entry.prepared}
+												<th scope="col">Prepared</th>
+											{/if}
+											<th scope="col">Spell</th>
+											<th scope="col"></th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each groupedRows.get(spellLevel) ?? [] as row (spellRowKeys[row.index] ?? row.index)}
+											<tr>
+												{#if spellLevel > 0}
+													<td class="prepared-cell">
+														<input
+															type="checkbox"
+															checked={row.entry.prepared}
+															onchange={(event) =>
+																updateSpellEntry(row.index, {
+																	prepared: event.currentTarget.checked
+																})}
+															{disabled}
+															aria-label="Prepared"
+														/>
+													</td>
+												{/if}
+												<td>
+													<InlineEditableSelect
+														value={row.entry.spell_id}
+														displayValue={spellDisplayLabel(row.entry.spell_id)}
+														emptyLabel="Choose spell…"
+														aria-label="Spell"
+														{disabled}
 														onchange={(event) =>
 															updateSpellEntry(row.index, {
-																prepared: event.currentTarget.checked
+																spell_id: event.currentTarget.value,
+																draft_level: undefined
 															})}
-														disabled={disabled}
-														aria-label="Prepared"
-													/>
+													>
+														{#snippet options()}
+															{#each spellsByLevel.get(spellLevel) ?? [] as spell (spell.spell_id)}
+																<option value={spell.spell_id}
+																	>{formatSpellSelectLabel(spell)}</option
+																>
+															{/each}
+														{/snippet}
+													</InlineEditableSelect>
 												</td>
-											{/if}
-											<td>
-												<select
-													class="catalog-select"
-													value={row.entry.spell_id}
-													onchange={(event) =>
-														updateSpellEntry(row.index, {
-															spell_id: event.currentTarget.value,
-															draft_level: undefined
-														})}
-													disabled={disabled}
-													aria-label="Spell"
-												>
-													<option value="">Choose spell…</option>
-													{#each spellsByLevel.get(spellLevel) ?? [] as spell (spell.spell_id)}
-														<option value={spell.spell_id}>{formatSpellSelectLabel(spell)}</option>
-													{/each}
-												</select>
-											</td>
-											<td class="actions-cell">
-												<Button.Root
-													type="button"
-													data-variant="icon"
-													aria-label="Remove spell"
-													disabled={disabled}
-													onclick={() => removeSpellEntry(row.index)}
-												>
-													−
-												</Button.Root>
-											</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
+												<td class="actions-cell">
+													<Button.Root
+														type="button"
+														data-variant="icon"
+														aria-label="Remove spell"
+														{disabled}
+														onclick={() => removeSpellEntry(row.index)}
+													>
+														−
+													</Button.Root>
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
 						{:else}
-							<p class="hint">No spells added yet.</p>
+							<EmptyState message="No spells added yet." />
 						{/if}
 					</div>
 				{/each}
@@ -344,7 +344,8 @@
 
 	.spellcasting-header h2 {
 		margin: 0;
-		font-size: 1.05rem;
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
+		line-height: 1.2;
 	}
 
 	.spellcaster-toggle {
@@ -366,11 +367,23 @@
 	}
 
 	.stat-label {
-		color: var(--color-muted, #667085);
+		color: var(--color-text-muted);
 		font-size: 0.92rem;
 	}
 
-	.spell-slots-table input {
+	.spell-slots-block {
+		margin-bottom: 1rem;
+	}
+
+	.spell-slots-heading {
+		display: block;
+		margin-bottom: 0.35rem;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.spell-slots-table :global(.slot-field .inline-editable-display) {
 		width: 4rem;
 	}
 
@@ -396,22 +409,20 @@
 		font-size: 0.98rem;
 	}
 
-	.data-table {
+	.table-wrap {
 		width: 100%;
-		border-collapse: collapse;
+		max-width: 100%;
 	}
 
 	.data-table th,
 	.data-table td {
 		padding: 0.45rem 0.5rem;
-		border-bottom: 1px solid var(--color-border, #d0d5dd);
-		text-align: left;
 		vertical-align: middle;
 	}
 
 	.data-table thead th {
 		font-size: 0.85rem;
-		color: var(--color-muted, #667085);
+		color: var(--color-text-muted);
 	}
 
 	.prepared-cell {
@@ -423,12 +434,7 @@
 		width: 2.5rem;
 	}
 
-	.catalog-select {
-		width: 100%;
-		min-width: 0;
-	}
-
-	@media (min-width: 48rem) {
+	@media (--desktop) {
 		.spellcasting-meta {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
@@ -438,7 +444,7 @@
 		}
 	}
 
-	@media (min-width: 72rem) {
+	@media (--wide) {
 		.spell-level-grid {
 			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}

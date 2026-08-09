@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { Button, Dialog, Tooltip } from 'bits-ui';
+	import { Dialog, Tooltip } from 'bits-ui';
 	import CharacterSheetForm from '$lib/components/character/CharacterSheetForm.svelte';
+	import LoadMonsterTemplateModal from '$lib/components/character/LoadMonsterTemplateModal.svelte';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
 	import {
 		cloneCharacterIdentity,
-		cloneNpcExtras,
-		createDefaultCharacterIdentity,
-		createDefaultNpcExtras,
+		cloneCharacterExtras,
 		type CharacterIdentityDraft,
-		type NpcExtrasDraft
+		type CharacterExtrasDraft
 	} from '$lib/domain/npc-draft';
+	import { createCharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 	import type { NpcCharacterKind } from '$lib/types/schema';
 
 	type SavePayload = {
@@ -17,9 +19,11 @@
 		playerName?: string;
 		description: string;
 		identity: CharacterIdentityDraft;
-		extras: NpcExtrasDraft;
+		extras: CharacterExtrasDraft;
 		portraitFile: File | null;
 		portraitImageSource: string | null;
+		presentationFile: File | null;
+		presentationImageSource: string | null;
 	};
 
 	type Props = {
@@ -30,9 +34,11 @@
 		playerName?: string;
 		description?: string;
 		identity: CharacterIdentityDraft;
-		extras: NpcExtrasDraft;
+		extras: CharacterExtrasDraft;
 		portraitFile?: File | null;
 		portraitImageSource?: string | null;
+		presentationFile?: File | null;
+		presentationImageSource?: string | null;
 		onSave?: (payload: SavePayload) => void | Promise<void>;
 		loading?: boolean;
 		saving?: boolean;
@@ -49,19 +55,14 @@
 		extras,
 		portraitFile = null,
 		portraitImageSource = null,
+		presentationFile = null,
+		presentationImageSource = null,
 		onSave,
 		loading = false,
 		saving = false
 	}: Props = $props();
 
-	let modalKind = $state<NpcCharacterKind>('npc_general');
-	let modalName = $state('');
-	let modalPlayerName = $state('');
-	let modalDescription = $state('');
-	let modalIdentity = $state(createDefaultCharacterIdentity());
-	let draft = $state(createDefaultNpcExtras());
-	let modalPortraitFile = $state<File | null>(null);
-	let modalPortraitImageSource = $state<string | null>(null);
+	const sheet = createCharacterSheetStore();
 	let modalInitialized = $state(false);
 
 	$effect(() => {
@@ -72,78 +73,77 @@
 
 		if (modalInitialized) return;
 
-		modalKind = kind;
-		modalName = name;
-		modalPlayerName = playerName;
-		modalDescription = description;
-		modalIdentity = cloneCharacterIdentity(identity);
-		draft = cloneNpcExtras(extras);
-		modalPortraitFile = portraitFile;
-		modalPortraitImageSource = portraitImageSource;
+		sheet.loadFromProps({
+			kind,
+			name,
+			playerName,
+			description,
+			identity: cloneCharacterIdentity(identity),
+			extras: cloneCharacterExtras(extras),
+			portraitFile,
+			portraitImageSource,
+			presentationFile,
+			presentationImageSource
+		});
+		sheet.loading = loading;
 		modalInitialized = true;
 	});
 
 	async function handleSave() {
 		if (saving || loading) return;
 
-		if (draft.hp_max > 0 && draft.hp_current === 0) {
-			draft = { ...draft, hp_current: draft.hp_max };
-		}
+		const payload = sheet.cloneForSave();
 
-		const payload = {
-			kind: modalKind,
-			name: modalName.trim(),
-			playerName: mode === 'pc' ? modalPlayerName.trim() : undefined,
-			description: modalDescription.trim(),
-			identity: cloneCharacterIdentity(modalIdentity),
-			extras: cloneNpcExtras(draft),
-			portraitFile: modalPortraitFile,
-			portraitImageSource: modalPortraitImageSource
-		};
-
-		try {
-			await onSave?.(payload);
-			open = false;
-		} catch {}
+		await onSave?.({
+			kind: payload.kind,
+			name: payload.name,
+			playerName: mode === 'pc' ? payload.playerName : undefined,
+			description: payload.description,
+			identity: payload.identity,
+			extras: payload.extras,
+			portraitFile: payload.portraitFile,
+			portraitImageSource: payload.portraitImageSource,
+			presentationFile: payload.presentationFile,
+			presentationImageSource: payload.presentationImageSource
+		});
+		open = false;
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Portal>
-		<Dialog.Overlay />
-		<Dialog.Content class="dialog-wide">
+<AppDialog bind:open wide>
+	{#snippet titleContent()}
+		<div class="dialog-title-stack">
 			<Dialog.Title>{mode === 'pc' ? 'Add player character' : 'Add NPC'}</Dialog.Title>
-
-			<Tooltip.Provider delayDuration={200}>
-				<CharacterSheetForm
-					{mode}
-					bind:kind={modalKind}
-					bind:name={modalName}
-					bind:playerName={modalPlayerName}
-					bind:description={modalDescription}
-					bind:identity={modalIdentity}
-					bind:extras={draft}
-					bind:portraitFile={modalPortraitFile}
-					bind:portraitImageSource={modalPortraitImageSource}
-					{loading}
-				/>
-			</Tooltip.Provider>
-
-			<div class="dialog-footer">
-				<Dialog.Close>
-					{#snippet child({ props })}
-						<Button.Root {...props} type="button" disabled={saving}>Cancel</Button.Root>
-					{/snippet}
-				</Dialog.Close>
-				<Button.Root
-					type="button"
-					data-variant="primary"
+			{#if mode === 'npc'}
+				<LoadMonsterTemplateModal
+					onLoad={(loaded) => sheet.applyMonsterTemplate(loaded)}
 					disabled={loading || saving}
-					onclick={handleSave}
-				>
-					{saving ? 'Saving…' : 'Save'}
-				</Button.Root>
-			</div>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+				/>
+			{/if}
+		</div>
+	{/snippet}
+	<Tooltip.Provider delayDuration={200}>
+		<CharacterSheetForm {sheet} {mode} />
+	</Tooltip.Provider>
+	{#snippet footer()}
+		<DialogFormFooter
+			submitLabel={saving ? 'Saving…' : 'Save'}
+			pending={saving}
+			disabled={loading}
+			submitType="button"
+			onSubmit={handleSave}
+		/>
+	{/snippet}
+</AppDialog>
+
+<style>
+	.dialog-title-stack {
+		display: grid;
+		gap: 0.35rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.dialog-title-stack :global([data-dialog-title]) {
+		margin: 0;
+	}
+</style>

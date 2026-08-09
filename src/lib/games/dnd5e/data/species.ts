@@ -1,9 +1,15 @@
 import { getCachedSpecies, isCatalogCacheReady } from '$lib/db/catalog-cache';
-import {
-	createCatalogIdIndex,
-	createCatalogNameIndex
-} from '$lib/games/dnd5e/data/catalog-index';
+import { createCatalogIdIndex, createCatalogNameIndex } from '$lib/games/dnd5e/data/catalog-index';
+import { DEFAULT_SPECIES, mergeSpeciesWithDefaults } from '$lib/games/dnd5e/data/default-species';
 import type { Species } from '$lib/types/schema';
+
+function getSpeciesCatalogOrEmpty(): Species[] {
+	if (!isCatalogCacheReady()) {
+		return DEFAULT_SPECIES;
+	}
+
+	return mergeSpeciesWithDefaults(getCachedSpecies());
+}
 
 function assertCatalogReady(): void {
 	if (!isCatalogCacheReady()) {
@@ -13,16 +19,27 @@ function assertCatalogReady(): void {
 
 export function getSpeciesCatalog(): Species[] {
 	assertCatalogReady();
-	return getCachedSpecies();
+	return mergeSpeciesWithDefaults(getCachedSpecies());
 }
 
-const speciesById = createCatalogIdIndex(getSpeciesCatalog, (entry) => entry.species_id);
-const speciesByName = createCatalogNameIndex(getSpeciesCatalog, (entry) => entry.species_name);
+const speciesById = createCatalogIdIndex(getSpeciesCatalogOrEmpty, (entry) => entry.species_id);
+const speciesByName = createCatalogNameIndex(
+	getSpeciesCatalogOrEmpty,
+	(entry) => entry.species_name
+);
 
 export function getSpeciesById(speciesId: string): Species | undefined {
+	if (!speciesId) return undefined;
 	return speciesById().get(speciesId);
 }
 
 export function getSpeciesByName(speciesName: string): Species | undefined {
-	return speciesByName().get(speciesName.toLowerCase());
+	if (!speciesName.trim()) return undefined;
+	return speciesByName().get(speciesName.trim().toLowerCase());
+}
+
+export function listSelectableSpecies(): Species[] {
+	return [...getSpeciesCatalogOrEmpty()].sort((left, right) =>
+		left.species_name.localeCompare(right.species_name, undefined, { sensitivity: 'base' })
+	);
 }

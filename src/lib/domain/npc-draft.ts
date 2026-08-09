@@ -1,3 +1,4 @@
+import type { AbilityKey } from '$lib/games/dnd5e/data/abilities';
 import type { CharacterLoadout } from '$lib/db/types';
 import type { AbilityScores, Character, NpcCharacterKind } from '$lib/types/schema';
 import { DEFAULT_ABILITY_SCORES as defaultAbilityScores } from '$lib/types/schema';
@@ -54,7 +55,7 @@ export type CharacterCombatDraft = {
 	actions: string;
 };
 
-export type NpcExtrasDraft = {
+export type CharacterExtrasDraft = {
 	level: number;
 	experience: number;
 	hp_max: number;
@@ -75,9 +76,11 @@ export type NpcDraftLine = {
 	name: string;
 	description: string;
 	identity: CharacterIdentityDraft;
-	extras: NpcExtrasDraft;
+	extras: CharacterExtrasDraft;
 	portraitFile: File | null;
 	portraitImageSource: string | null;
+	presentationFile: File | null;
+	presentationImageSource: string | null;
 };
 
 export function createDefaultCharacterAbilities(): CharacterAbilitiesDraft {
@@ -119,7 +122,7 @@ export function createDefaultNpcLoadout(): NpcLoadoutDraft {
 	};
 }
 
-export function createDefaultNpcExtras(): NpcExtrasDraft {
+export function createDefaultCharacterExtras(): CharacterExtrasDraft {
 	return {
 		level: 1,
 		experience: 0,
@@ -143,13 +146,17 @@ export function createEmptyNpcDraftLine(): NpcDraftLine {
 		name: '',
 		description: '',
 		identity: createDefaultCharacterIdentity(),
-		extras: createDefaultNpcExtras(),
+		extras: createDefaultCharacterExtras(),
 		portraitFile: null,
-		portraitImageSource: null
+		portraitImageSource: null,
+		presentationFile: null,
+		presentationImageSource: null
 	};
 }
 
-export function cloneCharacterAbilities(abilities: CharacterAbilitiesDraft): CharacterAbilitiesDraft {
+export function cloneCharacterAbilities(
+	abilities: CharacterAbilitiesDraft
+): CharacterAbilitiesDraft {
 	return { ...abilities };
 }
 
@@ -168,7 +175,7 @@ export function cloneCharacterIdentity(identity: CharacterIdentityDraft): Charac
 	};
 }
 
-export function cloneNpcExtras(extras: NpcExtrasDraft): NpcExtrasDraft {
+export function cloneCharacterExtras(extras: CharacterExtrasDraft): CharacterExtrasDraft {
 	return {
 		level: extras.level,
 		experience: extras.experience,
@@ -236,14 +243,16 @@ export function loadoutToNpcLoadoutDraft(loadout: CharacterLoadout): NpcLoadoutD
 		weapons: loadout.weapon_ids.length ? loadout.weapon_ids : [''],
 		armor: loadout.armor_ids[0] ?? '',
 		items: loadout.item_ids.length ? loadout.item_ids : [''],
-		spells: loadout.spells.length ? loadout.spells.map((entry) => ({ ...entry })) : [createEmptyCharacterSpellDraft()]
+		spells: loadout.spells.length
+			? loadout.spells.map((entry) => ({ ...entry }))
+			: [createEmptyCharacterSpellDraft()]
 	};
 }
 
-export function characterToNpcExtrasDraft(
+export function characterToCharacterExtrasDraft(
 	character: Character,
 	loadout: CharacterLoadout
-): NpcExtrasDraft {
+): CharacterExtrasDraft {
 	return {
 		level: character.level,
 		experience: character.experience,
@@ -286,7 +295,7 @@ function hasCombatBlockStats(combat: CharacterCombatDraft): boolean {
 	);
 }
 
-export function npcDraftLineHasStats(extras: NpcExtrasDraft): boolean {
+export function npcDraftLineHasStats(extras: CharacterExtrasDraft): boolean {
 	const loadout = extras.loadout;
 	return (
 		extras.experience !== 0 ||
@@ -303,6 +312,28 @@ export function npcDraftLineHasStats(extras: NpcExtrasDraft): boolean {
 	);
 }
 
-export function characterSheetHasCombatStats(extras: NpcExtrasDraft): boolean {
+export function characterSheetHasCombatStats(extras: CharacterExtrasDraft): boolean {
 	return npcDraftLineHasStats(extras);
+}
+
+export function normalizeHpCurrent(extras: CharacterExtrasDraft): CharacterExtrasDraft {
+	if (extras.hp_max > 0 && extras.hp_current === 0) {
+		return { ...extras, hp_current: extras.hp_max };
+	}
+
+	return extras;
+}
+
+export function updateAbilityDraft(
+	extras: CharacterExtrasDraft,
+	key: AbilityKey,
+	value: number
+): CharacterExtrasDraft {
+	return {
+		...extras,
+		abilities: {
+			...extras.abilities,
+			[key]: value
+		}
+	};
 }

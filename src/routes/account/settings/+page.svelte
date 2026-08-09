@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Button, Dialog, Label } from 'bits-ui';
+	import { Button, Label } from 'bits-ui';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { preferences } from '$lib/stores/preferences.svelte';
 	import { database } from '$lib/stores/database.svelte';
@@ -18,7 +20,6 @@
 	let isWiping = $state(false);
 	let showWipeConfirm = $state(false);
 	let isSavingTheme = $state(false);
-
 
 	const selectedTheme = $derived(
 		database.isReady
@@ -48,7 +49,7 @@
 			backupMessage =
 				'Backup downloaded. Upload the .sqlite file to Google Drive or keep it safe locally.';
 		} catch (error) {
-			backupError = error instanceof Error ? error.message : String(error);
+			backupError = formatErrorMessage(error, String(error));
 		} finally {
 			isExporting = false;
 		}
@@ -73,7 +74,7 @@
 			await database.importBackup(file);
 			backupMessage = 'Backup restored. Your campaigns and story data were reloaded from the file.';
 		} catch (error) {
-			backupError = error instanceof Error ? error.message : String(error);
+			backupError = formatErrorMessage(error, String(error));
 		} finally {
 			isImporting = false;
 		}
@@ -89,9 +90,10 @@
 		try {
 			await database.wipeLocalBackup();
 			showWipeConfirm = false;
-			backupMessage = 'Local backup wiped. All campaigns and story data on this device were removed.';
+			backupMessage =
+				'Local backup wiped. All campaigns and story data on this device were removed.';
 		} catch (error) {
-			backupError = error instanceof Error ? error.message : String(error);
+			backupError = formatErrorMessage(error, String(error));
 		} finally {
 			isWiping = false;
 		}
@@ -133,15 +135,23 @@
 		</p>
 
 		<div class="meta-row">
-			<Button.Root type="button" disabled={isExporting || isImporting || isWiping} onclick={handleExportBackup}>
+			<Button.Root
+				type="button"
+				disabled={isExporting || isImporting || isWiping}
+				onclick={handleExportBackup}
+			>
 				{isExporting ? 'Exporting…' : 'Export backup'}
 			</Button.Root>
-			<Button.Root type="button" disabled={isExporting || isImporting || isWiping} onclick={handleImportClick}>
+			<Button.Root
+				type="button"
+				disabled={isExporting || isImporting || isWiping}
+				onclick={handleImportClick}
+			>
 				{isImporting ? 'Importing…' : 'Import backup'}
 			</Button.Root>
 			<Button.Root
 				type="button"
-				class="wipe-button"
+				class="delete-button"
 				disabled={isExporting || isImporting || isWiping}
 				onclick={() => (showWipeConfirm = true)}
 			>
@@ -165,54 +175,38 @@
 		{/if}
 	</section>
 
-	<Button.Root href={resolve('/')}>Back to home</Button.Root>
+	<Button.Root href={resolve('/')} data-variant="plain">Back to home</Button.Root>
 </section>
 
-<Dialog.Root bind:open={showWipeConfirm}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="dialog-stacked-overlay" />
-		<Dialog.Content class="dialog-stacked">
-			<Dialog.Title>ARE YOU SURE????</Dialog.Title>
-			<Dialog.Description>
-				<p>
-					This permanently deletes <strong>all</strong> campaigns, adventures, characters, maps, and
-					story data stored in the local SQLite backup on this device.
-				</p>
-				<p class="wipe-warning">This cannot be undone unless you have an exported backup file.</p>
-			</Dialog.Description>
-
-			<div class="dialog-footer">
-				<Button.Root type="button" disabled={isWiping} onclick={() => (showWipeConfirm = false)}>
-					Cancel
-				</Button.Root>
-				<Button.Root
-					type="button"
-					class="wipe-button"
-					disabled={isWiping}
-					onclick={confirmWipeLocalBackup}
-				>
-					{isWiping ? 'Wiping…' : 'Yes, wipe everything'}
-				</Button.Root>
-			</div>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+<AppDialog bind:open={showWipeConfirm} title="ARE YOU SURE????" stacked>
+	{#snippet descriptionContent()}
+		<p>
+			This permanently deletes <strong>all</strong> campaigns, adventures, characters, maps, and story
+			data stored in the local SQLite backup on this device.
+		</p>
+		<p class="wipe-warning">This cannot be undone unless you have an exported backup file.</p>
+	{/snippet}
+	{#snippet footer()}
+		<div class="dialog-footer">
+			<Button.Root type="button" disabled={isWiping} onclick={() => (showWipeConfirm = false)}>
+				Cancel
+			</Button.Root>
+			<Button.Root
+				type="button"
+				class="delete-button"
+				disabled={isWiping}
+				onclick={confirmWipeLocalBackup}
+			>
+				{isWiping ? 'Wiping…' : 'Yes, wipe everything'}
+			</Button.Root>
+		</div>
+	{/snippet}
+</AppDialog>
 
 <style>
-	:global([data-button-root].wipe-button) {
-		border-color: #b42318;
-		color: #b42318;
-	}
-
-	:global([data-button-root].wipe-button:hover:not(:disabled)) {
-		background: #fef3f2;
-		border-color: #912018;
-		color: #912018;
-	}
-
 	.wipe-warning {
 		margin: 0;
-		color: #b42318;
+		color: var(--color-danger);
 		font-weight: 600;
 	}
 </style>

@@ -25,7 +25,8 @@ const emptyPartStorySnapshot = (): PartStorySnapshot => ({
 	nodes: null,
 	nodeLayout: null,
 	itemLayout: null,
-	items: null
+	items: null,
+	partNpcs: null
 });
 
 export function isDatabaseCacheReady(): boolean {
@@ -298,23 +299,42 @@ export function getCachedPartStory(partId: string): PartStorySnapshot | undefine
 }
 
 export function updateCachedPartStoryNodes(partId: string, nodes: StoryNode[]): void {
-	const existing = partStoryCache.get(partId) ?? {
-		nodes: null,
-		nodeLayout: null,
-		itemLayout: null,
-		items: null
-	};
+	const existing = partStoryCache.get(partId) ?? emptyPartStorySnapshot();
 	partStoryCache.set(partId, { ...existing, nodes });
 }
 
 export function updateCachedPartStoryItems(partId: string, items: StoryItem[]): void {
-	const existing = partStoryCache.get(partId) ?? {
-		nodes: null,
-		nodeLayout: null,
-		itemLayout: null,
-		items: null
-	};
+	const existing = partStoryCache.get(partId) ?? emptyPartStorySnapshot();
 	partStoryCache.set(partId, { ...existing, items });
+}
+
+export function updateCachedPartNpcs(
+	partId: string,
+	partNpcs: import('$lib/types/schema').PartNpc[]
+): void {
+	const existing = partStoryCache.get(partId) ?? emptyPartStorySnapshot();
+	partStoryCache.set(partId, { ...existing, partNpcs });
+}
+
+export function mergePartNpcIntoCache(partNpc: import('$lib/types/schema').PartNpc): void {
+	const existing = partStoryCache.get(partNpc.part_id) ?? emptyPartStorySnapshot();
+	const current = existing.partNpcs ?? [];
+	if (current.some((entry) => entry.character_id === partNpc.character_id)) {
+		updateCachedPartNpcs(partNpc.part_id, current);
+		return;
+	}
+
+	updateCachedPartNpcs(partNpc.part_id, [...current, partNpc]);
+}
+
+export function removePartNpcFromCache(partId: string, characterId: string): void {
+	const existing = partStoryCache.get(partId);
+	if (!existing?.partNpcs) return;
+
+	updateCachedPartNpcs(
+		partId,
+		existing.partNpcs.filter((entry) => entry.character_id !== characterId)
+	);
 }
 
 export function activateCachedStoryNode(partId: string, nodeId: string, activatedAt: string): void {
@@ -346,22 +366,12 @@ export function toggleCachedStoryNodeCompleted(
 }
 
 export function updateCachedPartNodeLayout(partId: string, layout: PartNodeLayout): void {
-	const existing = partStoryCache.get(partId) ?? {
-		nodes: null,
-		nodeLayout: null,
-		itemLayout: null,
-		items: null
-	};
+	const existing = partStoryCache.get(partId) ?? emptyPartStorySnapshot();
 	partStoryCache.set(partId, { ...existing, nodeLayout: layout });
 }
 
 export function updateCachedPartItemLayout(partId: string, layout: PartItemLayout): void {
-	const existing = partStoryCache.get(partId) ?? {
-		nodes: null,
-		nodeLayout: null,
-		itemLayout: null,
-		items: null
-	};
+	const existing = partStoryCache.get(partId) ?? emptyPartStorySnapshot();
 	partStoryCache.set(partId, { ...existing, itemLayout: layout });
 }
 
@@ -532,9 +542,7 @@ export function softDeleteCampaignInCache(campaignId: string, dateDeleted: strin
 	campaignSnapshot = {
 		...campaignSnapshot,
 		campaigns: campaignSnapshot.campaigns.map((campaign) =>
-			campaign.campaign_id === campaignId
-				? { ...campaign, date_deleted: dateDeleted }
-				: campaign
+			campaign.campaign_id === campaignId ? { ...campaign, date_deleted: dateDeleted } : campaign
 		)
 	};
 	bumpCampaignListRevision();
@@ -561,12 +569,7 @@ export function syncAdventurePartsInCache(adventureId: string, parts: Part[]): v
 
 	for (const part of parts) {
 		if (!partStoryCache.has(part.part_id)) {
-			partStoryCache.set(part.part_id, {
-				nodes: null,
-				nodeLayout: null,
-				itemLayout: null,
-				items: null
-			});
+			partStoryCache.set(part.part_id, emptyPartStorySnapshot());
 		}
 	}
 }

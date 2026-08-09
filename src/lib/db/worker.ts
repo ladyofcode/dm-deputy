@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import type { WorkerRequest } from './types';
+import { formatErrorMessage } from '$lib/domain/errors';
 import { handleRequest } from './worker/dispatch';
 
 let requestQueue: Promise<void> = Promise.resolve();
@@ -18,7 +19,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 			}
 		})
 		.catch((error) => {
-			const message = error instanceof Error ? error.message : String(error);
+			const message = formatErrorMessage(error, String(error));
 			self.postMessage({ id: request.id, error: message });
 		});
 };

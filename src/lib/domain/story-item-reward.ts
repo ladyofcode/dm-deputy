@@ -74,8 +74,12 @@ export function canvasAttachableItems(items: StoryItem[]): StoryItem[] {
 	const attachables: StoryItem[] = [];
 
 	for (const [parentNodeId, parentItems] of Object.entries(byParent)) {
-		const regular = parentItems.filter((item) => !isStoryItemReward(item) && isPersistedStoryItem(item));
-		const rewards = parentItems.filter((item) => isStoryItemReward(item) && isPersistedStoryItem(item));
+		const regular = parentItems.filter(
+			(item) => !isStoryItemReward(item) && isPersistedStoryItem(item)
+		);
+		const rewards = parentItems.filter(
+			(item) => isStoryItemReward(item) && isPersistedStoryItem(item)
+		);
 
 		attachables.push(...regular);
 

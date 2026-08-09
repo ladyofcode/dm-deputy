@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
-	import NameGeneratorField from '$lib/components/library/NameGeneratorField.svelte';
-	import { pickRandomExcluding } from '$lib/domain/name-generator';
+	import { cycleName, pickRandomExcluding } from '$lib/domain/name-generator';
 	import {
 		buildFullName,
 		type NamePool,
@@ -47,7 +46,10 @@
 	const surnameFirst = $derived(activeGroup?.surnameFirst ?? generator.surnameFirst ?? false);
 
 	const fullName = $derived(
-		buildFullName(visiblePools.map((pool) => values[pool.id] ?? ''), surnameFirst)
+		buildFullName(
+			visiblePools.map((pool) => values[pool.id] ?? ''),
+			surnameFirst
+		)
 	);
 
 	function isSurnamePool(pool: NamePool): boolean {
@@ -120,12 +122,43 @@
 
 	<div class="name-pools">
 		{#each visiblePools as pool (pool.id)}
-			<NameGeneratorField
-				id={`${generator.id}-${pool.id}`}
-				label={pool.label}
-				names={pool.names}
-				bind:value={values[pool.id]}
-			/>
+			{@const fieldId = `${generator.id}-${pool.id}`}
+			<div class="name-field">
+				<label for={fieldId}>{pool.label}</label>
+				<div class="name-controls">
+					<Button.Root
+						type="button"
+						data-variant="icon"
+						aria-label="Previous {pool.label}"
+						onclick={() => {
+							values[pool.id] = cycleName(pool.names, values[pool.id] ?? '', 'prev');
+						}}
+					>
+						←
+					</Button.Root>
+					<input id={fieldId} type="text" bind:value={values[pool.id]} readonly />
+					<Button.Root
+						type="button"
+						data-variant="icon"
+						aria-label="Next {pool.label}"
+						onclick={() => {
+							values[pool.id] = cycleName(pool.names, values[pool.id] ?? '', 'next');
+						}}
+					>
+						→
+					</Button.Root>
+					<Button.Root
+						type="button"
+						data-variant="icon"
+						aria-label="Shuffle {pool.label}"
+						onclick={() => {
+							values[pool.id] = pickRandomExcluding(pool.names, values[pool.id] || null);
+						}}
+					>
+						↻
+					</Button.Root>
+				</div>
+			</div>
 		{/each}
 	</div>
 
@@ -180,6 +213,27 @@
 	.name-pools {
 		display: grid;
 		gap: 0.75rem;
+	}
+
+	.name-field {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.name-field label {
+		font-size: 0.88rem;
+		font-weight: 600;
+	}
+
+	.name-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.name-controls input {
+		flex: 1 1 auto;
+		min-width: 0;
 	}
 
 	.full-name-row {

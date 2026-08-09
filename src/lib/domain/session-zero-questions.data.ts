@@ -55,7 +55,7 @@ export const SESSION_ZERO_GAMEPLAY: SessionZeroQuestion[] = [
 		id: 'murder_hobos',
 		prompt: 'Murder Hobos',
 		description:
-			"Is it allowed? Is it allowed, but there will be in-game consequences? Does it make sense for the campaign (evil?)."
+			'Is it allowed? Is it allowed, but there will be in-game consequences? Does it make sense for the campaign (evil?).'
 	},
 	{
 		id: 'mounts',
@@ -136,8 +136,7 @@ export const SESSION_ZERO_DM_STYLE: SessionZeroQuestion[] = [
 	{
 		id: 'pet_peeves',
 		prompt: 'Pet peeves',
-		description:
-			'Helps to be kind and avoid things for the future.'
+		description: 'Helps to be kind and avoid things for the future.'
 	},
 	{
 		id: 'player_agency',
@@ -162,7 +161,7 @@ export const SESSION_ZERO_DM_STYLE: SessionZeroQuestion[] = [
 		prompt: 'MinMaxing',
 		description:
 			"What is your stance on this as a DM? Do you welcome optimized characters, even if the character concept/theme is ridiculous? Perhaps you simply tolerate it, as long as it doesn't become an issue? Or perhaps you & your players decided to play a campaign that is more about ROLL-play than Role-play? Are veterans allowed to help newer players optimize their PCs? If optimized PCs are allowed or encouraged, you may want to let your players know that it is also fine to play unoptimized characters as well."
-	},
+	}
 ];
 
 export const SESSION_ZERO_SENSITIVE_TOPICS: SessionZeroQuestion[] = [
@@ -239,7 +238,7 @@ export const SESSION_ZERO_CHARACTER_CREATION: SessionZeroQuestion[] = [
 		id: 'races_allowed_disallowed',
 		prompt: 'Races Allowed/Disallowed',
 		description:
-			'Are there any races you disallow? Do you allow Flying Races? Do you allow home-brew races? What if the home-brew race was a home-brew of Kinder? would you allow that? Do you allow Unearthed Arcana Races? Elemental Evil Races? Sword Coast Adventure Guide? Volo\'s Guide? What about the Magic The Gathering Unearthed Arcana Races? Maybe you will some races with a minor tweak to them?'
+			"Are there any races you disallow? Do you allow Flying Races? Do you allow home-brew races? What if the home-brew race was a home-brew of Kinder? would you allow that? Do you allow Unearthed Arcana Races? Elemental Evil Races? Sword Coast Adventure Guide? Volo's Guide? What about the Magic The Gathering Unearthed Arcana Races? Maybe you will some races with a minor tweak to them?"
 	},
 	{
 		id: 'tweaking_reflavor_races',
@@ -288,7 +287,7 @@ export const SESSION_ZERO_CHARACTER_CREATION: SessionZeroQuestion[] = [
 		prompt: 'Feats',
 		description:
 			'Do feats, like the Actor feat, effect backgrounds and the characters lifestyle? Do you as a DM limit any feats? If you allow feats, do you want final approval of each feat selection? Do you allow for the Unearthed Arcana Feats? Have you home-brewed any Feats for use in your campaign? Have you tweaked some of the stock feats? Do you restrict or allow the Lucky feat?'
-	},
+	}
 ];
 
 export const SESSION_ZERO_WORLD: SessionZeroQuestion[] = [
@@ -315,7 +314,7 @@ export const SESSION_ZERO_WORLD: SessionZeroQuestion[] = [
 		prompt: 'In-game politics & factions',
 		description:
 			"What are the various factions at play? can PCs join or already start as members of a faction? What kind of government do the PCs live under? Is it a feudal system? A magocracy? A republic? A tribe? Will the PCs be able to choose to change factions or move to live under a different form of government? What impact does the 'standard adventurer' have on the political landscape? Can the PCs go beyond what the 'standard adventurer' can do? Can the PCs effect change on the political landscape? Can PCs become part of the government? Can PCs even overthrow the government?"
-	},
+	}
 ];
 
 export const SESSION_ZERO_GENERAL_MECHANICS: SessionZeroQuestion[] = [
@@ -380,7 +379,7 @@ export const SESSION_ZERO_INSPIRATION: SessionZeroQuestion[] = [
 		id: 'gaining_inspiration',
 		prompt: 'Gaining inspiration',
 		description:
-			'How do players gain inspiration? Does the DM award it? Do players award each other? If players award each other, does the DM have \'veto\' power? Can players have multiple sources of inspiration? Can players have more than one inspiration at a time? Perhaps you scrap the inspiration system because its tedious & everyone seems to forget about it?'
+			"How do players gain inspiration? Does the DM award it? Do players award each other? If players award each other, does the DM have 'veto' power? Can players have multiple sources of inspiration? Can players have more than one inspiration at a time? Perhaps you scrap the inspiration system because its tedious & everyone seems to forget about it?"
 	},
 	{
 		id: 'tracking_inspiration',
@@ -547,7 +546,7 @@ export const SESSION_ZERO_DEATH_RESTING: SessionZeroQuestion[] = [
 		id: 'resurrection',
 		prompt: 'Resurrection',
 		description:
-			"What options, in the setting or in the game, do players have for resurrecting fallen PCs? Is this the privy of high-level PCs & Gods, or can anyone bring the corpse of a fallen ally to the resurrection temple & pay a huge sum of money to resurrect a character? Do you have an alternate set of Resurrection rules. Did you pick up the rule-set that Mat Mercer recently refined for his PC resurrections? Even if you follow resurrection RAW, what impact does resurrection have in-game? Is this a common occurrence in this setting? or is it something special & unique? Will characters be expected to go get a special Mcguffin (like unicorn blood, angel tears, phoenix down) otherwise resurrection spells will automatically fail?"
+			'What options, in the setting or in the game, do players have for resurrecting fallen PCs? Is this the privy of high-level PCs & Gods, or can anyone bring the corpse of a fallen ally to the resurrection temple & pay a huge sum of money to resurrect a character? Do you have an alternate set of Resurrection rules. Did you pick up the rule-set that Mat Mercer recently refined for his PC resurrections? Even if you follow resurrection RAW, what impact does resurrection have in-game? Is this a common occurrence in this setting? or is it something special & unique? Will characters be expected to go get a special Mcguffin (like unicorn blood, angel tears, phoenix down) otherwise resurrection spells will automatically fail?'
 	},
 	{
 		id: 'death_rules',

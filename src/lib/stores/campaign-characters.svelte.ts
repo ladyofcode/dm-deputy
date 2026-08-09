@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity';
 import {
 	getCachedCampaignMembers,
 	getCachedCampaignNpcs,
@@ -42,7 +43,7 @@ function buildCampaignMembersByCharacterId(
 	members: CampaignMember[],
 	campaignId: string
 ): Map<string, CampaignMember> {
-	const membersByCharacterId = new Map<string, CampaignMember>();
+	const membersByCharacterId = new SvelteMap<string, CampaignMember>();
 
 	for (const member of members) {
 		if (member.campaign_id !== campaignId || member.role !== 'player' || !member.character_id) {
@@ -56,7 +57,7 @@ function buildCampaignMembersByCharacterId(
 }
 
 function buildPlayerMembersByCharacterId(members: CampaignMember[]): Map<string, CampaignMember> {
-	const membersByCharacterId = new Map<string, CampaignMember>();
+	const membersByCharacterId = new SvelteMap<string, CampaignMember>();
 
 	for (const member of members) {
 		if (member.role !== 'player' || !member.character_id) continue;
@@ -72,10 +73,7 @@ class CampaignCharactersState {
 		const npcCharacterIds = getNpcCharacterIdsForCampaign(campaignId);
 
 		return getCachedCharacters()
-			.filter(
-				(character) =>
-					isActiveNpc(character) && npcCharacterIds.has(character.character_id)
-			)
+			.filter((character) => isActiveNpc(character) && npcCharacterIds.has(character.character_id))
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	}
 
@@ -136,7 +134,10 @@ class CampaignCharactersState {
 
 export const campaignCharacters = new CampaignCharactersState();
 
-export { bumpCampaignCharactersRevision, trackCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
+export {
+	bumpCampaignCharactersRevision,
+	trackCampaignCharactersRevision
+} from '$lib/stores/campaign-characters-revision.svelte';
 
 export function getReactiveNpcsForCampaign(campaignId: string): Character[] {
 	return campaignCharacters.forCampaign(campaignId);

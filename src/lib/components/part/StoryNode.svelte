@@ -3,6 +3,9 @@
 </script>
 
 <script lang="ts">
+	import CheckIcon from '$lib/components/icons/CheckIcon.svelte';
+	import AddIcon from '$lib/components/icons/AddIcon.svelte';
+	import EditIcon from '$lib/components/icons/EditIcon.svelte';
 	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 	import { STORY_NODE_KIND_LABELS, type StoryNode } from '$lib/types/schema';
 
@@ -14,13 +17,7 @@
 		onToggleComplete?: (nodeId: string) => void;
 	};
 
-	let {
-		node,
-		hasArms = false,
-		onActivate,
-		onManageArms,
-		onToggleComplete
-	}: Props = $props();
+	let { node, hasArms = false, onActivate, onManageArms, onToggleComplete }: Props = $props();
 
 	const canvas = getStoryNodeCanvasContext();
 	let element = $state<HTMLDivElement | undefined>();
@@ -99,7 +96,7 @@
 			aria-pressed={isCompleted}
 			onclick={handleToggleComplete}
 		>
-			✓
+			<CheckIcon size={16} />
 		</button>
 	{/if}
 	{#if onManageArms}
@@ -109,7 +106,11 @@
 			aria-label={hasArms ? 'Edit items' : 'Add item'}
 			onclick={handleManageArms}
 		>
-			{hasArms ? '✎' : '+'}
+			{#if hasArms}
+				<EditIcon size={16} />
+			{:else}
+				<AddIcon size={16} />
+			{/if}
 		</button>
 	{/if}
 </div>
@@ -152,14 +153,14 @@
 	}
 
 	div[data-completed='true'] {
-		background: #3a2e23;
-		border-color: #4d3b2c;
-		box-shadow: 0 6px 18px color-mix(in srgb, #2c2416 22%, transparent);
+		background: var(--color-node-dimmed-bg);
+		border-color: var(--color-node-dimmed-border);
+		box-shadow: 0 6px 18px color-mix(in srgb, var(--color-node-dimmed-bg) 22%, transparent);
 	}
 
 	div[data-completed='true'] span,
 	div[data-completed='true'] strong {
-		color: #bda992;
+		color: var(--color-node-dimmed-text);
 	}
 
 	span {
@@ -193,6 +194,13 @@
 		box-shadow: 0 2px 8px var(--color-shadow);
 	}
 
+	.complete-button::before,
+	.arm-button::before {
+		content: '';
+		position: absolute;
+		inset: -0.625rem;
+	}
+
 	.complete-button {
 		left: 0.65rem;
 		bottom: 0.65rem;
@@ -205,14 +213,16 @@
 	}
 
 	.complete-button:hover,
-	.arm-button:hover {
+	.arm-button:hover,
+	.complete-button:focus-visible,
+	.arm-button:focus-visible {
 		color: var(--color-accent);
 		border-color: var(--color-accent);
 	}
 
 	.complete-button.is-completed {
-		color: #c9b59a;
-		border-color: #5c4838;
-		background: #4a382b;
+		color: var(--color-node-completed-accent);
+		border-color: var(--color-node-completed-border);
+		background: var(--color-node-completed-bg);
 	}
 </style>

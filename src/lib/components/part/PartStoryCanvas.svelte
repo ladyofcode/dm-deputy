@@ -17,10 +17,7 @@
 		type StoryCanvasLayoutDeps,
 		type StoryNodeCanvasContext
 	} from '$lib/components/part/part-story-canvas';
-	import {
-		groupRewardItemsByParent,
-		isStoryItemReward
-	} from '$lib/domain/story-item-reward';
+	import { groupRewardItemsByParent, isStoryItemReward } from '$lib/domain/story-item-reward';
 	import { isNodeSummaryId, partCanvasAttachables } from '$lib/domain/story-node-summary';
 	import { buildStoryEdges } from '$lib/data/part-story';
 	import type { StoryItem as StoryItemData, StoryNode as StoryNodeData } from '$lib/types/schema';
@@ -181,12 +178,8 @@
 		}
 	});
 
-	const {
-		endPan,
-		handlePanPointerDown,
-		handlePanPointerMove,
-		handleLostPointerCapture
-	} = panController;
+	const { endPan, handlePanPointerDown, handlePanPointerMove, handleLostPointerCapture } =
+		panController;
 
 	const { scheduleSetup } = draggableController;
 
@@ -316,7 +309,7 @@
 				{parentNodeId}
 				{items}
 				xpAwarded={xpAwardedNodeIds.has(parentNodeId)}
-				onAssignRewardXp={onAssignRewardXp}
+				{onAssignRewardXp}
 				dimmed={completedNodeIds.has(parentNodeId)}
 			/>
 		{/each}
@@ -337,7 +330,11 @@
 		touch-action: none;
 		cursor: grab;
 		background:
-			radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 6%, transparent), transparent 55%),
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--color-accent) 6%, transparent),
+				transparent 55%
+			),
 			var(--color-bg);
 	}
 
@@ -374,7 +371,7 @@
 	}
 
 	path[data-kind='main'][data-dimmed='true'] {
-		stroke: #6f5644;
+		stroke: var(--color-canvas-edge-dimmed);
 		opacity: 0.75;
 	}
 
@@ -385,7 +382,7 @@
 	}
 
 	path[data-dimmed='true'] {
-		stroke: #6f5644;
+		stroke: var(--color-canvas-edge-dimmed);
 		opacity: 0.75;
 	}
 </style>

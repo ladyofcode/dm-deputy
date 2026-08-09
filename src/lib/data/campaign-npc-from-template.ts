@@ -30,6 +30,7 @@ export async function createCampaignNpcFromTemplate(
 
 	line.kind = loaded.kind;
 	line.name = displayName?.trim() || loaded.name;
+	line.description = loaded.description;
 	line.identity = loaded.identity;
 	line.extras = loaded.extras;
 	line.portraitFile = loaded.portraitFile;

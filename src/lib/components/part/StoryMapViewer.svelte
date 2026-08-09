@@ -1,6 +1,9 @@
 <script lang="ts">
 	import Panzoom from '@panzoom/panzoom';
 	import { Button, Dialog } from 'bits-ui';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import CloseIcon from '$lib/components/icons/CloseIcon.svelte';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 
 	type Props = {
 		open?: boolean;
@@ -133,54 +136,57 @@
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Portal>
-		<Dialog.Overlay class="map-viewer-overlay" />
-		<Dialog.Content class="map-viewer-content" aria-label={title}>
-			<header class="map-viewer-header">
-				<Dialog.Title>{title}</Dialog.Title>
-				<div class="map-viewer-actions">
-					<Button.Root
-						type="button"
-						class="map-viewer-tool-btn"
-						onclick={handleZoomOut}
-						aria-label="Zoom out"
-					>
-						−
-					</Button.Root>
-					<Button.Root
-						type="button"
-						class="map-viewer-tool-btn"
-						onclick={handleZoomIn}
-						aria-label="Zoom in"
-					>
-						+
-					</Button.Root>
-					<Button.Root type="button" class="map-viewer-tool-btn" onclick={handleResetZoom}>
-						Fit
-					</Button.Root>
-					<Dialog.Close class="map-viewer-tool-btn" aria-label="Close map viewer">✕</Dialog.Close>
-				</div>
-			</header>
+<AppDialog
+	bind:open
+	variant="viewer"
+	overlayClass="map-viewer-overlay"
+	contentClass="map-viewer-content"
+	ariaLabel={title}
+>
+	<header class="map-viewer-header">
+		<Dialog.Title>{title}</Dialog.Title>
+		<div class="map-viewer-actions">
+			<Button.Root
+				type="button"
+				class="map-viewer-tool-btn"
+				onclick={handleZoomOut}
+				aria-label="Zoom out"
+			>
+				−
+			</Button.Root>
+			<Button.Root
+				type="button"
+				class="map-viewer-tool-btn"
+				onclick={handleZoomIn}
+				aria-label="Zoom in"
+			>
+				+
+			</Button.Root>
+			<Button.Root type="button" class="map-viewer-tool-btn" onclick={handleResetZoom}>
+				Fit
+			</Button.Root>
+			<Dialog.Close class="map-viewer-tool-btn" aria-label="Close map viewer">
+				<CloseIcon />
+			</Dialog.Close>
+		</div>
+	</header>
 
-			<div class="map-viewer-body" bind:this={viewportEl}>
-				{#if loading}
-					<p class="map-viewer-status">Loading map…</p>
-				{:else if imageUrl}
-					<img bind:this={imageEl} src={imageUrl} alt={title} draggable="false" />
-				{:else}
-					<p class="map-viewer-status">Map image unavailable.</p>
-				{/if}
-			</div>
+	<div class="map-viewer-body" bind:this={viewportEl}>
+		{#if loading}
+			<LoadingState message="Loading map…" />
+		{:else if imageUrl}
+			<img bind:this={imageEl} src={imageUrl} alt={title} draggable="false" />
+		{:else}
+			<p class="map-viewer-status">Map image unavailable.</p>
+		{/if}
+	</div>
 
-			<p class="map-viewer-hint">Use +/−, pinch, or Ctrl + scroll to zoom, then drag to pan.</p>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+	<p class="map-viewer-hint">Use +/−, pinch, or Ctrl + scroll to zoom, then drag to pan.</p>
+</AppDialog>
 
 <style>
 	:global(.map-viewer-overlay) {
-		background: rgb(0 0 0 / 72%);
+		background: var(--color-viewer-overlay-strong);
 	}
 
 	:global(.map-viewer-content) {
@@ -194,8 +200,8 @@
 		padding: 0;
 		border: none;
 		border-radius: 0;
-		background: #111;
-		color: #f5f5f5;
+		background: var(--color-viewer-bg);
+		color: var(--color-viewer-text);
 		overflow: hidden;
 	}
 
@@ -207,8 +213,8 @@
 		justify-content: space-between;
 		gap: 0.75rem;
 		padding: 0.75rem 1rem;
-		border-bottom: 1px solid rgb(255 255 255 / 12%);
-		background: #111;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-viewer-text) 12%, transparent);
+		background: var(--color-viewer-bg);
 		min-width: 0;
 	}
 
@@ -219,7 +225,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-size: 1.05rem;
-		color: #f5f5f5;
+		color: var(--color-viewer-text);
 	}
 
 	.map-viewer-actions {
@@ -236,13 +242,13 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 2.25rem;
-		min-height: 2.25rem;
+		min-width: 2.75rem;
+		min-height: 2.75rem;
 		padding: 0.35rem 0.55rem;
-		border: 1px solid rgb(255 255 255 / 28%);
+		border: 1px solid color-mix(in srgb, var(--color-viewer-text) 28%, transparent);
 		border-radius: var(--radius-sm);
-		background: rgb(255 255 255 / 10%);
-		color: #f5f5f5;
+		background: color-mix(in srgb, var(--color-viewer-text) 10%, transparent);
+		color: var(--color-viewer-text);
 		font: inherit;
 		font-weight: 600;
 		line-height: 1;
@@ -252,9 +258,9 @@
 
 	.map-viewer-actions :global([data-button-root].map-viewer-tool-btn:hover:not(:disabled)),
 	.map-viewer-actions :global([data-dialog-close].map-viewer-tool-btn:hover:not(:disabled)) {
-		background: rgb(255 255 255 / 18%);
-		border-color: rgb(255 255 255 / 45%);
-		color: #fff;
+		background: color-mix(in srgb, var(--color-viewer-text) 18%, transparent);
+		border-color: color-mix(in srgb, var(--color-viewer-text) 45%, transparent);
+		color: var(--color-viewer-text);
 	}
 
 	.map-viewer-body {
@@ -263,7 +269,7 @@
 		min-height: 0;
 		overflow: hidden;
 		touch-action: none;
-		background: #0a0a0a;
+		background: var(--color-viewer-bg);
 		isolation: isolate;
 	}
 
@@ -284,11 +290,11 @@
 		margin: 0;
 		padding: 1rem;
 		text-align: center;
-		color: rgb(255 255 255 / 72%);
+		color: color-mix(in srgb, var(--color-viewer-text) 72%, transparent);
 	}
 
 	.map-viewer-hint {
 		font-size: 0.875rem;
-		border-top: 1px solid rgb(255 255 255 / 12%);
+		border-top: 1px solid color-mix(in srgb, var(--color-viewer-text) 12%, transparent);
 	}
 </style>

@@ -117,7 +117,9 @@ function splitNodeItems(
 	const rewardItems = nodeItems.filter(isStoryItemReward);
 	const nonRewards = nodeItems.filter((item) => !isStoryItemReward(item));
 
-	const narrativeNotes = nonRewards.filter((item) => item.kind === 'note' && item.note_text?.trim());
+	const narrativeNotes = nonRewards.filter(
+		(item) => item.kind === 'note' && item.note_text?.trim()
+	);
 	const contextItems = nonRewards
 		.filter((item) => item.kind !== 'note')
 		.map((item) => ({ item, kind: contextKindForItem(item) }));

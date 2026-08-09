@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Button, Dialog, Label } from 'bits-ui';
+	import { formatErrorMessage } from '$lib/domain/errors';
+	import { Button, Label } from 'bits-ui';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import ImageUploadDialog from '$lib/components/shared/ImageUploadDialog.svelte';
 	import { recognizeImage, terminateOcrWorker, type OcrProgress } from '$lib/ocr/recognize';
 	import type { ImageUploadResult } from '$lib/types/image-upload';
@@ -101,7 +103,7 @@
 				progress = nextProgress;
 			});
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not read text from image';
+			error = formatErrorMessage(cause, 'Could not read text from image');
 		} finally {
 			processing = false;
 			progress = null;
@@ -128,7 +130,7 @@
 				copiedTimeout = null;
 			}, 2000);
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not copy text';
+			error = formatErrorMessage(cause, 'Could not copy text');
 		}
 	}
 
@@ -143,8 +145,10 @@
 	});
 </script>
 
-<Dialog.Root
+<AppDialog
 	bind:open
+	title="Scan text from image"
+	wide
 	onOpenChange={(isOpen) => {
 		if (!isOpen) {
 			void terminateOcrWorker();
@@ -152,79 +156,71 @@
 		}
 	}}
 >
-	<Dialog.Portal>
-		<Dialog.Overlay />
-		<Dialog.Content class="dialog-wide">
-			<Dialog.Title>Scan text from image</Dialog.Title>
-			<form
-				class="ocr-form"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void handleRecognize();
-				}}
-			>
-				<div class="field">
-					<Label.Root for="part_ocr_file">Image file</Label.Root>
-					<input
-						id="part_ocr_file"
-						bind:this={fileInput}
-						type="file"
-						accept="image/*"
-						onchange={handleFileChange}
-						disabled={processing}
-					/>
-				</div>
+	<form
+		class="ocr-form"
+		onsubmit={(event) => {
+			event.preventDefault();
+			void handleRecognize();
+		}}
+	>
+		<div class="field">
+			<Label.Root for="part_ocr_file">Image file</Label.Root>
+			<input
+				id="part_ocr_file"
+				bind:this={fileInput}
+				type="file"
+				accept="image/*"
+				onchange={handleFileChange}
+				disabled={processing}
+			/>
+		</div>
 
-				{#if previewUrl}
-					<figure class="ocr-preview">
-						<img src={previewUrl} alt="" />
-					</figure>
-				{/if}
+		{#if previewUrl}
+			<figure class="ocr-preview">
+				<img src={previewUrl} alt="" />
+			</figure>
+		{/if}
 
-				{#if imageSource}
-					<p class="ocr-source">Source: {imageSource}</p>
-				{/if}
+		{#if imageSource}
+			<p class="ocr-source">Source: {imageSource}</p>
+		{/if}
 
-				{#if progressLabel}
-					<p class="ocr-progress" aria-live="polite">{progressLabel}</p>
-				{/if}
+		{#if progressLabel}
+			<p class="ocr-progress" aria-live="polite">{progressLabel}</p>
+		{/if}
 
-				{#if error}
-					<p class="hint">{error}</p>
-				{/if}
+		{#if error}
+			<p class="hint">{error}</p>
+		{/if}
 
-				{#if extractedText}
-					<div class="field">
-						<Label.Root for="part_ocr_result">Extracted text</Label.Root>
-						<textarea
-							id="part_ocr_result"
-							bind:this={resultTextarea}
-							bind:value={extractedText}
-							rows="10"
-							readonly
-						></textarea>
-					</div>
-				{/if}
+		{#if extractedText}
+			<div class="field">
+				<Label.Root for="part_ocr_result">Extracted text</Label.Root>
+				<textarea
+					id="part_ocr_result"
+					bind:this={resultTextarea}
+					bind:value={extractedText}
+					rows="10"
+					readonly
+				></textarea>
+			</div>
+		{/if}
 
-				<div class="dialog-footer">
-					<Dialog.Close>
-						{#snippet child({ props })}
-							<Button.Root {...props} type="button" disabled={processing}>Close</Button.Root>
-						{/snippet}
-					</Dialog.Close>
-					{#if extractedText}
-						<Button.Root type="button" onclick={handleCopy}>
-							{copied ? 'Copied!' : 'Copy text'}
-						</Button.Root>
-					{/if}
-					<Button.Root type="submit" data-variant="primary" disabled={!selectedFile || processing}>
-						{processing ? 'Processing…' : 'Run OCR'}
-					</Button.Root>
-				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+		<div class="dialog-footer">
+			<Button.Root type="button" disabled={processing} onclick={() => (open = false)}>
+				Close
+			</Button.Root>
+			{#if extractedText}
+				<Button.Root type="button" onclick={handleCopy}>
+					{copied ? 'Copied!' : 'Copy text'}
+				</Button.Root>
+			{/if}
+			<Button.Root type="submit" data-variant="primary" disabled={!selectedFile || processing}>
+				{processing ? 'Processing…' : 'Run OCR'}
+			</Button.Root>
+		</div>
+	</form>
+</AppDialog>
 
 <ImageUploadDialog
 	bind:open={uploadDialogOpen}
@@ -270,6 +266,6 @@
 	}
 
 	textarea {
-		font-family: var(--font-body, inherit);
+		font-family: var(--font-body);
 	}
 </style>

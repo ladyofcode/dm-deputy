@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button, Tooltip } from 'bits-ui';
 	import SessionZeroCategorySections from '$lib/components/campaign/SessionZeroCategorySections.svelte';
-	import SessionZeroQuestionLabel from '$lib/components/campaign/SessionZeroQuestionLabel.svelte';
+	import SessionZeroQuestionHint from '$lib/components/campaign/SessionZeroQuestionHint.svelte';
 	import SessionZeroQuestionsModal from '$lib/components/campaign/SessionZeroQuestionsModal.svelte';
 	import {
 		createEmptySessionZeroState,
@@ -19,7 +20,6 @@
 	import { database } from '$lib/stores/database.svelte';
 
 	const AUTOSAVE_DELAY_MS = 400;
-
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 
@@ -41,7 +41,11 @@
 	const visibleQuestionCount = $derived(
 		visibleQuestionBlocks.reduce(
 			(count, block) =>
-				count + block.sections.reduce((sectionCount, section) => sectionCount + section.questions.length, 0),
+				count +
+				block.sections.reduce(
+					(sectionCount, section) => sectionCount + section.questions.length,
+					0
+				),
 			0
 		)
 	);
@@ -74,7 +78,7 @@
 				activeQuestionIds: sortSessionZeroQuestionIds(activeQuestionIds)
 			});
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save Session 0';
+			error = formatErrorMessage(cause, 'Could not save Session 0');
 		} finally {
 			saving = false;
 		}
@@ -112,12 +116,12 @@
 {#if database.isReady && !campaign}
 	<section class="page-stack page-stack--compact">
 		<h1>Campaign not found</h1>
-		<Button.Root href={resolve('/')}>Back to home</Button.Root>
+		<Button.Root href={resolve('/')} data-variant="plain">Back to home</Button.Root>
 	</section>
 {:else}
 	<section class="page-stack page-stack--compact">
 		<nav aria-label="Back to campaign">
-			<Button.Root href={resolveCampaignHref(campaignId)}>←</Button.Root>
+			<Button.Root href={resolveCampaignHref(campaignId)} data-variant="plain">←</Button.Root>
 		</nav>
 
 		<header class="session-zero-header">
@@ -126,10 +130,7 @@
 					<p class="eyebrow">{campaign?.campaign_name ?? ''}</p>
 					<h1>Session 0</h1>
 				</div>
-				<SessionZeroQuestionsModal
-					bind:activeQuestionIds
-					onchange={handleQuestionsChange}
-				/>
+				<SessionZeroQuestionsModal bind:activeQuestionIds onchange={handleQuestionsChange} />
 			</div>
 			<div class="session-zero-welcome">
 				<p>Welcome to session 0! We'll cover:</p>
@@ -142,7 +143,10 @@
 			</div>
 		</header>
 
-		<form class="session-zero-form page-stack--compact" onsubmit={(event) => event.preventDefault()}>
+		<form
+			class="session-zero-form page-stack--compact"
+			onsubmit={(event) => event.preventDefault()}
+		>
 			<Tooltip.Provider delayDuration={200}>
 				<SessionZeroCategorySections
 					blocks={visibleQuestionBlocks}
@@ -151,7 +155,7 @@
 					{#snippet children({ section })}
 						{#each section.questions as question (question.id)}
 							<div class="field">
-								<SessionZeroQuestionLabel {question} />
+								<SessionZeroQuestionHint {question} variant="label" />
 								<input
 									id={`session-zero-${question.id}`}
 									bind:value={answers[question.id]}
@@ -214,6 +218,5 @@
 	.session-zero-form {
 		display: grid;
 		gap: 1.5rem;
-		max-width: 42rem;
 	}
 </style>

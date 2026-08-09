@@ -1,8 +1,5 @@
 import { getCachedSpells, isCatalogCacheReady } from '$lib/db/catalog-cache';
-import {
-	createCatalogIdIndex,
-	createCatalogNameIndex
-} from '$lib/games/dnd5e/data/catalog-index';
+import { createCatalogIdIndex, createCatalogNameIndex } from '$lib/games/dnd5e/data/catalog-index';
 import type { Spell, SpellSchool } from '$lib/types/schema';
 
 function assertCatalogReady(): void {

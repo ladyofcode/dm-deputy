@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { Button, Dialog, Label } from 'bits-ui';
+	import { Label } from 'bits-ui';
+	import AppDialog from '$lib/components/shared/AppDialog.svelte';
+	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
+	import ImageAttributionField from '$lib/components/shared/ImageAttributionField.svelte';
+	import ImageCropEditor from '$lib/components/shared/ImageCropEditor.svelte';
+	import { createBlobPreview } from '$lib/stores/blob-preview.svelte';
 	import { normalizeImageSource, type ImageUploadResult } from '$lib/types/image-upload';
 
 	type Props = {
@@ -8,6 +13,7 @@
 		description?: string;
 		confirmLabel?: string;
 		file?: File | null;
+		cropAspectRatio?: number | null;
 		onConfirm?: (result: ImageUploadResult) => void | Promise<void>;
 		onCancel?: () => void;
 	};
@@ -18,19 +24,28 @@
 		description = 'Optionally note where this image came from — a URL, artist name, or other credit.',
 		confirmLabel = 'Use image',
 		file = null,
+		cropAspectRatio = null,
 		onConfirm,
 		onCancel
 	}: Props = $props();
 
 	let pickedFile = $state<File | null>(null);
 	let imageSource = $state('');
-	let previewUrl = $state<string | null>(null);
 	let confirmed = $state(false);
 	let submitting = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let cropEditor = $state<{ exportCroppedFile: () => Promise<File> } | null>(null);
 	const fieldId = `image-upload-${crypto.randomUUID()}`;
 
 	const activeFile = $derived(file ?? pickedFile);
+	const usesCrop = $derived(Boolean(cropAspectRatio && activeFile));
+	const blobPreview = createBlobPreview(() => (open ? activeFile : null));
+	const previewUrl = $derived(blobPreview.url);
+	const dialogDescription = $derived(
+		usesCrop
+			? 'Drag to reposition and zoom. Zoom out to fit the whole image, or in to fill the frame. Optionally note where it came from.'
+			: description
+	);
 
 	let wasOpen = $state(false);
 
@@ -49,23 +64,6 @@
 		wasOpen = open;
 	});
 
-	$effect(() => {
-		const currentFile = activeFile;
-		const isOpen = open;
-
-		if (!isOpen || !currentFile) {
-			previewUrl = null;
-			return;
-		}
-
-		const url = URL.createObjectURL(currentFile);
-		previewUrl = url;
-
-		return () => {
-			URL.revokeObjectURL(url);
-		};
-	});
-
 	function handleFileChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		pickedFile = input.files?.[0] ?? null;
@@ -79,8 +77,10 @@
 		submitting = true;
 
 		try {
+			const outputFile = usesCrop && cropEditor ? await cropEditor.exportCroppedFile() : activeFile;
+
 			await onConfirm?.({
-				file: activeFile,
+				file: outputFile,
 				imageSource: normalizeImageSource(imageSource)
 			});
 			open = false;
@@ -94,71 +94,65 @@
 	}
 </script>
 
-<Dialog.Root
+<AppDialog
 	bind:open
+	{title}
+	description={dialogDescription}
+	stacked
 	onOpenChange={(isOpen) => {
 		if (!isOpen && !confirmed) {
 			onCancel?.();
 		}
 	}}
 >
-	<Dialog.Portal>
-		<Dialog.Overlay class="dialog-stacked-overlay" />
-		<Dialog.Content class="dialog-stacked">
-			<Dialog.Title>{title}</Dialog.Title>
-			{#if description}
-				<Dialog.Description>{description}</Dialog.Description>
+	<form class="panel-form upload-dialog-form" onsubmit={handleConfirm}>
+		{#if !file}
+			<div class="field">
+				<Label.Root for="{fieldId}_file">Image file</Label.Root>
+				<input
+					id="{fieldId}_file"
+					bind:this={fileInput}
+					type="file"
+					accept="image/*"
+					onchange={handleFileChange}
+				/>
+			</div>
+		{/if}
+
+		{#if previewUrl}
+			{#if usesCrop && cropAspectRatio}
+				<ImageCropEditor
+					bind:this={cropEditor}
+					imageUrl={previewUrl}
+					fileName={activeFile?.name ?? 'image.jpg'}
+					mimeType={activeFile?.type}
+					aspectRatio={cropAspectRatio}
+				/>
+			{:else}
+				<figure class="upload-preview">
+					<img src={previewUrl} alt="" />
+				</figure>
 			{/if}
+		{/if}
 
-			<form class="upload-form" onsubmit={handleConfirm}>
-				{#if !file}
-					<div class="field">
-						<Label.Root for="{fieldId}_file">Image file</Label.Root>
-						<input
-							id="{fieldId}_file"
-							bind:this={fileInput}
-							type="file"
-							accept="image/*"
-							onchange={handleFileChange}
-						/>
-					</div>
-				{/if}
+		<ImageAttributionField id="{fieldId}_source" bind:value={imageSource} />
 
-				{#if previewUrl}
-					<figure class="upload-preview">
-						<img src={previewUrl} alt="" />
-					</figure>
-				{/if}
-
-				<div class="field">
-					<Label.Root for="{fieldId}_source">Image source (optional)</Label.Root>
-					<input
-						id="{fieldId}_source"
-						bind:value={imageSource}
-						placeholder="https://… or artist / book / notes"
-						autocomplete="off"
-					/>
-				</div>
-
-				<div class="dialog-footer">
-					<Button.Root type="button" onclick={handleCancel} disabled={submitting}>Cancel</Button.Root>
-					<Button.Root type="submit" data-variant="primary" disabled={!activeFile || submitting}>
-						{submitting ? 'Uploading…' : confirmLabel}
-					</Button.Root>
-				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+		<DialogFormFooter
+			submitLabel={submitting ? 'Uploading…' : confirmLabel}
+			pending={submitting}
+			disabled={!activeFile}
+			useDialogClose={false}
+			onCancel={handleCancel}
+		/>
+	</form>
+</AppDialog>
 
 <style>
-	.upload-form {
-		display: grid;
-		gap: 1rem;
+	.upload-dialog-form {
 		margin-top: 0.75rem;
 	}
 
-	.upload-form .field {
+	.upload-dialog-form .field {
 		margin-bottom: 0;
 	}
 

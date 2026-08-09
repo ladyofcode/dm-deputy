@@ -110,10 +110,7 @@ export function groupItemsByCategory(
 	})).filter((group) => group.entries.length > 0);
 }
 
-export function inferItemCategoryForCatalogId(
-	items: Item[],
-	catalogId: string
-): ItemCategory | '' {
+export function inferItemCategoryForCatalogId(items: Item[], catalogId: string): ItemCategory | '' {
 	if (!catalogId) return '';
 	return items.find((item) => item.item_id === catalogId)?.item_category ?? '';
 }

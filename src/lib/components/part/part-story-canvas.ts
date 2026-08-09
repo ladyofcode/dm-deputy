@@ -8,14 +8,14 @@ import {
 	type Draggable
 } from 'animejs';
 import { STORY_NODE_SIZE } from '$lib/data/part-story-layout';
-import { centerPanForBounds, loadPartCanvasPan, savePartCanvasPan } from '$lib/data/part-canvas-pan';
+import {
+	centerPanForBounds,
+	loadPartCanvasPan,
+	savePartCanvasPan
+} from '$lib/data/part-canvas-pan';
 import {
 	estimatedAttachableSizes,
 	getPartStoryCanvasWidth,
-	ITEM_CONNECTOR_MAX_LENGTH,
-	ITEM_CONNECTOR_MIN_LENGTH,
-	ITEM_CONNECTOR_STRETCH_GIVE,
-	layoutSiblingItemsWithoutOverlap,
 	loadPartItemLayout,
 	minCanvasHeightForLayout,
 	resolvePartItemLayout,
@@ -81,8 +81,7 @@ export function viewportWidth(deps: StoryCanvasLayoutDeps) {
 
 export function viewportHeight(deps: StoryCanvasLayoutDeps) {
 	return (
-		deps.getViewportEl()?.clientHeight ??
-		(typeof window !== 'undefined' ? window.innerHeight : 800)
+		deps.getViewportEl()?.clientHeight ?? (typeof window !== 'undefined' ? window.innerHeight : 800)
 	);
 }
 
@@ -129,11 +128,7 @@ export function resolveCanvasLayouts(deps: StoryCanvasLayoutDeps): ResolvedCanva
 				);
 	const liveItemLayout = getLiveItemLayout(deps);
 	const canvasAttachables = deps.getCanvasAttachables();
-	const sizeEstimates = estimatedAttachableSizes(
-		canvasAttachables,
-		deps.getStoryItems(),
-		nodes
-	);
+	const sizeEstimates = estimatedAttachableSizes(canvasAttachables, deps.getStoryItems(), nodes);
 	const itemLayout =
 		Object.keys(liveItemLayout).length === canvasAttachables.length
 			? liveItemLayout
@@ -201,17 +196,14 @@ export function computeCanvasLayoutMetrics(deps: StoryCanvasLayoutDeps): CanvasL
 	const bounds = computeContentBoundsFromLayouts(deps, layouts);
 	const itemElements = deps.getItemElements();
 	const itemHeights = Object.fromEntries(
-		deps.getCanvasAttachables().map((item) => [
-			item.item_id,
-			itemElements.get(item.item_id)?.offsetHeight ?? sizeEstimates[item.item_id]?.height ?? 0
-		])
+		deps
+			.getCanvasAttachables()
+			.map((item) => [
+				item.item_id,
+				itemElements.get(item.item_id)?.offsetHeight ?? sizeEstimates[item.item_id]?.height ?? 0
+			])
 	);
-	const minHeight = minCanvasHeightForLayout(
-		nodeLayout,
-		STORY_NODE_SIZE,
-		itemLayout,
-		itemHeights
-	);
+	const minHeight = minCanvasHeightForLayout(nodeLayout, STORY_NODE_SIZE, itemLayout, itemHeights);
 
 	return { bounds, minHeight };
 }
@@ -268,16 +260,15 @@ export function persistLayout(deps: StoryCanvasLayoutDeps) {
 		return result;
 	}, {});
 
-	const itemLayout = deps.getCanvasAttachables().reduce<Record<string, NodePosition>>(
-		(result, attachable) => {
+	const itemLayout = deps
+		.getCanvasAttachables()
+		.reduce<Record<string, NodePosition>>((result, attachable) => {
 			const draggable = itemDraggables.get(attachable.item_id);
 			if (!draggable) return result;
 
 			result[attachable.item_id] = { x: draggable.x, y: draggable.y };
 			return result;
-		},
-		{}
-	);
+		}, {});
 
 	void savePartStory(deps.getPartId(), { nodeLayout, itemLayout });
 }
@@ -330,7 +321,9 @@ export function createStoryCanvasPanController(deps: StoryCanvasPanDeps) {
 		if (capturedId !== null && viewportEl?.hasPointerCapture(capturedId)) {
 			try {
 				viewportEl.releasePointerCapture(capturedId);
-			} catch {}
+			} catch {
+				// Pointer capture may already be released.
+			}
 		}
 
 		clearPanWindowListeners();
@@ -345,7 +338,7 @@ export function createStoryCanvasPanController(deps: StoryCanvasPanDeps) {
 	function isPanExcludedTarget(target: EventTarget | null) {
 		return Boolean(
 			target instanceof Element &&
-				target.closest('[data-story-draggable], button, input, textarea, select, a, label')
+			target.closest('[data-story-draggable], button, input, textarea, select, a, label')
 		);
 	}
 
@@ -361,7 +354,9 @@ export function createStoryCanvasPanController(deps: StoryCanvasPanDeps) {
 
 		try {
 			deps.getViewportEl()?.setPointerCapture(event.pointerId);
-		} catch {}
+		} catch {
+			// Pointer capture may already be released.
+		}
 
 		window.addEventListener('pointerup', handleWindowPointerEnd);
 		window.addEventListener('pointercancel', handleWindowPointerEnd);
@@ -370,7 +365,11 @@ export function createStoryCanvasPanController(deps: StoryCanvasPanDeps) {
 
 	function handlePanPointerMove(event: PointerEvent) {
 		const state = deps.getPanState();
-		if ((!state.panPending && !state.isPanning) || !state.panStart || event.pointerId !== state.panPointerId) {
+		if (
+			(!state.panPending && !state.isPanning) ||
+			!state.panStart ||
+			event.pointerId !== state.panPointerId
+		) {
 			return;
 		}
 
@@ -465,11 +464,7 @@ export type StoryCanvasConnectorDeps = StoryCanvasLayoutDeps & {
 	getNodePosition: (nodeId: string) => NodePosition | undefined;
 	getItemPosition: (itemId: string) => NodePosition | undefined;
 	snapItemFollowTo: (itemId: string, position: NodePosition) => void;
-	setItemPosition: (
-		itemId: string,
-		position: NodePosition,
-		options?: { spring?: boolean }
-	) => void;
+	setItemPosition: (itemId: string, position: NodePosition, options?: { spring?: boolean }) => void;
 	refreshCanvasBounds: () => void;
 };
 
@@ -557,121 +552,8 @@ export function createStoryCanvasConnectorController(deps: StoryCanvasConnectorD
 		return deps.getCanvasAttachables().find((item) => item.item_id === itemId);
 	}
 
-	function getItemConnectorLengthAt(
-		storyItem: StoryItem,
-		itemPosition: NodePosition,
-		itemElement: HTMLDivElement
-	) {
-		const attachmentCenter = getAttachmentCenterForParent(storyItem.parent_node_id);
-		if (!attachmentCenter) return undefined;
-
-		const itemCenter = {
-			x: itemPosition.x + itemElement.offsetWidth / 2,
-			y: itemPosition.y + itemElement.offsetHeight / 2
-		};
-
-		const start = circleEdgePoint(attachmentCenter, NODE_RADIUS, itemCenter);
-
-		const end = boxEdgePoint(
-			{
-				x: itemPosition.x,
-				y: itemPosition.y,
-				width: itemElement.offsetWidth,
-				height: itemElement.offsetHeight
-			},
-			attachmentCenter
-		);
-
-		return Math.hypot(end.x - start.x, end.y - start.y);
-	}
-
-	function isWithinItemStretchBand(length: number) {
-		return (
-			(length > ITEM_CONNECTOR_MAX_LENGTH &&
-				length <= ITEM_CONNECTOR_MAX_LENGTH + ITEM_CONNECTOR_STRETCH_GIVE) ||
-			(length < ITEM_CONNECTOR_MIN_LENGTH &&
-				length >= ITEM_CONNECTOR_MIN_LENGTH - ITEM_CONNECTOR_STRETCH_GIVE)
-		);
-	}
-
-	function computeConstrainedItemPosition(
-		storyItem: StoryItem,
-		itemElement: HTMLDivElement
-	): NodePosition | undefined {
-		const itemPosition = deps.getItemPosition(storyItem.item_id);
-		if (!itemPosition) return undefined;
-
-		const initialLength = getItemConnectorLengthAt(storyItem, itemPosition, itemElement);
-		if (initialLength === undefined) return undefined;
-
-		if (initialLength >= ITEM_CONNECTOR_MIN_LENGTH && initialLength <= ITEM_CONNECTOR_MAX_LENGTH) {
-			return itemPosition;
-		}
-
-		if (isWithinItemStretchBand(initialLength)) {
-			return itemPosition;
-		}
-
-		let nextPosition = { ...itemPosition };
-
-		for (let iteration = 0; iteration < 16; iteration++) {
-			const length = getItemConnectorLengthAt(storyItem, nextPosition, itemElement);
-			if (length === undefined) return undefined;
-			if (length >= ITEM_CONNECTOR_MIN_LENGTH && length <= ITEM_CONNECTOR_MAX_LENGTH) {
-				return nextPosition;
-			}
-
-			const attachmentCenter = getAttachmentCenterForParent(storyItem.parent_node_id);
-			if (!attachmentCenter) return undefined;
-
-			const itemCenter = {
-				x: nextPosition.x + itemElement.offsetWidth / 2,
-				y: nextPosition.y + itemElement.offsetHeight / 2
-			};
-			const dx = itemCenter.x - attachmentCenter.x;
-			const dy = itemCenter.y - attachmentCenter.y;
-			const centerDistance = Math.hypot(dx, dy) || 1;
-			const unitX = dx / centerDistance;
-			const unitY = dy / centerDistance;
-			const targetLength =
-				length > ITEM_CONNECTOR_MAX_LENGTH ? ITEM_CONNECTOR_MAX_LENGTH : ITEM_CONNECTOR_MIN_LENGTH;
-			const correction = (length - targetLength) * 0.8;
-
-			nextPosition = {
-				x: nextPosition.x - unitX * correction,
-				y: nextPosition.y - unitY * correction
-			};
-		}
-
-		return nextPosition;
-	}
-
 	function isParentNodeDragging(parentNodeId: string) {
 		return deps.getNodeDraggables().get(parentNodeId)?.grabbed ?? false;
-	}
-
-	function constrainAttachedItem(storyItem: StoryItem) {
-		const itemElements = deps.getItemElements();
-		const itemDraggables = deps.getItemDraggables();
-		const itemElement = itemElements.get(storyItem.item_id);
-		const itemDraggable = itemDraggables.get(storyItem.item_id);
-		if (!itemElement || !itemDraggable) return;
-
-		const itemDragging = itemDraggable.grabbed ?? false;
-		const parentDragging = isParentNodeDragging(storyItem.parent_node_id);
-
-		if (parentDragging && !itemDragging) return;
-
-		const currentPosition = deps.getItemPosition(storyItem.item_id);
-		const nextPosition = computeConstrainedItemPosition(storyItem, itemElement);
-		if (!nextPosition || !currentPosition) return;
-
-		const moved =
-			Math.abs(nextPosition.x - currentPosition.x) > 0.5 ||
-			Math.abs(nextPosition.y - currentPosition.y) > 0.5;
-		if (!moved) return;
-
-		deps.setItemPosition(storyItem.item_id, nextPosition);
 	}
 
 	function getItemConnectorTarget(storyItem: StoryItem) {
@@ -776,23 +658,6 @@ export function createStoryCanvasConnectorController(deps: StoryCanvasConnectorD
 		}, {});
 	}
 
-	function applyItemLayout(
-		items: StoryItem[],
-		layout: Record<string, NodePosition>,
-		{ animate = false, skipPinned = false }: { animate?: boolean; skipPinned?: boolean } = {}
-	) {
-		const pinned = skipPinned ? getPinnedItemIds() : new SvelteSet<string>();
-
-		for (const storyItem of items) {
-			if (skipPinned && pinned.has(storyItem.item_id)) continue;
-
-			const position = layout[storyItem.item_id];
-			if (!position) continue;
-
-			deps.setItemPosition(storyItem.item_id, position, { spring: animate });
-		}
-	}
-
 	function getAttachablesForParent(parentNodeId: string) {
 		return deps.getCanvasAttachables().filter((item) => item.parent_node_id === parentNodeId);
 	}
@@ -829,31 +694,6 @@ export function createStoryCanvasConnectorController(deps: StoryCanvasConnectorD
 
 			deps.snapItemFollowTo(storyItem.item_id, position);
 		}
-	}
-
-	function settleSiblingItemsForParent(parentNodeId: string, { animate = false } = {}) {
-		const parentPosition = deps.getNodePosition(parentNodeId);
-		if (!parentPosition) return;
-
-		const siblings = getAttachablesForParent(parentNodeId);
-		if (!siblings.length) return;
-
-		const sizes = getItemSizesForParent(parentNodeId, siblings);
-		const layout = layoutSiblingItemsWithoutOverlap(
-			parentPosition,
-			STORY_NODE_SIZE,
-			siblings,
-			sizes,
-			{
-				parentNodeId,
-				nodeLayout: getLiveNodeLayout(deps),
-				edges: deps.getEdges()
-			}
-		);
-
-		applyItemLayout(siblings, layout, { animate });
-		renderAllItemConnectors();
-		deps.refreshCanvasBounds();
 	}
 
 	function syncConnectors() {
@@ -1089,7 +929,9 @@ export function createStoryCanvasDraggableController(deps: StoryCanvasDraggableD
 		const nodes = deps.getNodes();
 		const nodeElements = deps.getNodeElements();
 
-		return Boolean(canvasEl && nodes.length && nodes.every((node) => nodeElements.has(node.node_id)));
+		return Boolean(
+			canvasEl && nodes.length && nodes.every((node) => nodeElements.has(node.node_id))
+		);
 	}
 
 	function canSetupItems() {

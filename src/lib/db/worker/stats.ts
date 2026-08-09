@@ -2,16 +2,16 @@ import { execSql, selectObjects } from '../bind';
 import { withTransaction } from '../sql';
 import { safeJsonParseObject } from '../json';
 import type {
-  PersistEncounterXpBatchInput,
-  PersistEncounterXpBatchResult,
-  UpdateCharacterStatCacheInput
+	PersistEncounterXpBatchInput,
+	PersistEncounterXpBatchResult,
+	UpdateCharacterStatCacheInput
 } from '../types';
 import type {
-  Character,
-  CharacterStatEvent,
-  EncounterResolution,
-  EncounterXpAward,
-  StatKind
+	Character,
+	CharacterStatEvent,
+	EncounterResolution,
+	EncounterXpAward,
+	StatKind
 } from '$lib/types/schema';
 import type { AppDb } from './context';
 import { loadCharacterById } from './characters';
@@ -98,7 +98,10 @@ export function loadCharacterStatEvents(
 	return rows.map(mapStatEventRow);
 }
 
-export function insertCharacterStatEvent(database: AppDb, event: CharacterStatEvent): CharacterStatEvent {
+export function insertCharacterStatEvent(
+	database: AppDb,
+	event: CharacterStatEvent
+): CharacterStatEvent {
 	execSql(database, {
 		sql: `INSERT INTO character_stat_events (
 			stat_event_id, character_id, campaign_id, stat, delta, value_after,
@@ -128,7 +131,10 @@ export function insertCharacterStatEvent(database: AppDb, event: CharacterStatEv
 	return event;
 }
 
-export function updateCharacterStatCache(database: AppDb, input: UpdateCharacterStatCacheInput): Character {
+export function updateCharacterStatCache(
+	database: AppDb,
+	input: UpdateCharacterStatCacheInput
+): Character {
 	const rows = selectObjects<{
 		character_id: string;
 		campaign_id: string;
@@ -203,7 +209,10 @@ export function insertCharacterStatEvents(database: AppDb, events: CharacterStat
 	});
 }
 
-export function insertEncounterResolution(database: AppDb, resolution: EncounterResolution): EncounterResolution {
+export function insertEncounterResolution(
+	database: AppDb,
+	resolution: EncounterResolution
+): EncounterResolution {
 	execSql(database, {
 		sql: `INSERT INTO encounter_resolutions (
 			resolution_id, event_id, total_xp, split_mode, resolved_by_user_id, resolved_at
@@ -338,13 +347,13 @@ export function persistEncounterXpBatch(
 		applyStatChangesBatch(database, input.awards);
 	});
 
-  const characters = input.awards.map(
-    (award) => loadCharacterById(database, award.cache.character_id)!
-  );
+	const characters = input.awards.map(
+		(award) => loadCharacterById(database, award.cache.character_id)!
+	);
 
-  return {
-    resolution: input.resolution,
-    events: input.awards.map((award) => award.event),
-    characters
-  };
+	return {
+		resolution: input.resolution,
+		events: input.awards.map((award) => award.event),
+		characters
+	};
 }

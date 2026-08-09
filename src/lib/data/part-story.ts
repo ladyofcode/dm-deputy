@@ -1097,7 +1097,9 @@ export async function persistPartStoryItems(
 	storyItems: StoryItem[],
 	items: StoryItem[]
 ): Promise<StoryItem[]> {
-	const attachableIds = new Set(partCanvasAttachables(storyNodes, items).map((item) => item.item_id));
+	const attachableIds = new Set(
+		partCanvasAttachables(storyNodes, items).map((item) => item.item_id)
+	);
 	const previousAttachableIds = partCanvasAttachables(storyNodes, storyItems)
 		.map((item) => item.item_id)
 		.sort()

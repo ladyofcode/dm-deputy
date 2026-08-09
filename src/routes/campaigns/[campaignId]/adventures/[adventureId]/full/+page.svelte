@@ -1,10 +1,18 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button, Tooltip } from 'bits-ui';
 	import FullAdventureRewardSection from '$lib/components/adventure/FullAdventureRewardSection.svelte';
-	import StoryMapPreview from '$lib/components/part/StoryMapPreview.svelte';
-	import { getAdventureById, getCampaignById, getCharacterById, getPartsForAdventure } from '$lib/data';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import MediaThumb from '$lib/components/shared/MediaThumb.svelte';
+	import {
+		getAdventureById,
+		getCampaignById,
+		getCharacterById,
+		getPartsForAdventure
+	} from '$lib/data';
 	import { getReactiveNpcsForCampaign } from '$lib/stores/campaign-characters.svelte';
 	import { loadEncounterXpAwardsByEventIds } from '$lib/data/character-stats-persistence';
 	import { getInitialStoryItems, getInitialStoryNodes } from '$lib/data/part-story';
@@ -19,7 +27,6 @@
 	import { loadPartStory } from '$lib/db/client';
 	import { database } from '$lib/stores/database.svelte';
 	import { STORY_NODE_KIND_LABELS, type StoryItem } from '$lib/types/schema';
-
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const adventureId = $derived(page.params.adventureId ?? '');
@@ -38,7 +45,7 @@
 	});
 
 	let storyLoaded = $state(false);
-	let xpAwardsByNodeId = $state<Map<string, NodeXpAwardLine[]>>(new Map());
+	let xpAwardsByNodeId = new SvelteMap<string, NodeXpAwardLine[]>();
 
 	$effect(() => {
 		if (!database.isReady || parts.length === 0) {
@@ -63,7 +70,7 @@
 
 	$effect(() => {
 		if (!storyLoaded || !database.isReady) {
-			xpAwardsByNodeId = new Map();
+			xpAwardsByNodeId.clear();
 			return;
 		}
 
@@ -72,7 +79,7 @@
 		);
 
 		if (nodeIds.length === 0) {
-			xpAwardsByNodeId = new Map();
+			xpAwardsByNodeId.clear();
 			return;
 		}
 
@@ -82,18 +89,16 @@
 			if (cancelled) return;
 
 			const grouped = groupXpAwardsByEventId(awards);
-			const next = new Map<string, NodeXpAwardLine[]>();
 
+			xpAwardsByNodeId.clear();
 			for (const [eventId, eventAwards] of grouped) {
-				next.set(
+				xpAwardsByNodeId.set(
 					eventId,
 					buildNodeXpAwardLines(eventAwards, (characterId) => {
 						return getCharacterById(characterId)?.display_name ?? 'Unknown player';
 					})
 				);
 			}
-
-			xpAwardsByNodeId = next;
 		});
 
 		return () => {
@@ -141,92 +146,100 @@
 {#if database.isReady && (!campaign || !adventure)}
 	<section class="page-stack">
 		<h1>Adventure not found</h1>
-		<Button.Root href={resolve('/')}>Back to home</Button.Root>
+		<Button.Root href={resolve('/')} data-variant="plain">Back to home</Button.Root>
 	</section>
 {:else}
 	<section class="page-stack full-adventure-page">
 		<Tooltip.Provider delayDuration={200}>
-		<nav aria-label="Back to adventure">
-			<Button.Root href={resolve(`/campaigns/${campaignId}/adventures/${adventureId}`)}>
-				← Adventure
-			</Button.Root>
-		</nav>
+			<nav aria-label="Back to adventure">
+				<Button.Root
+					href={resolve(`/campaigns/${campaignId}/adventures/${adventureId}`)}
+					data-variant="plain"
+				>
+					← Adventure
+				</Button.Root>
+			</nav>
 
-		<div class="campaign-header campaign-header--centered">
-			<div class="adventure-heading">
-				<p class="eyebrow">{campaign?.campaign_name ?? ''}</p>
-				<h1>{adventure?.name ?? ''}</h1>
-				<p class="hint">Full adventure</p>
+			<div class="campaign-header campaign-header--centered">
+				<div class="adventure-heading">
+					<p class="eyebrow">{campaign?.campaign_name ?? ''}</p>
+					<h1>{adventure?.name ?? ''}</h1>
+					<p class="hint">Full adventure</p>
+				</div>
 			</div>
-		</div>
 
-		{#if adventure?.overview}
-			<p class="adventure-overview">{adventure.overview}</p>
-		{/if}
+			{#if adventure?.overview}
+				<p class="adventure-overview">{adventure.overview}</p>
+			{/if}
 
-		{#if adventure?.adventure_hook}
-			<blockquote>{adventure.adventure_hook}</blockquote>
-		{/if}
+			{#if adventure?.adventure_hook}
+				<blockquote>{adventure.adventure_hook}</blockquote>
+			{/if}
 
-		{#if !storyLoaded}
-			<p class="hint">Loading story…</p>
-		{:else if partBlocks.length === 0}
-			<p class="hint">No story nodes yet. Add parts and story nodes to build this view.</p>
-		{:else}
-			{#each partBlocks as block (block.part.part_id)}
-				<section class="part-block">
-					<h2>{block.part.title}</h2>
-					{#if block.part.summary}
-						<p class="part-summary">{block.part.summary}</p>
-					{/if}
+			{#if !storyLoaded}
+				<LoadingState message="Loading story…" />
+			{:else if partBlocks.length === 0}
+				<EmptyState message="No story nodes yet. Add parts and story nodes to build this view." />
+			{:else}
+				{#each partBlocks as block (block.part.part_id)}
+					<section class="part-block">
+						<h2>{block.part.title}</h2>
+						{#if block.part.summary}
+							<p class="part-summary">{block.part.summary}</p>
+						{/if}
 
-					{#each block.sections as section (section.node.node_id)}
-						<article class="node-section">
-							<header class="node-header">
-								<p class="eyebrow">{STORY_NODE_KIND_LABELS[section.node.kind]}</p>
-								<h3>{section.node.title}</h3>
-							</header>
+						{#each block.sections as section (section.node.node_id)}
+							<article class="node-section">
+								<header class="node-header">
+									<p class="eyebrow">{STORY_NODE_KIND_LABELS[section.node.kind]}</p>
+									<h3>{section.node.title}</h3>
+								</header>
 
-							<div class="node-narrative">
-								{#if section.node.summary.trim()}
-									<p class="node-summary">{section.node.summary}</p>
-								{/if}
-
-								{#each section.narrativeNotes as note (note.item_id)}
-									{#if note.note_text?.trim()}
-										<p class="node-note">{note.note_text}</p>
+								<div class="node-narrative">
+									{#if section.node.summary.trim()}
+										<p class="node-summary">{section.node.summary}</p>
 									{/if}
-								{/each}
 
-								{#if section.node.kind === 'encounter' && section.node.difficulty?.trim()}
-									<p class="node-meta">Difficulty: {section.node.difficulty}</p>
-								{/if}
+									{#each section.narrativeNotes as note (note.item_id)}
+										{#if note.note_text?.trim()}
+											<p class="node-note">{note.note_text}</p>
+										{/if}
+									{/each}
 
-								{#each section.contextItems as { item, kind } (item.item_id)}
-									{#if kind === 'note' && item.note_text?.trim()}
-										<p class="node-note">{item.note_text}</p>
-									{:else if kind === 'item'}
-										<p class="node-context">Item: {item.label}</p>
-									{:else if kind === 'npc'}
-										<p class="node-context">NPC: {contextLabel(item)}</p>
-									{:else if kind === 'money'}
-										<p class="node-context">Treasure: {contextLabel(item)}</p>
-									{:else if kind === 'map' && item.map_id}
-										<StoryMapPreview mapId={item.map_id} label={contextLabel(item)} />
+									{#if section.node.kind === 'encounter' && section.node.difficulty?.trim()}
+										<p class="node-meta">Difficulty: {section.node.difficulty}</p>
 									{/if}
-								{/each}
-							</div>
 
-							<FullAdventureRewardSection
-								{section}
-								{campaignId}
-								xpAwards={xpAwardsByNodeId.get(section.node.node_id) ?? []}
-							/>
-						</article>
-					{/each}
-				</section>
-			{/each}
-		{/if}
+									{#each section.contextItems as { item, kind } (item.item_id)}
+										{#if kind === 'note' && item.note_text?.trim()}
+											<p class="node-note">{item.note_text}</p>
+										{:else if kind === 'item'}
+											<p class="node-context">Item: {item.label}</p>
+										{:else if kind === 'npc'}
+											<p class="node-context">NPC: {contextLabel(item)}</p>
+										{:else if kind === 'money'}
+											<p class="node-context">Treasure: {contextLabel(item)}</p>
+										{:else if kind === 'map' && item.map_id}
+											<MediaThumb
+												variant="map"
+												mapId={item.map_id}
+												label={contextLabel(item)}
+												showCaption
+											/>
+										{/if}
+									{/each}
+								</div>
+
+								<FullAdventureRewardSection
+									{section}
+									{campaignId}
+									xpAwards={xpAwardsByNodeId.get(section.node.node_id) ?? []}
+								/>
+							</article>
+						{/each}
+					</section>
+				{/each}
+			{/if}
 		</Tooltip.Provider>
 	</section>
 {/if}

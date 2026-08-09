@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import { Button, Label } from 'bits-ui';
-	import { focusDraftRowInput } from '$lib/actions/focus-draft-row';
+	import DraftLinesForm from '$lib/components/shared/DraftLinesForm.svelte';
 	import { STORY_NODE_KIND_LABELS, type StoryNodeKind } from '$lib/types/schema';
+	import { createDraftLines } from '$lib/stores/draft-lines.svelte';
 
 	type StoryNodeLine = {
 		id: string;
@@ -15,31 +17,28 @@
 
 	let { onSave }: Props = $props();
 
-	let nodeLines = $state<StoryNodeLine[]>([
-		{ id: crypto.randomUUID(), title: '', kind: 'exploration' }
-	]);
+	const nodeDraft = createDraftLines<StoryNodeLine>(() => ({
+		id: crypto.randomUUID(),
+		title: '',
+		kind: 'exploration'
+	}));
+
 	let nodeTitleInputs = $state<Record<string, HTMLInputElement | undefined>>({});
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
-	function addNodeLine() {
-		nodeLines = [...nodeLines, { id: crypto.randomUUID(), title: '', kind: 'exploration' }];
-	}
-
 	async function handleNodeKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Enter') return;
-
-		event.preventDefault();
-		const newLine = { id: crypto.randomUUID(), title: '', kind: 'exploration' as const };
-		nodeLines = [...nodeLines, newLine];
-		await focusDraftRowInput(() => nodeTitleInputs[newLine.id]);
+		await nodeDraft.handleEnter(event, () => {
+			const newLine = nodeDraft.lines[nodeDraft.lines.length - 1];
+			return newLine ? nodeTitleInputs[newLine.id] : undefined;
+		});
 	}
 
 	async function saveNewNodes(event: SubmitEvent) {
 		event.preventDefault();
 		if (saving) return;
 
-		const lines = nodeLines
+		const lines = nodeDraft.lines
 			.map((line) => ({ title: line.title.trim(), kind: line.kind }))
 			.filter((line) => line.title.length > 0);
 
@@ -50,9 +49,9 @@
 
 		try {
 			await onSave?.(lines);
-			nodeLines = [{ id: crypto.randomUUID(), title: '', kind: 'exploration' }];
+			nodeDraft.reset();
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save story nodes';
+			error = formatErrorMessage(cause, 'Could not save story nodes');
 		} finally {
 			saving = false;
 		}
@@ -67,33 +66,29 @@
 		<form class="story-nodes-form" onsubmit={saveNewNodes}>
 			<div class="field">
 				<Label.Root>Story nodes</Label.Root>
-				<ul class="story-node-lines list-plain">
-					{#each nodeLines as line, index (line.id)}
-						<li class="story-node-line">
-							<input
-								bind:this={nodeTitleInputs[line.id]}
-								bind:value={line.title}
-								placeholder="Node title"
-								aria-label="Story node title"
-								onkeydown={handleNodeKeydown}
-							/>
-							<select bind:value={line.kind} aria-label="Story node type">
-								<option value="exploration">{STORY_NODE_KIND_LABELS.exploration}</option>
-								<option value="encounter">{STORY_NODE_KIND_LABELS.encounter}</option>
-							</select>
-							{#if index === nodeLines.length - 1}
-								<Button.Root
-									type="button"
-									data-variant="icon"
-									onclick={addNodeLine}
-									aria-label="Add story node line"
-								>
-									+
-								</Button.Root>
-							{/if}
-						</li>
-					{/each}
-				</ul>
+				<DraftLinesForm
+					lines={nodeDraft.lines}
+					listClass="story-node-lines list-plain"
+					lineClass="story-node-line"
+					onRemove={nodeDraft.remove}
+					onAdd={nodeDraft.add}
+					showRemove={() => false}
+				>
+					{#snippet row({ line })}
+						{@const nodeLine = line as StoryNodeLine}
+						<input
+							bind:this={nodeTitleInputs[nodeLine.id]}
+							bind:value={nodeLine.title}
+							placeholder="Node title"
+							aria-label="Story node title"
+							onkeydown={handleNodeKeydown}
+						/>
+						<select bind:value={nodeLine.kind} aria-label="Story node type">
+							<option value="exploration">{STORY_NODE_KIND_LABELS.exploration}</option>
+							<option value="encounter">{STORY_NODE_KIND_LABELS.encounter}</option>
+						</select>
+					{/snippet}
+				</DraftLinesForm>
 			</div>
 
 			<div class="story-nodes-form-submit">
@@ -115,7 +110,10 @@
 		z-index: 5;
 		display: grid;
 		place-items: center;
-		padding: var(--space-page);
+		padding: calc(var(--space-page) + env(safe-area-inset-top, 0px))
+			calc(var(--space-page) + env(safe-area-inset-right, 0px))
+			calc(var(--space-page) + env(safe-area-inset-bottom, 0px))
+			calc(var(--space-page) + env(safe-area-inset-left, 0px));
 		pointer-events: none;
 	}
 
@@ -123,7 +121,7 @@
 		width: min(100%, 32rem);
 		padding: var(--space-page);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-panel, 0.75rem);
+		border-radius: var(--radius-panel);
 		background: var(--color-surface);
 		box-shadow: 0 12px 40px var(--color-shadow);
 		pointer-events: auto;

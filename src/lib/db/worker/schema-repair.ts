@@ -182,6 +182,14 @@ function repairCharacterSheetColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'characters', 'thumb_blob', 'BLOB');
 	addColumnIfMissing(database, 'characters', 'full_blob', 'BLOB');
 	addColumnIfMissing(database, 'characters', 'image_source', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'presentation_mime_type', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'presentation_width', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'presentation_height', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'presentation_thumb_width', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'presentation_thumb_height', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'presentation_image_source', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'presentation_thumb_blob', 'BLOB');
+	addColumnIfMissing(database, 'characters', 'presentation_full_blob', 'BLOB');
 	addColumnIfMissing(database, 'characters', 'presentation', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'creature_type', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'armor_class', 'INTEGER');

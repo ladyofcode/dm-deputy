@@ -63,6 +63,13 @@ export type Part = {
 	sort_order: number;
 };
 
+export type PartNpc = {
+	part_npc_id: string;
+	part_id: string;
+	character_id: string;
+	date_added: string;
+};
+
 export type StoryNodeKind = 'encounter' | 'exploration';
 
 export const STORY_NODE_KIND_LABELS: Record<StoryNodeKind, string> = {
@@ -217,11 +224,21 @@ export type Character = {
 	thumb_width: number | null;
 	thumb_height: number | null;
 	image_source: string | null;
+	presentation_mime_type: string | null;
+	presentation_width: number | null;
+	presentation_height: number | null;
+	presentation_thumb_width: number | null;
+	presentation_thumb_height: number | null;
+	presentation_image_source: string | null;
 	date_deleted: string | null;
 };
 
 export function characterHasPortrait(character: Character | undefined): boolean {
 	return Boolean(character?.mime_type);
+}
+
+export function characterHasPresentationImage(character: Character | undefined): boolean {
+	return Boolean(character?.presentation_mime_type);
 }
 
 export type StatKind = 'experience' | 'hp_current' | 'hp_max';

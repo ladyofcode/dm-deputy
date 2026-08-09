@@ -31,6 +31,18 @@ export type PartStorySnapshot = {
 	nodeLayout: PartNodeLayout | null;
 	itemLayout: PartItemLayout | null;
 	items: StoryItem[] | null;
+	partNpcs: import('$lib/types/schema').PartNpc[] | null;
+};
+
+export type AddPartNpcInput = {
+	part_id: string;
+	character_id: string;
+	part_npc_id: string;
+	date_added: string;
+};
+
+export type AddPartNpcResult = {
+	partNpc: import('$lib/types/schema').PartNpc;
 };
 
 export type InitResult = {
@@ -250,7 +262,18 @@ export type UpdateCharacterPortraitInput = {
 	image_source?: string | null;
 };
 
+export type UpdateCharacterPresentationInput = {
+	character_id: string;
+	presentation_mime_type: string;
+	presentation_width: number;
+	presentation_height: number;
+	presentation_thumb_width: number;
+	presentation_thumb_height: number;
+	presentation_image_source?: string | null;
+};
+
 export type LoadCharacterPortraitBlobArgs = [string, 'thumb' | 'full'];
+export type LoadCharacterPresentationBlobArgs = [string, 'thumb' | 'full'];
 
 export type UpdateCharacterStatCacheInput = {
 	character_id: string;
@@ -357,6 +380,8 @@ export type WorkerRequest =
 	| { id: number; method: 'savePartItemLayout'; args: [string, PartItemLayout] }
 	| { id: number; method: 'savePartStoryItems'; args: [string, StoryItem[]] }
 	| { id: number; method: 'savePartStory'; args: [SavePartStoryInput] }
+	| { id: number; method: 'addPartNpc'; args: [AddPartNpcInput] }
+	| { id: number; method: 'removePartNpc'; args: [string, string] }
 	| { id: number; method: 'createCampaign'; args: [CreateCampaignInput] }
 	| { id: number; method: 'createAdventure'; args: [CreateAdventureInput] }
 	| { id: number; method: 'syncAdventureParts'; args: [string, import('$lib/types/schema').Part[]] }
@@ -392,22 +417,31 @@ export type WorkerRequest =
 	| { id: number; method: 'loadCampaignMapBlob'; args: LoadCampaignMapBlobArgs }
 	| { id: number; method: 'createCampaignCharacter'; args: [CreateCampaignCharacterInput] }
 	| { id: number; method: 'updateCampaignCharacter'; args: [UpdateCampaignCharacterInput] }
-	| { id: number; method: 'loadCharacterStatEvents'; args: [string, import('$lib/types/schema').StatKind | null] }
-	| { id: number; method: 'insertCharacterStatEvent'; args: [import('$lib/types/schema').CharacterStatEvent] }
+	| {
+			id: number;
+			method: 'loadCharacterStatEvents';
+			args: [string, import('$lib/types/schema').StatKind | null];
+	  }
+	| {
+			id: number;
+			method: 'insertCharacterStatEvent';
+			args: [import('$lib/types/schema').CharacterStatEvent];
+	  }
 	| {
 			id: number;
 			method: 'insertCharacterStatEventAndUpdateCache';
-			args: [
-				import('$lib/types/schema').CharacterStatEvent,
-				UpdateCharacterStatCacheInput
-			];
+			args: [import('$lib/types/schema').CharacterStatEvent, UpdateCharacterStatCacheInput];
 	  }
 	| {
 			id: number;
 			method: 'insertCharacterStatEvents';
 			args: [import('$lib/types/schema').CharacterStatEvent[]];
 	  }
-	| { id: number; method: 'insertEncounterResolution'; args: [import('$lib/types/schema').EncounterResolution] }
+	| {
+			id: number;
+			method: 'insertEncounterResolution';
+			args: [import('$lib/types/schema').EncounterResolution];
+	  }
 	| {
 			id: number;
 			method: 'persistEncounterXpBatch';
@@ -428,7 +462,15 @@ export type WorkerRequest =
 			method: 'updateCharacterPortrait';
 			args: [UpdateCharacterPortraitInput, ArrayBuffer, ArrayBuffer];
 	  }
+	| { id: number; method: 'updateCharacterPortraitSource'; args: [string, string | null] }
+	| {
+			id: number;
+			method: 'updateCharacterPresentation';
+			args: [UpdateCharacterPresentationInput, ArrayBuffer, ArrayBuffer];
+	  }
+	| { id: number; method: 'updateCharacterPresentationSource'; args: [string, string | null] }
 	| { id: number; method: 'loadCharacterPortraitBlob'; args: LoadCharacterPortraitBlobArgs }
+	| { id: number; method: 'loadCharacterPresentationBlob'; args: LoadCharacterPresentationBlobArgs }
 	| { id: number; method: 'addCampaignPlayer'; args: [AddCampaignPlayerInput] }
 	| { id: number; method: 'removeCampaignPlayer'; args: [string, string] }
 	| { id: number; method: 'addCampaignPcToCampaign'; args: [AddCampaignPcToCampaignInput] }

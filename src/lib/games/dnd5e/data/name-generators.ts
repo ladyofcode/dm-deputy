@@ -363,12 +363,33 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['Darvin', 'Dorn', 'Evendur', 'Gorstag', 'Grim', 'Helm', 'Malark', 'Morn', 'Randal', 'Stedd']
+				names: [
+					'Darvin',
+					'Dorn',
+					'Evendur',
+					'Gorstag',
+					'Grim',
+					'Helm',
+					'Malark',
+					'Morn',
+					'Randal',
+					'Stedd'
+				]
 			},
 			{
 				id: 'female',
 				label: 'Female',
-				names: ['Arveene', 'Esvele', 'Jhessail', 'Kerri', 'Lureene', 'Miri', 'Rowan', 'Shandri', 'Tessele']
+				names: [
+					'Arveene',
+					'Esvele',
+					'Jhessail',
+					'Kerri',
+					'Lureene',
+					'Miri',
+					'Rowan',
+					'Shandri',
+					'Tessele'
+				]
 			},
 			{
 				id: 'surname',
@@ -384,7 +405,19 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['Bor', 'Fodel', 'Glar', 'Grigor', 'Igan', 'Ivor', 'Kosef', 'Mival', 'Orel', 'Pavel', 'Sergor']
+				names: [
+					'Bor',
+					'Fodel',
+					'Glar',
+					'Grigor',
+					'Igan',
+					'Ivor',
+					'Kosef',
+					'Mival',
+					'Orel',
+					'Pavel',
+					'Sergor'
+				]
 			},
 			{
 				id: 'female',
@@ -405,7 +438,19 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['Ander', 'Blath', 'Bran', 'Frath', 'Geth', 'Lander', 'Luth', 'Malcer', 'Stor', 'Taman', 'Urth']
+				names: [
+					'Ander',
+					'Blath',
+					'Bran',
+					'Frath',
+					'Geth',
+					'Lander',
+					'Luth',
+					'Malcer',
+					'Stor',
+					'Taman',
+					'Urth'
+				]
 			},
 			{
 				id: 'female',
@@ -426,12 +471,32 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['Aoth', 'Bareris', 'Ehput-Ki', 'Kethoth', 'Mumed', 'Ramas', 'So-Kehur', 'Thazar-De', 'Urhur']
+				names: [
+					'Aoth',
+					'Bareris',
+					'Ehput-Ki',
+					'Kethoth',
+					'Mumed',
+					'Ramas',
+					'So-Kehur',
+					'Thazar-De',
+					'Urhur'
+				]
 			},
 			{
 				id: 'female',
 				label: 'Female',
-				names: ['Arizima', 'Chathi', 'Nephis', 'Nulara', 'Murithi', 'Sefris', 'Thola', 'Umara', 'Zolis']
+				names: [
+					'Arizima',
+					'Chathi',
+					'Nephis',
+					'Nulara',
+					'Murithi',
+					'Sefris',
+					'Thola',
+					'Umara',
+					'Zolis'
+				]
 			},
 			{
 				id: 'surname',
@@ -447,12 +512,30 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['Borivik', 'Faurgar', 'Jandar', 'Kanithar', 'Madislak', 'Ralmevik', 'Shaumar', 'Vladislak']
+				names: [
+					'Borivik',
+					'Faurgar',
+					'Jandar',
+					'Kanithar',
+					'Madislak',
+					'Ralmevik',
+					'Shaumar',
+					'Vladislak'
+				]
 			},
 			{
 				id: 'female',
 				label: 'Female',
-				names: ['Fyevarra', 'Hulmarra', 'Immith', 'Imzel', 'Navarra', 'Shevarra', 'Tammith', 'Yuldra']
+				names: [
+					'Fyevarra',
+					'Hulmarra',
+					'Immith',
+					'Imzel',
+					'Navarra',
+					'Shevarra',
+					'Tammith',
+					'Yuldra'
+				]
 			},
 			{
 				id: 'surname',
@@ -469,7 +552,21 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['An', 'Chen', 'Chi', 'Fai', 'Jiang', 'Jun', 'Lian', 'Long', 'Meng', 'On', 'Shan', 'Shui', 'Wen']
+				names: [
+					'An',
+					'Chen',
+					'Chi',
+					'Fai',
+					'Jiang',
+					'Jun',
+					'Lian',
+					'Long',
+					'Meng',
+					'On',
+					'Shan',
+					'Shui',
+					'Wen'
+				]
 			},
 			{
 				id: 'female',
@@ -479,7 +576,20 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'surname',
 				label: 'Surname',
-				names: ['Chien', 'Huang', 'Kao', 'Kung', 'Lao', 'Ling', 'Mei', 'Pin', 'Shin', 'Sum', 'Tan', 'Wan']
+				names: [
+					'Chien',
+					'Huang',
+					'Kao',
+					'Kung',
+					'Lao',
+					'Ling',
+					'Mei',
+					'Pin',
+					'Shin',
+					'Sum',
+					'Tan',
+					'Wan'
+				]
 			}
 		]
 	},
@@ -491,12 +601,33 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'male',
 				label: 'Male',
-				names: ['Darvin', 'Dorn', 'Evendur', 'Gorstag', 'Grim', 'Helm', 'Malark', 'Morn', 'Randal', 'Stedd']
+				names: [
+					'Darvin',
+					'Dorn',
+					'Evendur',
+					'Gorstag',
+					'Grim',
+					'Helm',
+					'Malark',
+					'Morn',
+					'Randal',
+					'Stedd'
+				]
 			},
 			{
 				id: 'female',
 				label: 'Female',
-				names: ['Arveene', 'Esvele', 'Jhessail', 'Kerri', 'Lureene', 'Miri', 'Rowan', 'Shandri', 'Tessele']
+				names: [
+					'Arveene',
+					'Esvele',
+					'Jhessail',
+					'Kerri',
+					'Lureene',
+					'Miri',
+					'Rowan',
+					'Shandri',
+					'Tessele'
+				]
 			},
 			{
 				id: 'surname',
@@ -522,7 +653,16 @@ export const HUMAN_ETHNICITIES: readonly HumanEthnicity[] = [
 			{
 				id: 'surname',
 				label: 'Surname',
-				names: ['Agosto', 'Astorio', 'Calabra', 'Domine', 'Falone', 'Marivaldi', 'Pisacar', 'Ramondo']
+				names: [
+					'Agosto',
+					'Astorio',
+					'Calabra',
+					'Domine',
+					'Falone',
+					'Marivaldi',
+					'Pisacar',
+					'Ramondo'
+				]
 			}
 		]
 	}
@@ -567,10 +707,7 @@ export function getRaceNameGeneratorForSpecies(speciesName: string): RaceNameGen
 	);
 }
 
-export function buildFullName(
-	parts: readonly string[],
-	surnameFirst = false
-): string {
+export function buildFullName(parts: readonly string[], surnameFirst = false): string {
 	const filtered = parts.map((part) => part.trim()).filter(Boolean);
 	if (filtered.length === 0) return '';
 

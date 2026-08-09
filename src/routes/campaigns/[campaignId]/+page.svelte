@@ -6,11 +6,11 @@
 	import CampaignNpcsSection from '$lib/components/campaign/CampaignNpcsSection.svelte';
 	import CampaignPcsSection from '$lib/components/campaign/CampaignPcsSection.svelte';
 	import CampaignSettingsModal from '$lib/components/campaign/CampaignSettingsModal.svelte';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import { getAdventuresForCampaign } from '$lib/data';
 	import { resolveSessionZeroHref } from '$lib/navigation/hrefs';
 	import { getReactiveCampaignById } from '$lib/stores/campaign-list.svelte';
 	import { database } from '$lib/stores/database.svelte';
-
 
 	const campaignId = $derived(page.params.campaignId ?? '');
 	const campaign = $derived.by(() => {
@@ -30,12 +30,12 @@
 {#if database.isReady && !campaign}
 	<section class="page-stack campaign-page">
 		<h1>Campaign not found</h1>
-		<Button.Root href={resolve('/')}>Back to home</Button.Root>
+		<Button.Root href={resolve('/')} data-variant="plain">Back to home</Button.Root>
 	</section>
 {:else}
 	<section class="page-stack campaign-page">
 		<nav aria-label="Back to home">
-			<Button.Root href={resolve('/')}>←</Button.Root>
+			<Button.Root href={resolve('/')} data-variant="plain">←</Button.Root>
 		</nav>
 
 		<header class="campaign-page-header">
@@ -69,12 +69,14 @@
 
 			<ul class="adventure-list list-plain">
 				<li>
-					<a class="adventure-link" href={resolveSessionZeroHref(campaignId)}>Session 0</a>
+					<a class="card-link card-link-block" href={resolveSessionZeroHref(campaignId)}
+						>Session 0</a
+					>
 				</li>
 				{#each adventures as adventure (adventure.adventure_id)}
 					<li>
 						<a
-							class="adventure-link"
+							class="card-link card-link-block"
 							href={resolve(`/campaigns/${campaignId}/adventures/${adventure.adventure_id}`)}
 						>
 							{adventure.name}
@@ -83,7 +85,7 @@
 				{/each}
 			</ul>
 			{#if adventures.length === 0}
-				<p class="hint">No adventures yet.</p>
+				<EmptyState message="No adventures yet." />
 			{/if}
 		</section>
 
@@ -117,7 +119,6 @@
 
 	.campaign-description {
 		margin: 0.75rem 0 0;
-		max-width: 42rem;
 		line-height: 1.5;
 	}
 
@@ -140,22 +141,5 @@
 	.adventure-list {
 		display: grid;
 		gap: 0.5rem;
-	}
-
-	.adventure-link {
-		display: block;
-		padding: 0.75rem 1rem;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		text-decoration: none;
-		color: inherit;
-		font-weight: 600;
-		box-shadow: 0 1px 2px var(--color-shadow);
-	}
-
-	.adventure-link:hover {
-		border-color: var(--color-accent);
-		color: var(--color-accent);
 	}
 </style>

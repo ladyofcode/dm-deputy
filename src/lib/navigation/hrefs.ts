@@ -8,6 +8,16 @@ export function resolveSessionZeroHref(campaignId: string) {
 	return resolve('/campaigns/[campaignId]/session-0', { campaignId });
 }
 
-export function resolveCharacterHref(campaignId: string, characterId: string) {
-	return resolve('/campaigns/[campaignId]/characters/[characterId]', { campaignId, characterId });
+export function resolveCharacterHref(characterId: string) {
+	return resolve('/library/characters/[characterId]', { characterId });
+}
+
+export function resolveTemplateHref(templateId: string) {
+	return resolve('/templates/[templateId]', { templateId });
+}
+
+export function resolveLibraryCharactersHref(options?: { section?: 'templates' }) {
+	return options?.section === 'templates'
+		? resolve('/library/players#templates')
+		: resolve('/library/players');
 }

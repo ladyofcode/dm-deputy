@@ -1,21 +1,21 @@
 import { execSql, selectObjects } from '../bind';
 import { withTransaction } from '../sql';
 import {
-  parseSessionZeroJson,
-  serializeSessionZeroJson,
-  trimSessionZeroAnswers
+	parseSessionZeroJson,
+	serializeSessionZeroJson,
+	trimSessionZeroAnswers
 } from '$lib/domain/session-zero-questions';
 import type {
-  AddCampaignPcToCampaignInput,
-  AddCampaignPcToCampaignResult,
-  AddCampaignPlayerInput,
-  AddCampaignPlayerResult,
-  CampaignSnapshot,
-  CreateAdventureInput,
-  CreateCampaignInput,
-  CreateCampaignPlayerInput,
-  UpdateCampaignDetailsInput,
-  UpdateSessionZeroAnswersInput
+	AddCampaignPcToCampaignInput,
+	AddCampaignPcToCampaignResult,
+	AddCampaignPlayerInput,
+	AddCampaignPlayerResult,
+	CampaignSnapshot,
+	CreateAdventureInput,
+	CreateCampaignInput,
+	CreateCampaignPlayerInput,
+	UpdateCampaignDetailsInput,
+	UpdateSessionZeroAnswersInput
 } from '../types';
 import type { CampaignSessionZero, Character, Part } from '$lib/types/schema';
 import { isNpcCharacterKind, normalizeCharacterKind } from '$lib/types/schema';
@@ -24,12 +24,13 @@ import { mapCharacterRow, loadCharacterById } from './characters';
 import { loadCampaignMapsMetadata } from './maps';
 
 export function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
-	const users = selectObjects<CampaignSnapshot['users'][number]>(database, 'SELECT * FROM users').map(
-		(user) => ({
-			...user,
-			date_deleted: user.date_deleted ?? null
-		})
-	);
+	const users = selectObjects<CampaignSnapshot['users'][number]>(
+		database,
+		'SELECT * FROM users'
+	).map((user) => ({
+		...user,
+		date_deleted: user.date_deleted ?? null
+	}));
 	const campaigns = selectObjects<CampaignSnapshot['campaigns'][number]>(
 		database,
 		'SELECT * FROM campaigns'
@@ -62,7 +63,17 @@ export function loadCampaignSnapshot(database: AppDb): CampaignSnapshot {
 	const maps = loadCampaignMapsMetadata(database);
 	const sessionZero = loadCampaignSessionZero(database);
 
-	return { users, campaigns, campaignMembers, campaignNpcs, adventures, parts, characters, maps, sessionZero };
+	return {
+		users,
+		campaigns,
+		campaignMembers,
+		campaignNpcs,
+		adventures,
+		parts,
+		characters,
+		maps,
+		sessionZero
+	};
 }
 
 export function loadCampaignSessionZero(database: AppDb): CampaignSessionZero[] {
@@ -70,16 +81,18 @@ export function loadCampaignSessionZero(database: AppDb): CampaignSessionZero[] 
 		campaign_id: string;
 		answers_json: string;
 		date_updated: string;
-	}>(database, 'SELECT campaign_id, answers_json, date_updated FROM campaign_session_zero').map((row) => {
-		const state = parseSessionZeroJson(row.answers_json);
+	}>(database, 'SELECT campaign_id, answers_json, date_updated FROM campaign_session_zero').map(
+		(row) => {
+			const state = parseSessionZeroJson(row.answers_json);
 
-		return {
-			campaign_id: row.campaign_id,
-			answers: state.answers,
-			activeQuestionIds: state.activeQuestionIds,
-			date_updated: row.date_updated
-		};
-	});
+			return {
+				campaign_id: row.campaign_id,
+				answers: state.answers,
+				activeQuestionIds: state.activeQuestionIds,
+				date_updated: row.date_updated
+			};
+		}
+	);
 }
 
 export function deletePartsCascade(database: AppDb, partIds: string[]): void {
@@ -226,7 +239,11 @@ export function addCampaignPlayer(
 	};
 }
 
-export function removeCampaignPlayer(database: AppDb, campaignId: string, characterId: string): void {
+export function removeCampaignPlayer(
+	database: AppDb,
+	campaignId: string,
+	characterId: string
+): void {
 	const members = selectObjects<{
 		player_id: string;
 		character_id: string | null;
@@ -411,7 +428,11 @@ export function createAdventure(database: AppDb, input: CreateAdventureInput): v
 	});
 }
 
-export function updateAdventurePromote(database: AppDb, adventureId: string, canPromote: boolean): void {
+export function updateAdventurePromote(
+	database: AppDb,
+	adventureId: string,
+	canPromote: boolean
+): void {
 	execSql(database, {
 		sql: `UPDATE adventures
 			SET can_promote_to_campaign = $can_promote_to_campaign

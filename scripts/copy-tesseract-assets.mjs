@@ -14,10 +14,7 @@ const corePkgDir = path.dirname(
 
 const copies = [
 	[path.join(tesseractPkgDir, 'dist/worker.min.js'), path.join(staticDir, 'worker.min.js')],
-	[
-		path.join(corePkgDir, 'tesseract-core.wasm.js'),
-		path.join(staticDir, 'tesseract-core.wasm.js')
-	],
+	[path.join(corePkgDir, 'tesseract-core.wasm.js'), path.join(staticDir, 'tesseract-core.wasm.js')],
 	[path.join(corePkgDir, 'tesseract-core.wasm'), path.join(staticDir, 'tesseract-core.wasm')]
 ];
 

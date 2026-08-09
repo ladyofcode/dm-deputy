@@ -42,6 +42,9 @@ import {
 	updateAdventurePromoteInDb,
 	updateCampaignCharacterInDb,
 	updateCharacterPortraitInDb,
+	updateCharacterPortraitSourceInDb,
+	updateCharacterPresentationInDb,
+	updateCharacterPresentationSourceInDb,
 	updateCharacterStatCacheInDb,
 	updateCampaignDetailsInDb,
 	updateAdventureShorthandInDb,
@@ -79,29 +82,34 @@ import {
 	getStoredCampaignTheme,
 	getStoredUserTheme
 } from '$lib/themes/storage';
-import { getCampaignById, getCampaigns, getCharacterById, getPlayerUsernameForCharacter, getPlayerUserIdForCharacter, getUserById } from '$lib/data';
+import {
+	getCampaignById,
+	getCampaigns,
+	getCharacterById,
+	getPlayerUsernameForCharacter,
+	getPlayerUserIdForCharacter,
+	getUserById
+} from '$lib/data';
 import { persistCharacterSheetStatChanges } from '$lib/data/character-stats-persistence';
 import { preferences } from '$lib/stores/preferences.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
 import { processMapUpload } from '$lib/domain/map-image';
 import { revokeCampaignMapObjectUrls } from '$lib/data/map-blob-cache';
-import {
-	revokeCharacterPortraitObjectUrls
-} from '$lib/data/character-blob-cache';
+import { revokeCharacterPortraitObjectUrls } from '$lib/data/character-blob-cache';
+import { revokeCharacterPresentationObjectUrls } from '$lib/data/character-presentation-blob-cache';
 import { processCharacterPortraitUpload } from '$lib/domain/character-portrait';
 import {
 	characterToIdentityDraft,
-	characterToNpcExtrasDraft,
+	characterToCharacterExtrasDraft,
 	type CharacterIdentityDraft,
 	type NpcDraftLine,
-	type NpcExtrasDraft
+	type CharacterExtrasDraft
 } from '$lib/domain/npc-draft';
-import { spellcastingDraftToDbFields } from '$lib/domain/spellcasting';
+import { persistPendingCharacterMedia } from '$lib/domain/character-media';
 import {
-	physicalDraftToDbFields,
-	roleplayDraftToDbFields,
-	vitalityDraftToDbFields
-} from '$lib/domain/pc-sheet';
+	extrasDraftToDbFields,
+	identityDraftToDbFields
+} from '$lib/domain/character-sheet-persistence';
 import type { PromoteAdventureOptions } from '$lib/domain/promote-adventure';
 import { bumpCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
 
@@ -180,6 +188,12 @@ function createOnboardingPcCharacter(
 		thumb_width: null,
 		thumb_height: null,
 		image_source: null,
+		presentation_mime_type: null,
+		presentation_width: null,
+		presentation_height: null,
+		presentation_thumb_width: null,
+		presentation_thumb_height: null,
+		presentation_image_source: null,
 		date_deleted: null
 	};
 }
@@ -502,44 +516,6 @@ export async function removeCampaignMap(mapId: string): Promise<void> {
 	revokeCampaignMapObjectUrls(mapId);
 }
 
-function identityDraftToDbFields(identity: CharacterIdentityDraft) {
-	return {
-		race: identity.race.trim() || null,
-		creature_type: identity.creature_type.trim() || null,
-		alignment: identity.alignment.trim() || null,
-		age: identity.age.trim() || null,
-		class_name: identity.class_name.trim() || null,
-		presentation: identity.presentation.trim() || null
-	};
-}
-
-function extrasDraftToDbFields(extras: NpcExtrasDraft) {
-	const { abilities, combat, spellcasting, physical, roleplay, vitality } = extras;
-
-	return {
-		armor_class: combat.armor_class > 0 ? combat.armor_class : null,
-		armor_class_notes: combat.armor_class_notes.trim() || null,
-		speed: combat.speed.trim() || null,
-		hp_dice: combat.hp_dice.trim() || null,
-		ability_str: abilities.str,
-		ability_dex: abilities.dex,
-		ability_con: abilities.con,
-		ability_int: abilities.int,
-		ability_wis: abilities.wis,
-		ability_cha: abilities.cha,
-		skills: combat.skills.trim() || null,
-		senses: combat.senses.trim() || null,
-		languages: combat.languages.trim() || null,
-		challenge_rating: combat.challenge_rating.trim() || null,
-		traits: combat.traits.trim() || null,
-		actions: combat.actions.trim() || null,
-		...spellcastingDraftToDbFields(spellcasting),
-		...physicalDraftToDbFields(physical),
-		...roleplayDraftToDbFields(roleplay),
-		...vitalityDraftToDbFields(vitality)
-	};
-}
-
 function npcDraftToCreateInput(
 	campaignId: string,
 	createdByUserId: string,
@@ -587,15 +563,19 @@ export async function persistCampaignNpc(
 		});
 	}
 
-	if (line.portraitFile) {
-		return persistCharacterPortrait(
-			character.character_id,
-			line.portraitFile,
-			line.portraitImageSource
-		);
+	let saved = character;
+
+	if (line.portraitFile || line.presentationFile) {
+		await persistPendingCharacterMedia(character.character_id, {
+			portraitFile: line.portraitFile,
+			portraitImageSource: line.portraitImageSource,
+			presentationFile: line.presentationFile,
+			presentationImageSource: line.presentationImageSource
+		});
+		saved = getCharacterById(character.character_id) ?? character;
 	}
 
-	return character;
+	return saved;
 }
 
 export async function persistCharacterPortrait(
@@ -623,6 +603,52 @@ export async function persistCharacterPortrait(
 	return getCharacterById(characterId) ?? character;
 }
 
+export async function persistCharacterPresentation(
+	characterId: string,
+	file: File,
+	imageSource: string | null = null
+): Promise<Character> {
+	const processed = await processCharacterPortraitUpload(file);
+	const character = await updateCharacterPresentationInDb(
+		{
+			character_id: characterId,
+			presentation_mime_type: processed.mime_type,
+			presentation_width: processed.portrait_width,
+			presentation_height: processed.portrait_height,
+			presentation_thumb_width: processed.thumb_width,
+			presentation_thumb_height: processed.thumb_height,
+			presentation_image_source: imageSource
+		},
+		processed.thumbBuffer,
+		processed.fullBuffer
+	);
+
+	revokeCharacterPresentationObjectUrls(characterId);
+	mergeCharacterIntoCache(character);
+	return getCharacterById(characterId) ?? character;
+}
+
+export async function persistCharacterPortraitSource(
+	characterId: string,
+	imageSource: string | null
+): Promise<Character> {
+	const character = await updateCharacterPortraitSourceInDb(characterId, imageSource);
+	mergeCharacterIntoCache(character);
+	return getCharacterById(characterId) ?? character;
+}
+
+export async function persistCharacterPresentationSource(
+	characterId: string,
+	presentationImageSource: string | null
+): Promise<Character> {
+	const character = await updateCharacterPresentationSourceInDb(
+		characterId,
+		presentationImageSource
+	);
+	mergeCharacterIntoCache(character);
+	return getCharacterById(characterId) ?? character;
+}
+
 export async function persistCampaignNpcs(
 	campaignId: string,
 	createdByUserId: string,
@@ -638,7 +664,7 @@ export async function persistCampaignNpcs(
 	return saved;
 }
 
-function npcExtrasToLoadout(extras: NpcExtrasDraft) {
+function npcExtrasToLoadout(extras: CharacterExtrasDraft) {
 	return {
 		weapon_ids: extras.loadout.weapons.filter(Boolean),
 		armor_ids: extras.loadout.armor ? [extras.loadout.armor] : [],
@@ -672,7 +698,7 @@ export async function updateCampaignCharacter(
 		playerName?: string;
 		description?: string;
 		identity: CharacterIdentityDraft;
-		extras: NpcExtrasDraft;
+		extras: CharacterExtrasDraft;
 	}
 ): Promise<Character> {
 	const existing = getCharacterById(characterId);
@@ -744,7 +770,7 @@ export async function loadCharacterSheetDraft(character: Character): Promise<{
 	playerName: string;
 	description: string;
 	identity: CharacterIdentityDraft;
-	extras: NpcExtrasDraft;
+	extras: CharacterExtrasDraft;
 }> {
 	const loadout = await loadCharacterLoadoutInDb(character.character_id);
 
@@ -752,12 +778,10 @@ export async function loadCharacterSheetDraft(character: Character): Promise<{
 		kind: character.kind,
 		name: character.display_name,
 		playerName:
-			character.kind === 'pc'
-				? (getPlayerUsernameForCharacter(character.character_id) ?? '')
-				: '',
+			character.kind === 'pc' ? (getPlayerUsernameForCharacter(character.character_id) ?? '') : '',
 		description: character.notes ?? '',
 		identity: characterToIdentityDraft(character),
-		extras: characterToNpcExtrasDraft(character, loadout)
+		extras: characterToCharacterExtrasDraft(character, loadout)
 	};
 }
 
@@ -840,10 +864,7 @@ export async function softDeleteNpcFromLibrary(characterId: string): Promise<voi
 	softDeleteNpcInCache(characterId, deletedAt);
 }
 
-export async function removeCampaignPlayer(
-	campaignId: string,
-	characterId: string
-): Promise<void> {
+export async function removeCampaignPlayer(campaignId: string, characterId: string): Promise<void> {
 	await removeCampaignPlayerInDb(campaignId, characterId);
 	removeCampaignPlayerFromCache(campaignId, characterId);
 }

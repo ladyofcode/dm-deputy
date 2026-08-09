@@ -1,9 +1,9 @@
 import type { AbilityScores, NpcCharacterKind } from '$lib/types/schema';
-import type { CharacterIdentityDraft, NpcExtrasDraft } from '$lib/domain/npc-draft';
+import type { CharacterIdentityDraft, CharacterExtrasDraft } from '$lib/domain/npc-draft';
 import {
 	createDefaultCharacterCombat,
 	createDefaultCharacterIdentity,
-	createDefaultNpcExtras
+	createDefaultCharacterExtras
 } from '$lib/domain/npc-draft';
 import { createEmptyCharacterSpellDraft } from '$lib/domain/spellcasting';
 
@@ -27,6 +27,7 @@ export type MonsterTemplate = {
 	traits: string;
 	actions: string;
 	presentation?: string;
+	notes?: string;
 	weapon_names?: string[];
 	armor_name?: string;
 	image_url?: string;
@@ -381,8 +382,7 @@ Fire Ray. Ranged Spell Attack: +5 to hit, range 30 ft., one target. Hit: 10 (3d6
 		languages: 'Common',
 		challenge_rating: '1',
 		experience: 200,
-		traits:
-			'Damage Immunities poison. Condition Immunities charmed, poisoned.',
+		traits: 'Damage Immunities poison. Condition Immunities charmed, poisoned.',
 		actions: `Bite. Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 9 (2d6 + 2) piercing damage.
 
 Claws. Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) slashing damage. If the target is a creature other than an elf or undead, it must succeed on a DC 10 Constitution saving throw or be paralyzed for 1 minute. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.`,
@@ -872,13 +872,16 @@ export function getMonsterTemplateById(id: string): MonsterTemplate | undefined 
 export type ApplyMonsterTemplateResult = {
 	kind: NpcCharacterKind;
 	name: string;
+	description: string;
 	identity: CharacterIdentityDraft;
-	extras: NpcExtrasDraft;
+	extras: CharacterExtrasDraft;
 	portraitFile: File | null;
 	portraitImageSource: string | null;
 };
 
-function findCatalogIdByName<T extends { weapon_id?: string; armor_id?: string; weapon_name?: string; armor_name?: string }>(
+function findCatalogIdByName<
+	T extends { weapon_id?: string; armor_id?: string; weapon_name?: string; armor_name?: string }
+>(
 	catalog: T[],
 	name: string,
 	nameKey: 'weapon_name' | 'armor_name',
@@ -922,6 +925,7 @@ export function applyMonsterTemplateToDraft(
 	return {
 		kind: template.kind,
 		name: template.name,
+		description: template.notes ?? '',
 		identity: {
 			...createDefaultCharacterIdentity(),
 			creature_type: template.creature_type,
@@ -930,7 +934,7 @@ export function applyMonsterTemplateToDraft(
 			presentation: template.presentation ?? ''
 		},
 		extras: {
-			...createDefaultNpcExtras(),
+			...createDefaultCharacterExtras(),
 			level: 1,
 			experience: template.experience,
 			hp_max: template.hp_max,
@@ -958,7 +962,9 @@ export function applyMonsterTemplateToDraft(
 	};
 }
 
-export async function fetchMonsterTemplatePortrait(template: MonsterTemplate): Promise<File | null> {
+export async function fetchMonsterTemplatePortrait(
+	template: MonsterTemplate
+): Promise<File | null> {
 	if (!template.image_url) return null;
 
 	try {
@@ -987,5 +993,49 @@ export async function loadMonsterTemplateIntoDraft(
 		...applied,
 		portraitFile,
 		portraitImageSource: template.image_source ?? null
+	};
+}
+
+export function monsterTemplateFromDraft(
+	base: Pick<MonsterTemplate, 'id'>,
+	kind: NpcCharacterKind,
+	name: string,
+	identity: CharacterIdentityDraft,
+	extras: CharacterExtrasDraft,
+	options?: {
+		image_url?: string;
+		image_source?: string;
+		weapon_names?: string[];
+		armor_name?: string;
+		notes?: string;
+	}
+): MonsterTemplate {
+	const trimmedName = name.trim() || 'New template';
+
+	return {
+		id: base.id,
+		name: trimmedName,
+		kind,
+		creature_type: identity.creature_type,
+		alignment: identity.alignment,
+		armor_class: extras.combat.armor_class,
+		armor_class_notes: extras.combat.armor_class_notes,
+		hp_max: extras.hp_max,
+		hp_dice: extras.combat.hp_dice,
+		speed: extras.combat.speed,
+		abilities: { ...extras.abilities },
+		skills: extras.combat.skills,
+		senses: extras.combat.senses,
+		languages: extras.combat.languages,
+		challenge_rating: extras.combat.challenge_rating,
+		experience: extras.experience,
+		traits: extras.combat.traits,
+		actions: extras.combat.actions,
+		presentation: identity.presentation.trim() || undefined,
+		notes: options?.notes?.trim() || undefined,
+		weapon_names: options?.weapon_names?.filter(Boolean),
+		armor_name: options?.armor_name?.trim() || undefined,
+		image_url: options?.image_url?.trim() || undefined,
+		image_source: options?.image_source?.trim() || undefined
 	};
 }

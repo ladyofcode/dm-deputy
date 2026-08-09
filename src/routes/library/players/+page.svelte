@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import { resolve } from '$app/paths';
 	import { Button } from 'bits-ui';
+	import CatalogTable from '$lib/components/catalog/CatalogTable.svelte';
+	import LibrarySectionHeader from '$lib/components/library/LibrarySectionHeader.svelte';
 	import MonsterTemplatesSection from '$lib/components/library/MonsterTemplatesSection.svelte';
 	import { getAllNpcLibraryRows, getAllPlayerRows } from '$lib/data';
 	import { softDeleteNpcFromLibrary, softDeletePlayerFromPlayerbase } from '$lib/data/writes';
@@ -8,7 +11,6 @@
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
 	import { database } from '$lib/stores/database.svelte';
 	import { CHARACTER_KIND_LABELS } from '$lib/types/schema';
-
 
 	const playerRows = $derived.by(() => {
 		if (!database.isReady) return [];
@@ -45,7 +47,7 @@
 		try {
 			await softDeletePlayerFromPlayerbase(userId);
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not remove player';
+			error = formatErrorMessage(cause, 'Could not remove player');
 		} finally {
 			removingUserId = null;
 		}
@@ -65,7 +67,7 @@
 		try {
 			await softDeleteNpcFromLibrary(characterId);
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not remove NPC';
+			error = formatErrorMessage(cause, 'Could not remove NPC');
 		} finally {
 			removingCharacterId = null;
 		}
@@ -76,204 +78,122 @@
 	<title>Library · Characters · DM Deputy</title>
 </svelte:head>
 
-<section class="page-stack library-page">
-	<nav aria-label="Back to home">
-		<Button.Root href={resolve('/')}>← Home</Button.Root>
-	</nav>
+<header class="library-header">
+	<h1>Characters</h1>
+</header>
 
-	<header class="library-header">
-		<h1>Characters</h1>
-		<p class="hint">Player accounts and NPCs across all campaigns. Click a name to open the sheet.</p>
-	</header>
+{#if database.isReady}
+	<section class="library-section" aria-labelledby="library-players-heading">
+		<LibrarySectionHeader
+			id="library-players-heading"
+			title="Players"
+			addLabel="player"
+			addHref={resolve('/')}
+		/>
 
-	{#if database.isReady}
-		<section class="library-section" aria-labelledby="library-players-heading">
-			<h2 id="library-players-heading">Players</h2>
+		<CatalogTable
+			items={playerRows}
+			getId={(row) => row.playerId}
+			emptyMessage="No players yet. Add them when creating or editing a campaign."
+		>
+			{#snippet header()}
+				<th scope="col">Player</th>
+				<th scope="col">Character</th>
+				<th scope="col">Campaign</th>
+				<th scope="col">Level</th>
+				<th scope="col">HP</th>
+			{/snippet}
+			{#snippet row(row)}
+				<td class="name-cell">{row.username}</td>
+				<td>
+					<a href={resolveCharacterHref(row.characterId)}>
+						{row.characterName}
+					</a>
+				</td>
+				<td>
+					<a href={resolveCampaignHref(row.campaignId)}>{row.campaignName}</a>
+				</td>
+				<td>{row.level}</td>
+				<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
+			{/snippet}
+			{#snippet actions(row)}
+				<Button.Root
+					type="button"
+					data-variant="ghost"
+					disabled={removingUserId === row.userId}
+					onclick={() => handleRemoveFromPlayerbase(row.userId, row.username)}
+				>
+					{removingUserId === row.userId ? 'Removing…' : 'Remove'}
+				</Button.Root>
+			{/snippet}
+		</CatalogTable>
+	</section>
 
-			{#if playerRows.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Player</th>
-								<th scope="col">Character</th>
-								<th scope="col">Campaign</th>
-								<th scope="col">Level</th>
-								<th scope="col">HP</th>
-								<th scope="col"><span class="sr-only">Actions</span></th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each playerRows as row (row.playerId)}
-								<tr>
-									<td class="name-cell">{row.username}</td>
-									<td>
-										<a href={resolveCharacterHref(row.campaignId, row.characterId)}>
-											{row.characterName}
-										</a>
-									</td>
-									<td>
-										<a href={resolveCampaignHref(row.campaignId)}>{row.campaignName}</a>
-									</td>
-									<td>{row.level}</td>
-									<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
-									<td class="actions-cell">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={removingUserId === row.userId}
-											onclick={() => handleRemoveFromPlayerbase(row.userId, row.username)}
-										>
-											{removingUserId === row.userId ? 'Removing…' : 'Remove'}
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No players yet. Add them when creating or editing a campaign.</p>
-			{/if}
-		</section>
+	<section class="library-section" id="npcs" aria-labelledby="library-npcs-heading">
+		<LibrarySectionHeader
+			id="library-npcs-heading"
+			title="NPCs"
+			addLabel="NPC"
+			addHref={resolve('/')}
+		/>
 
-		<section class="library-section" id="npcs" aria-labelledby="library-npcs-heading">
-			<h2 id="library-npcs-heading">NPCs</h2>
+		<CatalogTable
+			items={npcRows}
+			getId={(row) => row.characterId}
+			emptyMessage="No NPCs yet. Add them from a campaign page."
+		>
+			{#snippet header()}
+				<th scope="col">Name</th>
+				<th scope="col">Type</th>
+				<th scope="col">Campaign</th>
+				<th scope="col">Level</th>
+				<th scope="col">HP</th>
+				<th scope="col">XP</th>
+				<th scope="col">Reputation</th>
+			{/snippet}
+			{#snippet row(row)}
+				<td class="name-cell">
+					{#if row.campaignId}
+						<a href={resolveCharacterHref(row.characterId)}>
+							{row.characterName}
+						</a>
+					{:else}
+						{row.characterName}
+					{/if}
+				</td>
+				<td>{CHARACTER_KIND_LABELS[row.kind]}</td>
+				<td>{row.campaignNames}</td>
+				<td>{row.level}</td>
+				<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
+				<td>{row.experience > 0 ? row.experience : '—'}</td>
+				<td>{row.reputation ?? '—'}</td>
+			{/snippet}
+			{#snippet actions(row)}
+				<Button.Root
+					type="button"
+					data-variant="ghost"
+					disabled={removingCharacterId === row.characterId}
+					onclick={() => handleRemoveNpcFromLibrary(row.characterId, row.characterName)}
+				>
+					{removingCharacterId === row.characterId ? 'Removing…' : 'Remove'}
+				</Button.Root>
+			{/snippet}
+		</CatalogTable>
+	</section>
 
-			{#if npcRows.length}
-				<div class="table-wrap">
-					<table class="data-table">
-						<thead>
-							<tr>
-								<th scope="col">Name</th>
-								<th scope="col">Type</th>
-								<th scope="col">Campaign</th>
-								<th scope="col">Level</th>
-								<th scope="col">HP</th>
-								<th scope="col">XP</th>
-								<th scope="col">Reputation</th>
-								<th scope="col"><span class="sr-only">Actions</span></th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each npcRows as row (row.characterId)}
-								<tr>
-									<td class="name-cell">
-										{#if row.campaignId}
-											<a href={resolveCharacterHref(row.campaignId, row.characterId)}>
-												{row.characterName}
-											</a>
-										{:else}
-											{row.characterName}
-										{/if}
-									</td>
-									<td>{CHARACTER_KIND_LABELS[row.kind]}</td>
-									<td>{row.campaignNames}</td>
-									<td>{row.level}</td>
-									<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
-									<td>{row.experience > 0 ? row.experience : '—'}</td>
-									<td>{row.reputation ?? '—'}</td>
-									<td class="actions-cell">
-										<Button.Root
-											type="button"
-											data-variant="ghost"
-											disabled={removingCharacterId === row.characterId}
-											onclick={() =>
-												handleRemoveNpcFromLibrary(row.characterId, row.characterName)}
-										>
-											{removingCharacterId === row.characterId ? 'Removing…' : 'Remove'}
-										</Button.Root>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p class="hint">No NPCs yet. Add them from a campaign page.</p>
-			{/if}
-		</section>
+	<MonsterTemplatesSection />
 
-		<MonsterTemplatesSection />
-
-		{#if error}
-			<p class="hint error">{error}</p>
-		{/if}
+	{#if error}
+		<p class="hint error">{error}</p>
 	{/if}
-</section>
+{/if}
 
 <style>
 	.library-header h1 {
 		margin: 0;
 	}
 
-	.library-header .hint {
-		margin-top: 0.5rem;
-	}
-
-	.library-section h2 {
-		margin: 0 0 0.75rem;
-		font-size: 1.15rem;
-	}
-
-	.library-section + .library-section {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--color-border);
-	}
-
-	.table-wrap {
-		overflow-x: auto;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.data-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.95rem;
-	}
-
-	.data-table th,
-	.data-table td {
-		padding: 0.65rem 0.75rem;
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-		vertical-align: top;
-	}
-
-	.data-table th {
-		font-family: var(--font-heading);
-		font-weight: 600;
-		background: color-mix(in srgb, var(--color-border) 35%, var(--color-surface));
-	}
-
-	.data-table tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.name-cell {
-		font-weight: 600;
-	}
-
-	.actions-cell {
-		white-space: nowrap;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
 	.hint.error {
-		color: var(--color-danger, #b42318);
+		color: var(--color-danger);
 	}
 </style>

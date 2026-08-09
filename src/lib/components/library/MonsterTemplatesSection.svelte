@@ -1,9 +1,10 @@
 <script lang="ts">
-	import MonsterTemplateModal from '$lib/components/library/MonsterTemplateModal.svelte';
-	import { cloneMonsterTemplate } from '$lib/domain/monster-template-storage';
+	import EntitySection from '$lib/components/shared/EntitySection.svelte';
+	import LibraryAddButton from '$lib/components/library/LibraryAddButton.svelte';
+	import TemplateAbilityColumnFilter from '$lib/components/library/TemplateAbilityColumnFilter.svelte';
 	import { abilityModifier } from '$lib/games/dnd5e/rules/formulae';
-	import type { MonsterTemplate } from '$lib/games/dnd5e/data/monsters';
 	import type { AbilityScores } from '$lib/types/schema';
+	import { resolveTemplateHref } from '$lib/navigation/hrefs';
 	import {
 		getMonsterTemplates,
 		trackMonsterTemplatesRevision
@@ -20,13 +21,42 @@
 		);
 	});
 
-	let modalOpen = $state(false);
-	let selectedTemplate = $state<MonsterTemplate | null>(null);
+	let visibleAbilities = $state<AbilityKey[]>([]);
 
-	function openTemplate(template: MonsterTemplate) {
-		selectedTemplate = cloneMonsterTemplate(template);
-		modalOpen = true;
-	}
+	const visibleAbilityKeys = $derived(ABILITY_KEYS.filter((key) => visibleAbilities.includes(key)));
+
+	const COLUMN_MIN_REM = {
+		name: 5,
+		ac: 2.25,
+		hp: 5.5,
+		speed: 3.5,
+		ability: 4.5
+	} as const;
+
+	const columnLayout = $derived.by(() => {
+		const abilityCount = visibleAbilityKeys.length;
+
+		if (abilityCount === 0) {
+			return { name: 46, ac: 8, hp: 22, speed: 24, abilityEach: 0 };
+		}
+
+		const abilityEach = Math.min(9, Math.max(5.5, 42 / abilityCount));
+		const statTotal = 100 - abilityEach * abilityCount;
+		const ac = Math.max(4, statTotal * 0.08);
+		const hp = Math.max(9, statTotal * 0.22);
+		const speed = Math.max(7, statTotal * 0.18);
+		const name = Math.max(14, statTotal - ac - hp - speed);
+
+		return { name, ac, hp, speed, abilityEach };
+	});
+
+	const tableMinWidth = $derived(
+		`${COLUMN_MIN_REM.name + COLUMN_MIN_REM.ac + COLUMN_MIN_REM.hp + COLUMN_MIN_REM.speed + visibleAbilityKeys.length * COLUMN_MIN_REM.ability}rem`
+	);
+
+	const tableStyle = $derived(
+		`--col-name: ${columnLayout.name}%; --col-ac: ${columnLayout.ac}%; --col-hp: ${columnLayout.hp}%; --col-speed: ${columnLayout.speed}%; --col-ability: ${columnLayout.abilityEach}%; --table-min: ${tableMinWidth};`
+	);
 
 	function formatAbility(score: number): string {
 		const mod = abilityModifier(score);
@@ -34,124 +64,144 @@
 	}
 </script>
 
-<section class="library-section" id="templates" aria-labelledby="library-templates-heading">
-	<h2 id="library-templates-heading">Templates</h2>
-	<p class="hint">
-		Monster stat block defaults used when loading a template onto an NPC. Click a row to edit. Changes
-		are saved in this browser.
-	</p>
-
-	{#if templates.length}
-		<div class="table-wrap">
-			<table class="data-table template-table">
-				<thead>
-					<tr>
-						<th scope="col">Name</th>
-						<th scope="col">AC</th>
-						<th scope="col">HP</th>
-						<th scope="col">Speed</th>
-						{#each ABILITY_KEYS as key (key)}
-							<th scope="col" class="ability-col">{key.toUpperCase()}</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each templates as template (template.id)}
+<EntitySection
+	id="templates"
+	class="library-section"
+	headingId="library-templates-heading"
+	title="Templates"
+	emptyMessage="No templates available."
+	showEmpty={templates.length === 0}
+>
+	{#snippet headerAction()}
+		<div class="library-section-actions">
+			{#if templates.length}
+				<TemplateAbilityColumnFilter abilityKeys={ABILITY_KEYS} bind:visibleAbilities />
+			{/if}
+			<LibraryAddButton label="template" href={resolveTemplateHref('new')} />
+		</div>
+	{/snippet}
+	{#snippet list()}
+		{#if templates.length}
+			<div class="table-wrap template-table-wrap">
+				<table class="data-table template-table" style={tableStyle}>
+					<thead>
 						<tr>
-							<td class="name-cell">
-								<button type="button" class="template-link" onclick={() => openTemplate(template)}>
-									{template.name}
-								</button>
-							</td>
-							<td>{template.armor_class}</td>
-							<td>{template.hp_max}{template.hp_dice ? ` (${template.hp_dice})` : ''}</td>
-							<td>{template.speed || '—'}</td>
-							{#each ABILITY_KEYS as key (key)}
-								<td class="ability-col">{formatAbility(template.abilities[key])}</td>
+							<th scope="col" class="name-col">Name</th>
+							<th scope="col" class="col-ac">AC</th>
+							<th scope="col" class="col-hp">HP</th>
+							<th scope="col" class="col-speed">Speed</th>
+							{#each visibleAbilityKeys as key (key)}
+								<th scope="col" class="ability-col">{key.toUpperCase()}</th>
 							{/each}
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{:else}
-		<p class="hint">No templates available.</p>
-	{/if}
-</section>
-
-<MonsterTemplateModal bind:open={modalOpen} template={selectedTemplate} />
+					</thead>
+					<tbody>
+						{#each templates as template (template.id)}
+							<tr>
+								<td class="name-cell">
+									<a href={resolveTemplateHref(template.id)} class="template-link">
+										{template.name}
+									</a>
+								</td>
+								<td class="col-ac">{template.armor_class}</td>
+								<td class="col-hp">
+									{template.hp_max}{template.hp_dice ? ` (${template.hp_dice})` : ''}
+								</td>
+								<td class="col-speed">{template.speed || '—'}</td>
+								{#each visibleAbilityKeys as key (key)}
+									<td class="ability-col">{formatAbility(template.abilities[key])}</td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	{/snippet}
+</EntitySection>
 
 <style>
-	.library-section h2 {
-		margin: 0 0 0.75rem;
-		font-size: 1.15rem;
+	.library-section-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-shrink: 0;
 	}
 
-	.hint {
-		margin: 0 0 1rem;
-	}
-
-	.table-wrap {
-		overflow-x: auto;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.data-table {
+	.template-table-wrap {
 		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.95rem;
+		overflow-x: auto;
 	}
 
-	.data-table th,
-	.data-table td {
-		padding: 0.65rem 0.75rem;
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
+	.template-table-wrap :global(.data-table.template-table) {
+		width: 100%;
+		min-width: max(100%, var(--table-min));
+		table-layout: fixed;
+	}
+
+	.template-table :is(th, td) {
 		vertical-align: middle;
+	}
+
+	.template-table-wrap :global(.data-table.template-table .name-cell),
+	.template-table .name-col {
+		width: var(--col-name);
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.template-table .col-ac {
+		width: var(--col-ac);
 		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	.data-table th {
-		font-family: var(--font-heading);
-		font-weight: 600;
-		background: color-mix(in srgb, var(--color-border) 35%, var(--color-surface));
+	.template-table .col-hp {
+		width: var(--col-hp);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	.data-table tbody tr:last-child td {
-		border-bottom: none;
+	.template-table .col-speed {
+		width: var(--col-speed);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	.data-table tbody tr:hover {
+	.template-table .ability-col {
+		width: var(--col-ability);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		font-variant-numeric: tabular-nums;
+		font-size: 0.88rem;
+	}
+
+	.data-table tbody tr:hover,
+	.data-table tbody tr:focus-within {
 		background: color-mix(in srgb, var(--color-border) 18%, var(--color-surface));
 	}
 
-	.name-cell {
-		font-weight: 600;
+	.template-link:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
 	}
 
 	.template-link {
-		appearance: none;
-		border: none;
-		background: none;
-		padding: 0;
-		font: inherit;
 		font-weight: 600;
 		color: inherit;
-		cursor: pointer;
-		text-align: left;
 		text-decoration: underline;
 		text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
 		text-underline-offset: 0.15em;
+		max-width: 100%;
+		overflow-wrap: anywhere;
 	}
 
 	.template-link:hover {
 		text-decoration-color: currentColor;
-	}
-
-	.ability-col {
-		font-variant-numeric: tabular-nums;
-		font-size: 0.88rem;
 	}
 </style>

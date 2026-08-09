@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import type { WorkerRequest, WorkerResponse } from '../types';
+import { formatErrorMessage } from '$lib/domain/errors';
 import { getDb, getSqlite3 } from './context';
 import {
 	loadCatalogSnapshot,
@@ -45,7 +46,9 @@ import {
 	savePartStoryItems,
 	savePartStory,
 	activateStoryNode,
-	toggleStoryNodeCompleted
+	toggleStoryNodeCompleted,
+	addPartNpc,
+	removePartNpc
 } from './part-story';
 import { initDatabase, exportDatabase, importDatabase } from './init';
 import { createCampaignMap, deleteCampaignMap, loadCampaignMapBlob } from './maps';
@@ -54,7 +57,11 @@ import {
 	updateCampaignCharacter,
 	loadCharacterLoadout,
 	updateCharacterPortrait,
+	updateCharacterPortraitSource,
 	loadCharacterPortraitBlob,
+	updateCharacterPresentation,
+	updateCharacterPresentationSource,
+	loadCharacterPresentationBlob,
 	addCampaignNpcToCampaign,
 	removeCampaignNpcFromCampaign
 } from './characters';
@@ -114,6 +121,14 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 	},
 	savePartStory: (request) => {
 		savePartStory(getDb(), request.args[0]);
+		return { id: request.id, result: null };
+	},
+	addPartNpc: (request) => ({
+		id: request.id,
+		result: addPartNpc(getDb(), request.args[0])
+	}),
+	removePartNpc: (request) => {
+		removePartNpc(getDb(), request.args[0], request.args[1]);
 		return { id: request.id, result: null };
 	},
 	createCampaign: (request) => {
@@ -265,8 +280,24 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 		id: request.id,
 		result: updateCharacterPortrait(getDb(), request.args[0], request.args[1], request.args[2])
 	}),
+	updateCharacterPortraitSource: (request) => ({
+		id: request.id,
+		result: updateCharacterPortraitSource(getDb(), request.args[0], request.args[1])
+	}),
 	loadCharacterPortraitBlob: (request) => {
 		const buffer = loadCharacterPortraitBlob(getDb(), request.args[0], request.args[1]);
+		return { id: request.id, result: buffer, buffer: buffer ?? undefined };
+	},
+	updateCharacterPresentation: (request) => ({
+		id: request.id,
+		result: updateCharacterPresentation(getDb(), request.args[0], request.args[1], request.args[2])
+	}),
+	updateCharacterPresentationSource: (request) => ({
+		id: request.id,
+		result: updateCharacterPresentationSource(getDb(), request.args[0], request.args[1])
+	}),
+	loadCharacterPresentationBlob: (request) => {
+		const buffer = loadCharacterPresentationBlob(getDb(), request.args[0], request.args[1]);
 		return { id: request.id, result: buffer, buffer: buffer ?? undefined };
 	},
 	addCampaignPlayer: (request) => ({
@@ -348,7 +379,7 @@ export async function handleRequest(request: WorkerRequest): Promise<WorkerRespo
 		const handler = handlers[request.method] as HandlerFor<typeof request.method>;
 		return await handler(request as Extract<WorkerRequest, { method: typeof request.method }>);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
+		const message = formatErrorMessage(error, String(error));
 		return { id: request.id, error: message };
 	}
 }

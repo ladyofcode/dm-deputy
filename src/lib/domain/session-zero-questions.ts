@@ -52,7 +52,9 @@ export function getSessionZeroCategory(id: SessionZeroCategoryId): SessionZeroCa
 	return SESSION_ZERO_CATEGORIES.find((category) => category.id === id);
 }
 
-export function getSessionZeroCategoryForQuestion(questionId: string): SessionZeroCategory | undefined {
+export function getSessionZeroCategoryForQuestion(
+	questionId: string
+): SessionZeroCategory | undefined {
 	for (const category of SESSION_ZERO_CATEGORIES) {
 		if (category.questions?.some((question) => question.id === questionId)) {
 			return category;
@@ -128,7 +130,9 @@ function filterSectionGroups(
 	return groups;
 }
 
-export function groupActiveQuestionsBySection(activeQuestionIds: string[]): SessionZeroSectionGroup[] {
+export function groupActiveQuestionsBySection(
+	activeQuestionIds: string[]
+): SessionZeroSectionGroup[] {
 	return filterSectionGroups(activeQuestionIds, true);
 }
 
@@ -138,7 +142,9 @@ export function groupExcludedQuestionsBySection(
 	return filterSectionGroups(activeQuestionIds, false);
 }
 
-export function groupSectionsByCategory(sections: SessionZeroSectionGroup[]): SessionZeroCategoryBlock[] {
+export function groupSectionsByCategory(
+	sections: SessionZeroSectionGroup[]
+): SessionZeroCategoryBlock[] {
 	const blocks: SessionZeroCategoryBlock[] = [];
 	const blockMap = new Map<SessionZeroCategoryId, SessionZeroCategoryBlock>();
 
@@ -210,7 +216,5 @@ export function serializeSessionZeroJson(state: SessionZeroState): string {
 }
 
 export function trimSessionZeroAnswers(answers: Record<string, string>): Record<string, string> {
-	return Object.fromEntries(
-		SESSION_ZERO_QUESTION_IDS.map((id) => [id, answers[id]?.trim() ?? ''])
-	);
+	return Object.fromEntries(SESSION_ZERO_QUESTION_IDS.map((id) => [id, answers[id]?.trim() ?? '']));
 }

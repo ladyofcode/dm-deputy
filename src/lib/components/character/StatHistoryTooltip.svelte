@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { Tooltip } from 'bits-ui';
-	import { formatStatEventSummary } from '$lib/domain/character-stats';
+	import { Popover } from 'bits-ui';
+	import CloseIcon from '$lib/components/icons/CloseIcon.svelte';
+	import InfoIcon from '$lib/components/icons/InfoIcon.svelte';
+	import { buildStatAuditTrail, formatStatEventSummary } from '$lib/domain/character-stats';
 	import type { CharacterStatEvent, StatKind } from '$lib/types/schema';
 
 	type Props = {
@@ -16,54 +18,50 @@
 
 	const statEvents = $derived(events.filter((event) => event.stat === stat));
 	const hasHistory = $derived(statEvents.length > 0 || baseValue !== 0);
-	const runningTotal = $derived(
-		statEvents.reduce(
-			(accumulator, event) => {
-				const next = accumulator.current + event.delta;
-				return {
-					current: next,
-					rows: [...accumulator.rows, { event, total: next }]
-				};
-			},
-			{ current: baseValue, rows: [] as Array<{ event: CharacterStatEvent; total: number }> }
-		)
-	);
+	const runningTotal = $derived(buildStatAuditTrail(statEvents, stat, baseValue));
 </script>
 
 {#if hasHistory}
-	<Tooltip.Root>
-		<Tooltip.Trigger class="stat-history-trigger" type="button" aria-label="{label} history">
+	<Popover.Root>
+		<Popover.Trigger class="stat-history-trigger" type="button" aria-label="{label} history">
 			{#if variant === 'icon'}
-				<span class="stat-history-hint" aria-hidden="true">ⓘ</span>
+				<InfoIcon size={14} />
 			{:else}
 				<span class="stat-history-value">{currentValue}</span>
-				<span class="stat-history-hint" aria-hidden="true">ⓘ</span>
+				<InfoIcon size={14} />
 			{/if}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Content class="stat-history-tooltip">
-				<p class="stat-history-title">{label} audit trail</p>
-				{#if baseValue !== 0}
-					<p class="stat-history-row">
-						<span>Starting value</span>
-						<strong>{baseValue}</strong>
-					</p>
-				{/if}
-				<ul class="stat-history-list">
-					{#each runningTotal.rows as row (row.event.stat_event_id)}
-						<li>
-							<span>{formatStatEventSummary(row.event)}</span>
-							<strong>{row.total}</strong>
-						</li>
-					{/each}
-				</ul>
-				<p class="stat-history-total">
-					<span>Current</span>
-					<strong>{currentValue}</strong>
-				</p>
-			</Tooltip.Content>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Popover.Trigger>
+		<Popover.Portal>
+			<Popover.Content class="tooltip-panel stat-history-tooltip" side="top" align="start">
+				<div class="stat-history-header">
+					<div class="stat-history-body">
+						<p class="stat-history-title">{label} audit trail</p>
+						{#if baseValue !== 0}
+							<p class="stat-history-row">
+								<span>Starting value</span>
+								<strong>{baseValue}</strong>
+							</p>
+						{/if}
+						<ul class="stat-history-list">
+							{#each runningTotal.rows as row (row.event.stat_event_id)}
+								<li>
+									<span>{formatStatEventSummary(row.event)}</span>
+									<strong>{row.total}</strong>
+								</li>
+							{/each}
+						</ul>
+						<p class="stat-history-total">
+							<span>Current</span>
+							<strong>{currentValue}</strong>
+						</p>
+					</div>
+					<Popover.Close class="stat-history-close" aria-label="Close history">
+						<CloseIcon size={16} />
+					</Popover.Close>
+				</div>
+			</Popover.Content>
+		</Popover.Portal>
+	</Popover.Root>
 {:else}
 	<span class="stat-history-value">{currentValue}</span>
 {/if}
@@ -78,25 +76,28 @@
 		background: none;
 		font: inherit;
 		color: inherit;
-		cursor: help;
+		cursor: pointer;
+	}
+
+	:global(.stat-history-trigger):focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
 	}
 
 	.stat-history-value {
 		font: inherit;
 	}
 
-	.stat-history-hint {
-		font-size: 0.85em;
-		color: var(--color-text-muted, #667085);
+	.stat-history-header {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
 	}
 
-	:global(.stat-history-tooltip) {
-		max-width: min(22rem, 90vw);
-		padding: 0.75rem 0.9rem;
-		border-radius: var(--radius-panel, 0.75rem);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		box-shadow: 0 8px 24px var(--color-shadow);
+	.stat-history-body {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.stat-history-title {
@@ -130,13 +131,30 @@
 	}
 
 	.stat-history-list li span {
-		color: var(--color-text-muted, #667085);
+		color: var(--color-text-muted);
 	}
 
 	.stat-history-total {
 		margin-top: 0.5rem;
 		padding-top: 0.5rem;
-		border-top: 1px solid var(--color-border);
 		font-weight: 600;
+	}
+
+	:global(.stat-history-close) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		padding: 0.15rem;
+		border: none;
+		background: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		border-radius: var(--radius-sm);
+	}
+
+	:global(.stat-history-close):focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
 	}
 </style>

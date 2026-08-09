@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { formatErrorMessage } from '$lib/domain/errors';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button, Label } from 'bits-ui';
-	import OcrScanButton from '$lib/components/OcrScanButton.svelte';
+	import OcrScanButton from '$lib/components/part/OcrScanButton.svelte';
 	import { getAdventuresForCampaign, getCampaignById } from '$lib/data';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
 	import { persistAdventure } from '$lib/data/writes';
@@ -11,7 +12,6 @@
 	import type { OnboardingAdventureDraft } from '$lib/types/convenience-schema';
 
 	const campaignId = $derived(page.params.campaignId ?? '');
-
 
 	const campaign = $derived.by(() => {
 		if (!database.isReady) return undefined;
@@ -47,7 +47,7 @@
 			const adventure = await persistAdventure(campaignId, draft);
 			goto(resolve(`/campaigns/${campaignId}/adventures/${adventure.adventure_id}`));
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not save adventure';
+			error = formatErrorMessage(cause, 'Could not save adventure');
 			saving = false;
 		}
 	}

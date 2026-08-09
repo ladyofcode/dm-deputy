@@ -4,27 +4,55 @@ import { ensureDefaultUser } from '../seed';
 import { execSql, selectObjects } from '../bind';
 import type { InitResult, LocalStorageStoryMigration } from '../types';
 import {
-  DB_FILENAME,
-  asDbExec,
-  getDb,
-  getSqlite3,
-  isOpfsAvailable,
-  setDb,
-  setSqlite3,
-  type AppDb,
-  type MemoryDb,
-  type SqliteModule
+	DB_FILENAME,
+	asDbExec,
+	getDb,
+	getSqlite3,
+	isOpfsAvailable,
+	setDb,
+	setSqlite3,
+	type AppDb,
+	type MemoryDb,
+	type SqliteModule
 } from './context';
 import { savePartItemLayout, savePartNodeLayout, savePartStoryNodes } from './part-story';
 import { applyMigration, repairSchemaColumns, tableExists } from './schema-repair';
+import { DEFAULT_SPECIES } from '$lib/games/dnd5e/data/default-species';
 
 const REQUIRED_TABLES = [
-  'schema_meta', 'users', 'campaigns', 'campaign_members', 'campaign_npcs',
-  'adventures', 'parts', 'story_nodes', 'story_items',   'part_node_layouts', 'part_item_layouts',
-  'characters', 'events', 'maps', 'event_maps', 'skills', 'encounter_resolutions',
-  'character_stat_events', 'character_items', 'character_weapons', 'character_spells',
-  'character_armor', 'character_skills', 'catalog_meta', 'spells', 'weapons', 'armor',
-  'items', 'conditions', 'species', 'species_traits', 'species_trait_effects'
+	'schema_meta',
+	'users',
+	'campaigns',
+	'campaign_members',
+	'campaign_npcs',
+	'adventures',
+	'parts',
+	'story_nodes',
+	'story_items',
+	'part_npcs',
+	'part_node_layouts',
+	'part_item_layouts',
+	'characters',
+	'events',
+	'maps',
+	'event_maps',
+	'skills',
+	'encounter_resolutions',
+	'character_stat_events',
+	'character_items',
+	'character_weapons',
+	'character_spells',
+	'character_armor',
+	'character_skills',
+	'catalog_meta',
+	'spells',
+	'weapons',
+	'armor',
+	'items',
+	'conditions',
+	'species',
+	'species_traits',
+	'species_trait_effects'
 ] as const;
 
 export function countCampaigns(database: AppDb): number {
@@ -140,6 +168,48 @@ function copyCatalogTable(source: AppDb, destination: AppDb, table: string): voi
 	}
 }
 
+function ensureSpeciesSeeded(database: AppDb, templateBuffer: ArrayBuffer): void {
+	if (!tableExists(database, 'species')) {
+		return;
+	}
+
+	if (countTableRows(database, 'species') === 0) {
+		const module = getSqlite3();
+		if (!module) {
+			throw new Error('SQLite module not initialized');
+		}
+
+		const templateDatabase = deserializeDatabaseFromBuffer(module, templateBuffer);
+
+		try {
+			for (const table of ['species', 'species_traits', 'species_trait_effects'] as const) {
+				if (!tableExists(templateDatabase, table)) continue;
+				copyCatalogTable(templateDatabase, database, table);
+			}
+		} finally {
+			templateDatabase.close();
+		}
+	}
+
+	for (const species of DEFAULT_SPECIES) {
+		execSql(database, {
+			sql: `INSERT OR IGNORE INTO species (
+				species_id, species_name, creature_type, size, speed, description
+			) VALUES (
+				$species_id, $species_name, $creature_type, $size, $speed, $description
+			)`,
+			bind: {
+				species_id: species.species_id,
+				species_name: species.species_name,
+				creature_type: species.creature_type,
+				size: species.size,
+				speed: species.speed,
+				description: species.description
+			}
+		});
+	}
+}
+
 function ensureCatalogSeeded(database: AppDb, templateBuffer: ArrayBuffer): void {
 	if (!tableExists(database, 'weapons') || countTableRows(database, 'weapons') > 0) {
 		return;
@@ -233,6 +303,7 @@ export async function initDatabase(
 	repairMissingRequiredTables(getDb());
 	repairSchemaColumns(getDb());
 	ensureCatalogSeeded(getDb(), templateBuffer);
+	ensureSpeciesSeeded(getDb(), templateBuffer);
 	verifyRequiredTables(getDb());
 
 	const wasSeeded = isSeeded(getDb());
@@ -248,7 +319,10 @@ export async function initDatabase(
 	};
 }
 
-export function migrateLocalStorageStory(database: AppDb, migrations: LocalStorageStoryMigration[]): void {
+export function migrateLocalStorageStory(
+	database: AppDb,
+	migrations: LocalStorageStoryMigration[]
+): void {
 	for (const entry of migrations) {
 		if (entry.nodes?.length) {
 			savePartStoryNodes(database, entry.partId, entry.nodes);
@@ -270,7 +344,9 @@ export function exportDatabase(database: AppDb, module: SqliteModule): ArrayBuff
 export async function importDatabase(module: SqliteModule, buffer: ArrayBuffer): Promise<void> {
 	try {
 		getDb().close();
-	} catch {}
+	} catch {
+		// Database may already be closed.
+	}
 	setDb(null);
 
 	if (isOpfsAvailable(module)) {

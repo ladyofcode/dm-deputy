@@ -1,10 +1,10 @@
 import { execSql, selectObjects } from '../bind';
 import { withTransaction } from '../sql';
 import {
-  remapItemLayout,
-  remapNodeLayout,
-  remapStoryItems,
-  remapStoryNodes
+	remapItemLayout,
+	remapNodeLayout,
+	remapStoryItems,
+	remapStoryNodes
 } from '$lib/domain/promote-adventure';
 import { isRewardGroupId } from '$lib/domain/story-item-reward';
 import type { PromoteAdventureInput, PromoteAdventureResult } from '../types';
@@ -14,11 +14,12 @@ import type { AppDb } from './context';
 import { attachCharacterLoadout, insertCampaignNpcLink } from './characters';
 import { createAdventure, touchCampaign } from './campaigns';
 import {
-  loadPartStory,
-  savePartItemLayout,
-  savePartNodeLayout,
-  savePartStoryItems,
-  savePartStoryNodes
+	loadPartStory,
+	savePartItemLayout,
+	savePartNodeLayout,
+	savePartStoryItems,
+	savePartStoryNodes,
+	addPartNpc
 } from './part-story';
 
 export function cloneCharacterFromDb(
@@ -364,10 +365,29 @@ export function promoteAdventureToCampaign(
 			}
 
 			const items = story.items
-				? remapStoryItems(story.items, nodeIdMap, itemIdMap, characterIdMap, mapIdMap, input.options)
+				? remapStoryItems(
+						story.items,
+						nodeIdMap,
+						itemIdMap,
+						characterIdMap,
+						mapIdMap,
+						input.options
+					)
 				: [];
 			if (items.length) {
 				savePartStoryItems(database, newPartId, items);
+			}
+
+			for (const partNpc of story.partNpcs ?? []) {
+				const mappedCharacterId = characterIdMap.get(partNpc.character_id);
+				if (!mappedCharacterId) continue;
+
+				addPartNpc(database, {
+					part_id: newPartId,
+					character_id: mappedCharacterId,
+					part_npc_id: `pnpc-${crypto.randomUUID()}`,
+					date_added: partNpc.date_added
+				});
 			}
 		}
 

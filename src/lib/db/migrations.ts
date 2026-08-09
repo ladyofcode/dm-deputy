@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 30;
+export const SCHEMA_VERSION = 33;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -559,6 +559,40 @@ Any attack that hits the creature is a critical hit if the attacker is within 5 
 	30: `
 		ALTER TABLE campaigns ADD COLUMN nickname TEXT;
 		ALTER TABLE adventures ADD COLUMN shorthand TEXT;
+	`,
+	31: `
+		CREATE TABLE IF NOT EXISTS part_npcs (
+			part_npc_id TEXT PRIMARY KEY NOT NULL,
+			part_id TEXT NOT NULL,
+			character_id TEXT NOT NULL,
+			date_added TEXT NOT NULL,
+			UNIQUE (part_id, character_id)
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_part_npcs_part ON part_npcs (part_id);
+		CREATE INDEX IF NOT EXISTS idx_part_npcs_character ON part_npcs (character_id);
+	`,
+	32: `
+		INSERT OR IGNORE INTO species (species_id, species_name, creature_type, size, speed, description) VALUES
+			('species-dragonborn', 'Dragonborn', 'Humanoid', 'Medium', '30 ft.', ''),
+			('species-dwarf', 'Dwarf', 'Humanoid', 'Medium', '30 ft.', ''),
+			('species-elf', 'Elf', 'Humanoid', 'Medium', '30 ft.', ''),
+			('species-gnome', 'Gnome', 'Humanoid', 'Small', '30 ft.', ''),
+			('species-half-elf', 'Half-Elf', 'Humanoid', 'Medium', '30 ft.', ''),
+			('species-half-orc', 'Half-Orc', 'Humanoid', 'Medium', '30 ft.', ''),
+			('species-halfling', 'Halfling', 'Humanoid', 'Small', '30 ft.', ''),
+			('species-human', 'Human', 'Humanoid', 'Medium', '30 ft.', ''),
+			('species-tiefling', 'Tiefling', 'Humanoid', 'Medium', '30 ft.', '');
+	`,
+	33: `
+		ALTER TABLE characters ADD COLUMN presentation_mime_type TEXT;
+		ALTER TABLE characters ADD COLUMN presentation_width INTEGER;
+		ALTER TABLE characters ADD COLUMN presentation_height INTEGER;
+		ALTER TABLE characters ADD COLUMN presentation_thumb_width INTEGER;
+		ALTER TABLE characters ADD COLUMN presentation_thumb_height INTEGER;
+		ALTER TABLE characters ADD COLUMN presentation_image_source TEXT;
+		ALTER TABLE characters ADD COLUMN presentation_thumb_blob BLOB;
+		ALTER TABLE characters ADD COLUMN presentation_full_blob BLOB;
 	`
 };
 

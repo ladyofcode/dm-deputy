@@ -150,7 +150,9 @@ export function removeConditionFromCache(conditionId: string): void {
 export function upsertSpeciesInCache(species: Species): void {
 	if (!catalogSnapshot) return;
 
-	const index = catalogSnapshot.species.findIndex((entry) => entry.species_id === species.species_id);
+	const index = catalogSnapshot.species.findIndex(
+		(entry) => entry.species_id === species.species_id
+	);
 	if (index >= 0) {
 		catalogSnapshot.species[index] = species;
 	} else {

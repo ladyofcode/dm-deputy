@@ -121,6 +121,53 @@ export function spellsForLevel(spells: Spell[], level: number): Spell[] {
 		.sort((left, right) => left.spell_name.localeCompare(right.spell_name));
 }
 
+export function groupSpellsByLevel(spells: Spell[]): Map<number, Spell[]> {
+	const grouped = new Map<number, Spell[]>();
+
+	for (const spell of spells) {
+		const bucket = grouped.get(spell.spell_level);
+		if (bucket) {
+			bucket.push(spell);
+		} else {
+			grouped.set(spell.spell_level, [spell]);
+		}
+	}
+
+	for (const bucket of grouped.values()) {
+		bucket.sort((left, right) => left.spell_name.localeCompare(right.spell_name));
+	}
+
+	return grouped;
+}
+
+export function resolveSpellDisplayLevels(
+	catalogSpells: Spell[],
+	groupedRows: Map<number, SpellDraftRow[]>,
+	spellsById: Map<string, Spell>,
+	slotsTotal: SpellSlotsByLevel
+): number[] {
+	const levels = new Set<number>([0]);
+
+	for (const spell of catalogSpells) {
+		levels.add(spell.spell_level);
+	}
+
+	for (const rows of groupedRows.values()) {
+		for (const row of rows) {
+			const spell = spellsById.get(row.entry.spell_id);
+			if (spell) levels.add(spell.spell_level);
+		}
+	}
+
+	for (const slotLevel of SPELL_SLOT_LEVELS) {
+		if ((slotsTotal[slotLevel] ?? 0) > 0) {
+			levels.add(slotLevel);
+		}
+	}
+
+	return [...levels].sort((left, right) => left - right);
+}
+
 export type SpellDraftRow = {
 	index: number;
 	entry: CharacterSpellDraft;

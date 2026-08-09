@@ -15,6 +15,7 @@ import {
 	getStoredPartOrder,
 	sortPartsByOrder
 } from '$lib/data/part-order-storage';
+import { getCampaignDisplayName } from '$lib/domain/display-names';
 import { isActiveNpc, type CharacterKind } from '$lib/types/schema';
 import type {
 	Adventure,
@@ -98,8 +99,7 @@ export function isNpcMemberOfCampaign(campaignId: string, characterId: string): 
 
 export function isCharacterInCampaign(campaignId: string, characterId: string): boolean {
 	return (
-		isPcMemberOfCampaign(campaignId, characterId) ||
-		isNpcMemberOfCampaign(campaignId, characterId)
+		isPcMemberOfCampaign(campaignId, characterId) || isNpcMemberOfCampaign(campaignId, characterId)
 	);
 }
 
@@ -113,6 +113,32 @@ export function getPrimaryCampaignIdForNpc(characterId: string): string | null {
 	return campaigns[0]?.campaign_id ?? null;
 }
 
+export function getPrimaryCampaignIdForCharacter(characterId: string): string | null {
+	const character = getCharacterById(characterId);
+	if (!character) return null;
+
+	if (character.kind === 'pc') {
+		const member = getCampaignMembers().find(
+			(entry) => entry.character_id === characterId && entry.role === 'player'
+		);
+		return member?.campaign_id ?? null;
+	}
+
+	return getPrimaryCampaignIdForNpc(characterId);
+}
+
+export function isAccessibleCharacter(characterId: string): boolean {
+	const character = getCharacterById(characterId);
+	if (!character) return false;
+
+	if (character.kind === 'pc') {
+		const userId = getPlayerUserIdForCharacter(characterId);
+		return userId != null && isActivePlayerUser(userId);
+	}
+
+	return isActiveNpc(character);
+}
+
 export function getNpcsForCampaign(campaignId: string): Character[] {
 	const npcCharacterIds = new Set(
 		getCachedCampaignNpcs()
@@ -121,10 +147,7 @@ export function getNpcsForCampaign(campaignId: string): Character[] {
 	);
 
 	return getCharacters()
-		.filter(
-			(character) =>
-				isActiveNpc(character) && npcCharacterIds.has(character.character_id)
-		)
+		.filter((character) => isActiveNpc(character) && npcCharacterIds.has(character.character_id))
 		.sort((a, b) => a.display_name.localeCompare(b.display_name));
 }
 
@@ -137,7 +160,10 @@ export function getAllNpcs(): Character[] {
 export function getCampaignNamesForNpc(characterId: string): string[] {
 	return getCachedCampaignNpcs()
 		.filter((entry) => entry.character_id === characterId)
-		.map((entry) => getCampaignById(entry.campaign_id)?.campaign_name)
+		.map((entry) => {
+			const campaign = getCampaignById(entry.campaign_id);
+			return campaign ? getCampaignDisplayName(campaign) : null;
+		})
 		.filter((name): name is string => Boolean(name))
 		.sort((a, b) => a.localeCompare(b));
 }
@@ -175,7 +201,7 @@ export function getAllPlayerRows(): PlayerLibraryRow[] {
 			characterId: character.character_id,
 			characterName: character.display_name,
 			campaignId: campaign.campaign_id,
-			campaignName: campaign.campaign_name,
+			campaignName: getCampaignDisplayName(campaign),
 			level: character.level,
 			hpCurrent: character.hp_current,
 			hpMax: character.hp_max

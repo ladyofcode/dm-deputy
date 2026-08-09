@@ -26,9 +26,14 @@ export function getStoredMonsterTemplateById(id: string): MonsterTemplate | unde
 }
 
 export function replaceMonsterTemplate(template: MonsterTemplate): void {
-	templates = templates.map((entry) =>
-		entry.id === template.id ? cloneMonsterTemplate(template) : entry
-	);
+	const index = templates.findIndex((entry) => entry.id === template.id);
+	if (index === -1) {
+		templates = [...templates, cloneMonsterTemplate(template)];
+	} else {
+		templates = templates.map((entry) =>
+			entry.id === template.id ? cloneMonsterTemplate(template) : entry
+		);
+	}
 	saveStoredMonsterTemplates(templates);
 	revision.bump();
 }

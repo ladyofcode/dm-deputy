@@ -1,20 +1,21 @@
 import { execSql, selectObjects } from '../bind';
 import { withTransaction } from '../sql';
 import type {
-  AddCampaignNpcToCampaignInput,
-  AddCampaignNpcToCampaignResult,
-  CharacterLoadout,
-  CreateCampaignCharacterInput,
-  UpdateCampaignCharacterInput,
-  UpdateCharacterPortraitInput
+	AddCampaignNpcToCampaignInput,
+	AddCampaignNpcToCampaignResult,
+	CharacterLoadout,
+	CreateCampaignCharacterInput,
+	UpdateCampaignCharacterInput,
+	UpdateCharacterPortraitInput,
+	UpdateCharacterPresentationInput
 } from '../types';
 import { parseSpellSlotsJson } from '$lib/domain/spellcasting';
 import {
-  isNpcCharacterKind,
-  normalizeCharacterKind,
-  type CampaignNpc,
-  type Character,
-  type SpellcastingAbilityKey
+	isNpcCharacterKind,
+	normalizeCharacterKind,
+	type CampaignNpc,
+	type Character,
+	type SpellcastingAbilityKey
 } from '$lib/types/schema';
 import { CHARACTER_SELECT_COLUMNS, type AppDb } from './context';
 
@@ -258,6 +259,12 @@ export function mapCharacterRow(row: {
 	thumb_width?: number | null;
 	thumb_height?: number | null;
 	image_source?: string | null;
+	presentation_mime_type?: string | null;
+	presentation_width?: number | null;
+	presentation_height?: number | null;
+	presentation_thumb_width?: number | null;
+	presentation_thumb_height?: number | null;
+	presentation_image_source?: string | null;
 	date_deleted?: string | null;
 }): Character {
 	return {
@@ -330,6 +337,12 @@ export function mapCharacterRow(row: {
 		thumb_width: row.thumb_width ?? null,
 		thumb_height: row.thumb_height ?? null,
 		image_source: row.image_source ?? null,
+		presentation_mime_type: row.presentation_mime_type ?? null,
+		presentation_width: row.presentation_width ?? null,
+		presentation_height: row.presentation_height ?? null,
+		presentation_thumb_width: row.presentation_thumb_width ?? null,
+		presentation_thumb_height: row.presentation_thumb_height ?? null,
+		presentation_image_source: row.presentation_image_source ?? null,
 		date_deleted: row.date_deleted ?? null
 	};
 }
@@ -344,7 +357,10 @@ export function loadCharacterById(database: AppDb, characterId: string): Charact
 	return rows[0] ? mapCharacterRow(rows[0]) : null;
 }
 
-export function createCampaignCharacter(database: AppDb, input: CreateCampaignCharacterInput): Character {
+export function createCampaignCharacter(
+	database: AppDb,
+	input: CreateCampaignCharacterInput
+): Character {
 	const experience = input.experience ?? 0;
 	const level = input.level ?? 1;
 	const hpMax = input.hp_max ?? 0;
@@ -481,7 +497,10 @@ export function createCampaignCharacterInTransaction(
 	}
 }
 
-export function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCharacterInput): Character {
+export function updateCampaignCharacter(
+	database: AppDb,
+	input: UpdateCampaignCharacterInput
+): Character {
 	const existing = loadCharacterById(database, input.character_id);
 	if (!existing) {
 		throw new Error('Character not found');
@@ -491,7 +510,7 @@ export function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCh
 
 	withTransaction(database, () => {
 		execSql(database, {
-		sql: `UPDATE characters SET
+			sql: `UPDATE characters SET
 			kind = $kind,
 			display_name = $display_name,
 			reputation = $reputation,
@@ -545,67 +564,67 @@ export function updateCampaignCharacter(database: AppDb, input: UpdateCampaignCh
 			spell_slots_total_json = $spell_slots_total_json,
 			spell_slots_expended_json = $spell_slots_expended_json
 		WHERE character_id = $character_id`,
-		bind: {
-			character_id: input.character_id,
-			kind,
-			display_name: input.display_name.trim(),
-			reputation: input.reputation ?? null,
-			notes: input.notes ?? null,
-			race: input.race ?? null,
-			creature_type: input.creature_type ?? null,
-			alignment: input.alignment ?? null,
-			age: input.age ?? null,
-			class_name: input.class_name ?? null,
-			presentation: input.presentation ?? null,
-			background: input.background ?? null,
-			height: input.height ?? null,
-			weight: input.weight ?? null,
-			eyes: input.eyes ?? null,
-			skin: input.skin ?? null,
-			hair: input.hair ?? null,
-			inspiration: input.inspiration ?? 0,
-			initiative: input.initiative ?? null,
-			temp_hp: input.temp_hp ?? null,
-			hit_dice_remaining: input.hit_dice_remaining ?? null,
-			death_save_successes: input.death_save_successes ?? 0,
-			death_save_failures: input.death_save_failures ?? 0,
-			personality_traits: input.personality_traits ?? null,
-			ideals: input.ideals ?? null,
-			bonds: input.bonds ?? null,
-			flaws: input.flaws ?? null,
-			backstory: input.backstory ?? null,
-			allies: input.allies ?? null,
-			features: input.features ?? null,
-			proficiencies: input.proficiencies ?? null,
-			treasure: input.treasure ?? null,
-			armor_class: input.armor_class ?? null,
-			armor_class_notes: input.armor_class_notes ?? null,
-			speed: input.speed ?? null,
-			hp_dice: input.hp_dice ?? null,
-			ability_str: input.ability_str ?? null,
-			ability_dex: input.ability_dex ?? null,
-			ability_con: input.ability_con ?? null,
-			ability_int: input.ability_int ?? null,
-			ability_wis: input.ability_wis ?? null,
-			ability_cha: input.ability_cha ?? null,
-			skills: input.skills ?? null,
-			senses: input.senses ?? null,
-			languages: input.languages ?? null,
-			challenge_rating: input.challenge_rating ?? null,
-			traits: input.traits ?? null,
-			actions: input.actions ?? null,
-			is_spellcaster: input.is_spellcaster ?? 0,
-			spellcasting_class: input.spellcasting_class ?? null,
-			spellcasting_ability: input.spellcasting_ability ?? null,
-			spell_slots_total_json: input.spell_slots_total_json ?? null,
-			spell_slots_expended_json: input.spell_slots_expended_json ?? null
-		}
-	});
+			bind: {
+				character_id: input.character_id,
+				kind,
+				display_name: input.display_name.trim(),
+				reputation: input.reputation ?? null,
+				notes: input.notes ?? null,
+				race: input.race ?? null,
+				creature_type: input.creature_type ?? null,
+				alignment: input.alignment ?? null,
+				age: input.age ?? null,
+				class_name: input.class_name ?? null,
+				presentation: input.presentation ?? null,
+				background: input.background ?? null,
+				height: input.height ?? null,
+				weight: input.weight ?? null,
+				eyes: input.eyes ?? null,
+				skin: input.skin ?? null,
+				hair: input.hair ?? null,
+				inspiration: input.inspiration ?? 0,
+				initiative: input.initiative ?? null,
+				temp_hp: input.temp_hp ?? null,
+				hit_dice_remaining: input.hit_dice_remaining ?? null,
+				death_save_successes: input.death_save_successes ?? 0,
+				death_save_failures: input.death_save_failures ?? 0,
+				personality_traits: input.personality_traits ?? null,
+				ideals: input.ideals ?? null,
+				bonds: input.bonds ?? null,
+				flaws: input.flaws ?? null,
+				backstory: input.backstory ?? null,
+				allies: input.allies ?? null,
+				features: input.features ?? null,
+				proficiencies: input.proficiencies ?? null,
+				treasure: input.treasure ?? null,
+				armor_class: input.armor_class ?? null,
+				armor_class_notes: input.armor_class_notes ?? null,
+				speed: input.speed ?? null,
+				hp_dice: input.hp_dice ?? null,
+				ability_str: input.ability_str ?? null,
+				ability_dex: input.ability_dex ?? null,
+				ability_con: input.ability_con ?? null,
+				ability_int: input.ability_int ?? null,
+				ability_wis: input.ability_wis ?? null,
+				ability_cha: input.ability_cha ?? null,
+				skills: input.skills ?? null,
+				senses: input.senses ?? null,
+				languages: input.languages ?? null,
+				challenge_rating: input.challenge_rating ?? null,
+				traits: input.traits ?? null,
+				actions: input.actions ?? null,
+				is_spellcaster: input.is_spellcaster ?? 0,
+				spellcasting_class: input.spellcasting_class ?? null,
+				spellcasting_ability: input.spellcasting_ability ?? null,
+				spell_slots_total_json: input.spell_slots_total_json ?? null,
+				spell_slots_expended_json: input.spell_slots_expended_json ?? null
+			}
+		});
 
-	if (input.loadout) {
-		clearCharacterLoadout(database, input.character_id);
-		attachCharacterLoadout(database, input.character_id, input.loadout);
-	}
+		if (input.loadout) {
+			clearCharacterLoadout(database, input.character_id);
+			attachCharacterLoadout(database, input.character_id, input.loadout);
+		}
 	});
 
 	return loadCharacterById(database, input.character_id)!;
@@ -642,6 +661,86 @@ export function updateCharacterPortrait(
 	});
 
 	const character = loadCharacterById(database, input.character_id);
+	if (!character) {
+		throw new Error('Character not found');
+	}
+
+	return character;
+}
+
+export function updateCharacterPresentation(
+	database: AppDb,
+	input: UpdateCharacterPresentationInput,
+	thumbBuffer: ArrayBuffer,
+	fullBuffer: ArrayBuffer
+): Character {
+	execSql(database, {
+		sql: `UPDATE characters SET
+			presentation_mime_type = $presentation_mime_type,
+			presentation_width = $presentation_width,
+			presentation_height = $presentation_height,
+			presentation_thumb_width = $presentation_thumb_width,
+			presentation_thumb_height = $presentation_thumb_height,
+			presentation_thumb_blob = $presentation_thumb_blob,
+			presentation_full_blob = $presentation_full_blob,
+			presentation_image_source = $presentation_image_source
+		WHERE character_id = $character_id`,
+		bind: {
+			character_id: input.character_id,
+			presentation_mime_type: input.presentation_mime_type,
+			presentation_width: input.presentation_width,
+			presentation_height: input.presentation_height,
+			presentation_thumb_width: input.presentation_thumb_width,
+			presentation_thumb_height: input.presentation_thumb_height,
+			presentation_thumb_blob: new Uint8Array(thumbBuffer),
+			presentation_full_blob: new Uint8Array(fullBuffer),
+			presentation_image_source: input.presentation_image_source ?? null
+		}
+	});
+
+	const character = loadCharacterById(database, input.character_id);
+	if (!character) {
+		throw new Error('Character not found');
+	}
+
+	return character;
+}
+
+export function updateCharacterPortraitSource(
+	database: AppDb,
+	characterId: string,
+	imageSource: string | null
+): Character {
+	execSql(database, {
+		sql: `UPDATE characters SET image_source = $image_source WHERE character_id = $character_id`,
+		bind: {
+			character_id: characterId,
+			image_source: imageSource
+		}
+	});
+
+	const character = loadCharacterById(database, characterId);
+	if (!character) {
+		throw new Error('Character not found');
+	}
+
+	return character;
+}
+
+export function updateCharacterPresentationSource(
+	database: AppDb,
+	characterId: string,
+	presentationImageSource: string | null
+): Character {
+	execSql(database, {
+		sql: `UPDATE characters SET presentation_image_source = $presentation_image_source WHERE character_id = $character_id`,
+		bind: {
+			character_id: characterId,
+			presentation_image_source: presentationImageSource
+		}
+	});
+
+	const character = loadCharacterById(database, characterId);
 	if (!character) {
 		throw new Error('Character not found');
 	}
@@ -721,6 +820,23 @@ export function loadCharacterPortraitBlob(
 	variant: 'thumb' | 'full'
 ): ArrayBuffer | null {
 	const column = variant === 'thumb' ? 'thumb_blob' : 'full_blob';
+	const rows = selectObjects<Record<string, Uint8Array | null>>(
+		database,
+		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,
+		{ characterId }
+	);
+	const bytes = rows[0]?.blob;
+	if (!bytes?.byteLength) return null;
+
+	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+export function loadCharacterPresentationBlob(
+	database: AppDb,
+	characterId: string,
+	variant: 'thumb' | 'full'
+): ArrayBuffer | null {
+	const column = variant === 'thumb' ? 'presentation_thumb_blob' : 'presentation_full_blob';
 	const rows = selectObjects<Record<string, Uint8Array | null>>(
 		database,
 		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,

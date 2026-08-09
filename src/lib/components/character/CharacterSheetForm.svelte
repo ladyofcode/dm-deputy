@@ -5,43 +5,26 @@
 	import CharacterSheetCombatSection from '$lib/components/character/CharacterSheetCombatSection.svelte';
 	import CharacterSheetEquipmentSection from '$lib/components/character/CharacterSheetEquipmentSection.svelte';
 	import CharacterSheetIdentitySection from '$lib/components/character/CharacterSheetIdentitySection.svelte';
+	import CharacterSheetPresentationSection from '$lib/components/character/CharacterSheetPresentationSection.svelte';
 	import CharacterSpellcastingSection from '$lib/components/character/CharacterSpellcastingSection.svelte';
+	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
+	import { resolveSheetSections } from '$lib/domain/resolve-sheet-sections';
+	import { updateAbilityDraft } from '$lib/domain/npc-draft';
 	import { getReactiveCatalogSpells } from '$lib/stores/catalog.svelte';
-	import {
-		characterSheetHasCombatStats,
-		createDefaultCharacterIdentity,
-		createDefaultNpcExtras,
-		type CharacterIdentityDraft,
-		type NpcExtrasDraft
-	} from '$lib/domain/npc-draft';
+	import type { CharacterSheetStore } from '$lib/stores/character-sheet.svelte';
+	import { ABILITY_LABELS, type AbilityKey } from '$lib/games/dnd5e/data/abilities';
 	import { abilityModifier, formatSignedModifier } from '$lib/games/dnd5e/rules/formulae';
-	import type { NpcCharacterKind } from '$lib/types/schema';
-
-	type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
-
-	const ABILITY_LABELS: Record<AbilityKey, { short: string; name: string }> = {
-		str: { short: 'STR', name: 'Strength' },
-		dex: { short: 'DEX', name: 'Dexterity' },
-		con: { short: 'CON', name: 'Constitution' },
-		int: { short: 'INT', name: 'Intelligence' },
-		wis: { short: 'WIS', name: 'Wisdom' },
-		cha: { short: 'CHA', name: 'Charisma' }
-	};
+	import type { ImageUploadResult } from '$lib/types/image-upload';
 
 	type Props = {
+		sheet: CharacterSheetStore;
 		mode?: 'npc' | 'pc';
-		kind?: NpcCharacterKind;
-		name?: string;
-		playerName?: string;
-		description?: string;
-		identity?: CharacterIdentityDraft;
-		extras?: NpcExtrasDraft;
 		characterId?: string;
-		portraitFile?: File | null;
-		portraitImageSource?: string | null;
 		showPortrait?: boolean;
-		loading?: boolean;
-		statEvents?: import('$lib/types/schema').CharacterStatEvent[];
+		templateMode?: boolean;
+		readOnly?: boolean;
+		onPortraitFileChange?: (result: ImageUploadResult) => void;
 		statBases?: {
 			experience: number;
 			hp_max: number;
@@ -50,141 +33,158 @@
 	};
 
 	let {
+		sheet,
 		mode = 'pc',
-		kind = $bindable('npc_general' as NpcCharacterKind),
-		name = $bindable(''),
-		playerName = $bindable(''),
-		description = $bindable(''),
-		identity = $bindable(createDefaultCharacterIdentity()),
-		extras = $bindable(createDefaultNpcExtras()),
 		characterId,
-		portraitFile = $bindable(null),
-		portraitImageSource = $bindable(null),
 		showPortrait = true,
-		loading = false,
-		statEvents = [],
+		templateMode = false,
+		readOnly = false,
+		onPortraitFileChange,
 		statBases = { experience: 0, hp_max: 0, hp_current: 0 }
 	}: Props = $props();
 
-	let combatExpanded = $state<boolean | null>(null);
-
-	const showCombat = $derived(
-		mode === 'pc' ? true : (combatExpanded ?? characterSheetHasCombatStats(extras))
+	const { showCombat, showAbilities } = $derived(
+		resolveSheetSections(mode, sheet.extras, sheet.combatExpanded)
 	);
-	const showAbilities = $derived(mode === 'pc' || showCombat);
 	const spells = $derived(getReactiveCatalogSpells());
 
 	function updateAbility(key: AbilityKey, value: number) {
-		extras = {
-			...extras,
-			abilities: {
-				...extras.abilities,
-				[key]: value
-			}
-		};
+		sheet.extras = updateAbilityDraft(sheet.extras, key, value);
 	}
 </script>
 
 <div class="sheet-form">
-	{#if loading}
-		<p class="hint">Loading sheet…</p>
+	{#if sheet.loading}
+		<LoadingState message="Loading sheet…" />
 	{:else}
 		<CharacterSheetIdentitySection
 			{mode}
-			bind:kind
-			bind:name
-			bind:playerName
-			bind:description
-			bind:identity
-			bind:extras
+			bind:kind={sheet.kind}
+			bind:name={sheet.name}
+			bind:playerName={sheet.playerName}
+			bind:description={sheet.description}
+			bind:identity={sheet.identity}
+			bind:extras={sheet.extras}
 			{characterId}
-			bind:portraitFile
-			bind:portraitImageSource
+			bind:portraitFile={sheet.portraitFile}
+			bind:portraitImageSource={sheet.portraitImageSource}
 			{showPortrait}
-			{loading}
-			bind:combatExpanded
+			descriptionBeforeNotes={templateMode}
+			{onPortraitFileChange}
+			loading={sheet.loading}
+			{readOnly}
 		/>
+
+		{#if mode === 'npc' && !templateMode}
+			<CharacterSheetPresentationSection
+				bind:identity={sheet.identity}
+				{characterId}
+				bind:presentationFile={sheet.presentationFile}
+				bind:presentationImageSource={sheet.presentationImageSource}
+				loading={sheet.loading}
+				{readOnly}
+			/>
+		{/if}
 
 		{#if showAbilities}
 			<section class="sheet-section">
 				<h2>Abilities</h2>
-				<p class="hint abilities-hint">Score on the left, modifier on the right.</p>
-				<div class="abilities-grid" role="group" aria-label="Ability scores">
-					{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
-						{@const abilityKey = key as AbilityKey}
-						{@const score = extras.abilities[abilityKey]}
-						{@const modifier = abilityModifier(score)}
-						<div class="ability-row">
-							<Tooltip.Root>
-								<Tooltip.Trigger class="ability-short" type="button">
-									{label.short}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Content>{label.name}</Tooltip.Content>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-							<input
-								id={`character_sheet_${abilityKey}_score`}
-								class="ability-score"
-								type="number"
-								min="1"
-								max="30"
-								step="1"
-								value={score}
-								aria-label="{label.name} score"
-								oninput={(event) =>
-									updateAbility(abilityKey, Number(event.currentTarget.value) || 10)}
-							/>
-							<span class="ability-modifier" aria-label="{label.name} modifier">
-								{formatSignedModifier(modifier)}
-							</span>
-						</div>
-					{/each}
-				</div>
+				{#if readOnly}
+					<div class="abilities-grid" role="group" aria-label="Ability scores">
+						{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
+							{@const abilityKey = key as AbilityKey}
+							{@const score = sheet.extras.abilities[abilityKey]}
+							{@const modifier = abilityModifier(score)}
+							<div class="ability-row ability-row-readonly">
+								<span class="ability-short">{label.short}</span>
+								<span class="ability-score-readonly">{score}</span>
+								<span class="ability-modifier">{formatSignedModifier(modifier)}</span>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="hint abilities-hint">Score on the left, modifier on the right.</p>
+					<div class="abilities-grid" role="group" aria-label="Ability scores">
+						{#each Object.entries(ABILITY_LABELS) as [key, label] (key)}
+							{@const abilityKey = key as AbilityKey}
+							{@const score = sheet.extras.abilities[abilityKey]}
+							{@const modifier = abilityModifier(score)}
+							<div class="ability-row">
+								<Tooltip.Root>
+									<Tooltip.Trigger class="ability-short" type="button">
+										{label.short}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Content>{label.name}</Tooltip.Content>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+								<InlineEditableField
+									id={`character_sheet_${abilityKey}_score`}
+									class="ability-score-field"
+									hideLabel
+									type="number"
+									min={1}
+									max={30}
+									step={1}
+									value={score}
+									oncommit={(next) =>
+										updateAbility(abilityKey, typeof next === 'number' ? next : 10)}
+									aria-label="{label.name} score"
+								/>
+								<span class="ability-modifier" aria-label="{label.name} modifier">
+									{formatSignedModifier(modifier)}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</section>
 		{/if}
 
-		{#if mode === 'pc'}
-			<CharacterPcVitalitySection
-				bind:extras
-				{statEvents}
-				{statBases}
-				disabled={loading}
-			/>
-		{:else}
-			<CharacterSheetCombatSection
-				{mode}
-				bind:extras
-				{showCombat}
-				bind:combatExpanded
-				{statEvents}
-				{statBases}
-			/>
-		{/if}
+		<fieldset class="sheet-editable-body" disabled={readOnly}>
+			{#if mode === 'pc'}
+				<CharacterPcVitalitySection
+					bind:extras={sheet.extras}
+					statEvents={sheet.statEvents}
+					{statBases}
+					disabled={sheet.loading || readOnly}
+				/>
+			{:else}
+				<CharacterSheetCombatSection
+					{mode}
+					bind:extras={sheet.extras}
+					{showCombat}
+					bind:combatExpanded={sheet.combatExpanded}
+					{readOnly}
+					statEvents={sheet.statEvents}
+					{statBases}
+				/>
+			{/if}
 
-		{#if mode === 'pc' || showCombat}
-			<CharacterSheetEquipmentSection bind:extras />
+			{#if mode === 'pc' || showCombat}
+				<CharacterSheetEquipmentSection bind:extras={sheet.extras} />
 
-			<CharacterSpellcastingSection
-				bind:spellcasting={extras.spellcasting}
-				bind:spells={extras.loadout.spells}
-				abilities={extras.abilities}
-				level={extras.level}
-				defaultClassName={identity.class_name}
-				catalogSpells={spells}
-				disabled={loading}
-			/>
-		{/if}
+				<CharacterSpellcastingSection
+					bind:spellcasting={sheet.extras.spellcasting}
+					bind:spells={sheet.extras.loadout.spells}
+					abilities={sheet.extras.abilities}
+					level={sheet.extras.level}
+					defaultClassName={sheet.identity.class_name}
+					catalogSpells={spells}
+					disabled={sheet.loading || readOnly}
+				/>
+			{/if}
 
-		{#if mode === 'pc'}
-			<CharacterPcStorySection
-				bind:identity
-				bind:physical={extras.physical}
-				bind:roleplay={extras.roleplay}
-				bind:description
-				disabled={loading}
-			/>
-		{/if}
+			{#if mode === 'pc'}
+				<CharacterPcStorySection
+					bind:identity={sheet.identity}
+					bind:physical={sheet.extras.physical}
+					bind:roleplay={sheet.extras.roleplay}
+					bind:description={sheet.description}
+					disabled={sheet.loading || readOnly}
+				/>
+			{/if}
+		</fieldset>
 	{/if}
 </div>
 
@@ -195,12 +195,22 @@
 	}
 
 	.sheet-form :global(.sheet-section h2) {
-		margin: 0 0 0.65rem;
-		font-size: 1.05rem;
+		margin: 0 0 0.85rem;
+		font-size: clamp(1.25rem, 4vw, 1.5rem);
+		line-height: 1.2;
 	}
 
 	.sheet-form :global(.sheet-section .field) {
 		margin-bottom: 0;
+	}
+
+	.sheet-editable-body {
+		display: grid;
+		gap: var(--space-page);
+		margin: 0;
+		padding: 0;
+		border: none;
+		min-width: 0;
 	}
 
 	.abilities-grid {
@@ -220,6 +230,15 @@
 		align-items: center;
 	}
 
+	.ability-row-readonly .ability-short {
+		font-weight: 700;
+		font-size: 0.95rem;
+	}
+
+	.ability-score-readonly {
+		font-weight: 600;
+	}
+
 	:global(.ability-short) {
 		font-weight: 700;
 		font-size: 0.95rem;
@@ -231,19 +250,22 @@
 		cursor: help;
 	}
 
-	.ability-score {
+	:global(.ability-score-field) {
 		min-width: 0;
-		width: 100%;
+	}
+
+	:global(.ability-score-field .inline-editable-display) {
+		font-weight: 600;
 	}
 
 	.ability-modifier {
 		min-width: 2.25rem;
 		font-weight: 600;
 		text-align: right;
-		color: var(--color-text-muted, #667085);
+		color: var(--color-text-muted);
 	}
 
-	@media (min-width: 40rem) {
+	@media (--layout) {
 		.abilities-grid {
 			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}

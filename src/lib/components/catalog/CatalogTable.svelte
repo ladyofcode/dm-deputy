@@ -1,16 +1,18 @@
 <script lang="ts" generics="T">
 	import { Button } from 'bits-ui';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		items: T[];
 		getId: (item: T) => string;
 		emptyMessage: string;
-		onEdit: (item: T) => void;
-		onDelete: (id: string) => void;
+		onEdit?: (item: T) => void;
+		onDelete?: (id: string) => void;
 		deletingId?: string | null;
 		header: Snippet;
 		row: Snippet<[T]>;
+		actions?: Snippet<[T]>;
 	};
 
 	let {
@@ -21,7 +23,8 @@
 		onDelete,
 		deletingId = null,
 		header,
-		row
+		row,
+		actions
 	}: Props = $props();
 </script>
 
@@ -39,17 +42,21 @@
 					<tr>
 						{@render row(item)}
 						<td class="actions-col">
-							<Button.Root type="button" data-variant="ghost" onclick={() => onEdit(item)}>
-								Edit
-							</Button.Root>
-							<Button.Root
-								type="button"
-								data-variant="ghost"
-								disabled={deletingId === getId(item)}
-								onclick={() => onDelete(getId(item))}
-							>
-								Delete
-							</Button.Root>
+							{#if actions}
+								{@render actions(item)}
+							{:else}
+								<Button.Root type="button" data-variant="ghost" onclick={() => onEdit?.(item)}>
+									Edit
+								</Button.Root>
+								<Button.Root
+									type="button"
+									data-variant="ghost"
+									disabled={deletingId === getId(item)}
+									onclick={() => onDelete?.(getId(item))}
+								>
+									Delete
+								</Button.Root>
+							{/if}
 						</td>
 					</tr>
 				{/each}
@@ -57,52 +64,12 @@
 		</table>
 	</div>
 {:else}
-	<p class="hint">{emptyMessage}</p>
+	<EmptyState message={emptyMessage} />
 {/if}
 
 <style>
-	.table-wrap {
-		overflow-x: auto;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.data-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.95rem;
-	}
-
-	.data-table th,
-	.data-table td {
-		padding: 0.65rem 0.75rem;
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-		vertical-align: top;
-	}
-
-	.data-table th {
-		font-family: var(--font-heading);
-		font-weight: 600;
-		background: color-mix(in srgb, var(--color-border) 35%, var(--color-surface));
-	}
-
-	.data-table tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.data-table :global(.name-cell) {
-		font-weight: 600;
-	}
-
 	.data-table :global(.description-cell) {
-		max-width: 36rem;
-		color: var(--color-text-muted, inherit);
-	}
-
-	.actions-col {
-		white-space: nowrap;
+		color: var(--color-text-muted);
 	}
 
 	.actions-col :global([data-button-root]) {

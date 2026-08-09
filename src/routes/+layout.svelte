@@ -11,15 +11,16 @@
 	import { parseCampaignIdFromPath, resolveStoredActiveTheme } from '$lib/themes/storage';
 	import { syncThemesWithDatabase } from '$lib/data/writes';
 	import { installCampaignDbInspect } from '$lib/debug/campaign-db-inspect';
-	import LibraryNavMenu from '$lib/components/LibraryNavMenu.svelte';
-	import AppBrand from '$lib/components/AppBrand.svelte';
-	import AuthGate from '$lib/components/AuthGate.svelte';
+	import LibraryNavMenu from '$lib/components/app/LibraryNavMenu.svelte';
+	import AppMobileNav from '$lib/components/app/AppMobileNav.svelte';
+	import AppBrand from '$lib/components/app/AppBrand.svelte';
+	import AuthGate from '$lib/components/app/AuthGate.svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import '../app.css';
 
 	let { children } = $props();
 
-	const webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
+	const webManifest = $derived(pwaInfo?.webManifest);
 
 	onMount(() => {
 		installCampaignDbInspect(() => workspace.currentUserId);
@@ -80,7 +81,13 @@
 </script>
 
 <svelte:head>
-	{@html webManifestLink}
+	{#if webManifest}
+		<link
+			rel="manifest"
+			href={webManifest.href}
+			crossorigin={webManifest.useCredentials ? 'use-credentials' : undefined}
+		/>
+	{/if}
 	<link rel="icon" href={favicon} />
 	{#if activeTheme === 'medieval'}
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -97,8 +104,7 @@
 <div class="shell" class:shell--canvas={isPartStoryPage}>
 	<header class="app-header">
 		<AppBrand />
-		<nav class="app-nav">
-			<a href={resolve('/')} aria-current={page.url.pathname === '/' ? 'page' : undefined}>Home</a>
+		<nav class="app-nav app-nav--desktop" aria-label="Main navigation">
 			<LibraryNavMenu />
 			<a
 				href={resolve('/account/settings')}
@@ -108,6 +114,7 @@
 				>Login</a
 			>
 		</nav>
+		<AppMobileNav />
 	</header>
 
 	<main class="app-main" class:app-main--canvas={isPartStoryPage}>
@@ -130,9 +137,9 @@
 	.db-error-banner {
 		margin-bottom: 1rem;
 		padding: 0.75rem 1rem;
-		border: 1px solid var(--color-danger, #b42318);
+		border: 1px solid var(--color-danger);
 		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--color-danger, #b42318) 8%, transparent);
+		background: color-mix(in srgb, var(--color-danger) 8%, transparent);
 	}
 
 	.db-error-banner h1 {

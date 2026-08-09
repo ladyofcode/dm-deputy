@@ -1,0 +1,63 @@
+---
+description: Canonical responsive breakpoints for CSS and Svelte layouts
+globs: "**/*.{css,svelte}"
+alwaysApply: false
+---
+
+# Responsive breakpoints
+
+**Phone is the default.** Base styles target the narrowest viewport with no media query. Wider breakpoints add overrides via `min-width` only — never use `max-width` for layout tiers.
+
+Canonical tokens live in `:root` in `src/app.css` as `--bp-*`:
+
+| Token | Value | When to use |
+|-------|-------|-------------|
+| *(default)* | phone | Base styles — no `@media` |
+| `--bp-tablet` | `24rem` (384px) | **First** breakpoint — desktop nav, page padding, small UI fixes |
+| `--bp-layout` | `40rem` (640px) | Multi-column rows, portrait beside fields, form grids |
+| `--bp-desktop` | `48rem` (768px) | Wider sheet sections (story, vitality, spellcasting, modals) |
+| `--bp-wide` | `72rem` (1152px) | Full page width; matches `--page-max-width` |
+
+## Rules
+
+1. **Never** add phone-only `max-width` overrides. Hide/show wider UI at `min-width` instead (see `.app-nav--desktop` / `.mobile-nav-toggle`).
+2. In `@media`, use the **literal rem values** above — CSS variables are invalid in media queries. Add a comment: `/* --bp-tablet */`.
+3. In `clamp()`, `min()`, or `max()`, you may use `var(--bp-tablet)` etc.
+4. Do not add one-off breakpoints. Migrate legacy code to the nearest canonical token when touched.
+5. Use `minmax(0, 1fr)` in grid columns so paired fields truncate correctly on phone.
+
+## Examples
+
+```css
+/* ✅ phone default — mobile nav visible */
+.mobile-nav-toggle {
+	display: inline-flex;
+}
+
+.app-nav--desktop {
+	display: none;
+}
+
+/* ✅ first breakpoint — nav + padding */
+@media (min-width: 24rem) {
+	/* --bp-tablet */
+	.mobile-nav-toggle {
+		display: none;
+	}
+
+	.app-nav--desktop {
+		display: flex;
+	}
+}
+
+/* ✅ layout breakpoint — multi-column */
+@media (min-width: 40rem) {
+	/* --bp-layout */
+	.sheet-row {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+/* ❌ no max-width layout tiers */
+@media (max-width: 23.99rem) { ... }
+```

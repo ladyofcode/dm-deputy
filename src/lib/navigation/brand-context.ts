@@ -75,10 +75,11 @@ export function resolveBrandContext(params: {
 		if (adventure && part) {
 			return {
 				kind: 'part',
-				href: resolve(
-					'/campaigns/[campaignId]/adventures/[adventureId]/parts/[partId]',
-					{ campaignId, adventureId, partId }
-				),
+				href: resolve('/campaigns/[campaignId]/adventures/[adventureId]/parts/[partId]', {
+					campaignId,
+					adventureId,
+					partId
+				}),
 				eyebrow: getAdventureDisplayName(adventure),
 				title: part.title
 			};

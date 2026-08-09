@@ -175,15 +175,11 @@ export function formatSpeciesTraitNames(species: Species): string {
 	return species.traits.map((trait) => trait.trait_name).join(', ') || '—';
 }
 
-export function formatTraitEffect(
-	effect: SpeciesTraitEffect,
-	skills: Skill[] = []
-): string {
+export function formatTraitEffect(effect: SpeciesTraitEffect, skills: Skill[] = []): string {
 	const kind = SPECIES_EFFECT_KIND_LABELS[effect.effect_kind] ?? effect.effect_kind;
-	const skillName =
-		effect.target?.startsWith('skill-') ?
-			skills.find((skill) => skill.skill_id === effect.target)?.skill_name ?? effect.target
-		:	effect.target;
+	const skillName = effect.target?.startsWith('skill-')
+		? (skills.find((skill) => skill.skill_id === effect.target)?.skill_name ?? effect.target)
+		: effect.target;
 
 	switch (effect.effect_kind) {
 		case 'darkvision':
@@ -219,4 +215,10 @@ export function formatWeaponCost(weapon: Weapon): string {
 
 export function formatItemCost(item: Item): string {
 	return `${item.cost} ${COST_CURRENCY_LABELS[item.cost_currency]}`;
+}
+
+export function previewDescription(description: string, maxLength = 120): string {
+	const normalized = description.replace(/\s+/g, ' ').trim();
+	if (normalized.length <= maxLength) return normalized;
+	return `${normalized.slice(0, maxLength).trimEnd()}…`;
 }

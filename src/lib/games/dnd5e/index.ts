@@ -6,16 +6,8 @@ import {
 	getItemsBySubcategory,
 	getItemsCatalog
 } from './data/items';
-import {
-	getConditionById,
-	getConditionByName,
-	getConditionsCatalog
-} from './data/conditions';
-import {
-	getSpeciesById,
-	getSpeciesByName,
-	getSpeciesCatalog
-} from './data/species';
+import { getConditionById, getConditionByName, getConditionsCatalog } from './data/conditions';
+import { getSpeciesById, getSpeciesByName, getSpeciesCatalog } from './data/species';
 import {
 	getCantrips,
 	getRitualSpells,

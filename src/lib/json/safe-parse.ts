@@ -10,7 +10,9 @@ export function safeJsonParse<T>(text: string | null | undefined, fallback: T): 
 
 export function safeJsonParseArray(text: string | null | undefined): string[] {
 	const parsed = safeJsonParse<unknown>(text, []);
-	return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : [];
+	return Array.isArray(parsed)
+		? parsed.filter((entry): entry is string => typeof entry === 'string')
+		: [];
 }
 
 export function safeJsonParseObject<T extends Record<string, unknown>>(

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
+	import { resolveCharacterHref } from '$lib/navigation/hrefs';
 	import type { Character } from '$lib/types/schema';
 
 	type Props = {
-		href: string;
+		characterId: string;
 		character: Character;
 		subtitle?: string | null;
 		defaultLevel?: number;
@@ -15,7 +16,7 @@
 	};
 
 	let {
-		href,
+		characterId,
 		character,
 		subtitle = null,
 		defaultLevel = 0,
@@ -36,9 +37,11 @@
 
 		return parts.length ? parts.join(' · ') : null;
 	});
+
+	const href = $derived(resolveCharacterHref(characterId));
 </script>
 
-<li class="character-list-item">
+<li class="character-list-item entity-list-item">
 	<a class="character-main" {href}>
 		<span class="character-name">{character.display_name}</span>
 		{#if subtitle}
@@ -61,14 +64,9 @@
 
 <style>
 	.character-list-item {
-		display: grid;
 		grid-template-columns: 1fr auto;
-		gap: 0.75rem;
 		align-items: start;
 		padding: 0.65rem 0.75rem;
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
 	}
 
 	.character-main {
@@ -80,8 +78,15 @@
 		color: inherit;
 	}
 
-	.character-main:hover .character-name {
+	.character-main:hover .character-name,
+	.character-main:focus-visible .character-name {
 		color: var(--color-accent);
+	}
+
+	.character-main:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
 	}
 
 	.character-name {

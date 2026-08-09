@@ -1,10 +1,7 @@
 const TEMPLATE_PREFIX = 'template:';
 const CHARACTER_PREFIX = 'character:';
 
-export function encodeStoryNpcSelection(
-	characterId: string,
-	monsterTemplateId: string
-): string {
+export function encodeStoryNpcSelection(characterId: string, monsterTemplateId: string): string {
 	if (monsterTemplateId) return `${TEMPLATE_PREFIX}${monsterTemplateId}`;
 	if (characterId) return `${CHARACTER_PREFIX}${characterId}`;
 	return '';

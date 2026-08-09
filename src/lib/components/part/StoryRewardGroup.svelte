@@ -40,7 +40,12 @@
 	});
 </script>
 
-<div bind:this={element} class="reward-group" data-story-draggable data-dimmed={dimmed ? 'true' : undefined}>
+<div
+	bind:this={element}
+	class="reward-group"
+	data-story-draggable
+	data-dimmed={dimmed ? 'true' : undefined}
+>
 	<div class="reward-group-header">
 		<RewardIcon size={15} />
 		<span>Reward</span>
@@ -107,9 +112,9 @@
 	}
 
 	.reward-group[data-dimmed='true'] {
-		background: #3a2e23;
-		border-color: #4d3b2c;
-		box-shadow: 0 4px 12px color-mix(in srgb, #2c2416 20%, transparent);
+		background: var(--color-node-dimmed-bg);
+		border-color: var(--color-node-dimmed-border);
+		box-shadow: 0 4px 12px color-mix(in srgb, var(--color-node-dimmed-bg) 22%, transparent);
 	}
 
 	.reward-group[data-dimmed='true'] .reward-group-header,
@@ -118,7 +123,7 @@
 	.reward-group[data-dimmed='true'] .reward-stats,
 	.reward-group[data-dimmed='true'] .reward-note,
 	.reward-group[data-dimmed='true'] .assign-xp-link {
-		color: #bda992;
+		color: var(--color-node-dimmed-text);
 	}
 
 	.reward-group-header {
@@ -182,8 +187,9 @@
 		cursor: pointer;
 	}
 
-	.assign-xp-link:hover:not(:disabled) {
-		color: var(--color-accent-hover, var(--color-accent));
+	.assign-xp-link:hover:not(:disabled),
+	.assign-xp-link:focus-visible:not(:disabled) {
+		color: var(--color-accent-hover);
 		text-decoration: underline;
 	}
 
@@ -194,7 +200,7 @@
 
 	.treasure-badge {
 		display: inline-flex;
-		color: #b8860b;
+		color: var(--color-node-reward-accent);
 		line-height: 0;
 	}
 

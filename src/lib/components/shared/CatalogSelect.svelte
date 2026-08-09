@@ -27,6 +27,7 @@
 		disabled?: boolean;
 		'aria-label'?: string;
 		onkeydown?: (event: KeyboardEvent) => void;
+		onblur?: (event: FocusEvent) => void;
 	};
 
 	let {
@@ -43,7 +44,8 @@
 		class: className = '',
 		disabled = false,
 		'aria-label': ariaLabel,
-		onkeydown
+		onkeydown,
+		onblur
 	}: Props = $props();
 
 	const resolvedGroups = $derived.by(() => {
@@ -88,8 +90,9 @@
 	bind:value
 	{disabled}
 	aria-label={ariaLabel}
-	onchange={onchange}
+	{onchange}
 	{onkeydown}
+	{onblur}
 >
 	<option value="">{emptyLabel}</option>
 	{#each resolvedGroups as group (group.label)}
