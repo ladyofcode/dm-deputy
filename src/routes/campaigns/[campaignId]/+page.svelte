@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button } from 'bits-ui';
+	import AddIcon from '$lib/components/icons/AddIcon.svelte';
 	import CampaignMapsSection from '$lib/components/campaign/CampaignMapsSection.svelte';
 	import CampaignNpcsSection from '$lib/components/campaign/CampaignNpcsSection.svelte';
 	import CampaignPcsSection from '$lib/components/campaign/CampaignPcsSection.svelte';
@@ -63,7 +64,7 @@
 					data-variant="icon"
 					aria-label="Create adventure"
 				>
-					+
+					<AddIcon />
 				</Button.Root>
 			</div>
 
@@ -141,5 +142,18 @@
 	.adventure-list {
 		display: grid;
 		gap: 0.5rem;
+	}
+
+	.campaign-page :global([data-button-root][data-variant='icon']) {
+		background: transparent;
+		box-shadow: none;
+		border-color: var(--color-border);
+		color: var(--color-text-muted);
+	}
+
+	.campaign-page :global([data-button-root][data-variant='icon']:hover:not(:disabled)) {
+		background: transparent;
+		border-color: var(--color-accent);
+		color: var(--color-accent);
 	}
 </style>

@@ -13,12 +13,14 @@
 	} from '$lib/data';
 	import { getCampaignDisplayName } from '$lib/domain/display-names';
 	import { formatErrorMessage } from '$lib/domain/errors';
+	import { sanitizeReturnTo } from '$lib/navigation/hrefs';
 	import { loadCharacterStatEvents } from '$lib/data/character-stats-persistence';
 	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import { persistPendingCharacterMedia } from '$lib/domain/character-media';
 	import { updateCampaignCharacter } from '$lib/data/writes';
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
 	import { createCharacterSheetStore } from '$lib/stores/character-sheet.svelte';
+	import { setupCharacterSheetAutoSave } from '$lib/stores/autosave.svelte';
 	import { database } from '$lib/stores/database.svelte';
 	import { isNpcCharacterKind } from '$lib/types/schema';
 
@@ -48,30 +50,55 @@
 
 	const campaignLabel = $derived(campaign ? getCampaignDisplayName(campaign) : 'Unassigned');
 
+	const returnTo = $derived(sanitizeReturnTo(page.url.searchParams.get('from')));
+
+	const backHref = $derived(returnTo ?? resolve('/library/players'));
+
+	const backLabel = $derived.by(() => {
+		if (!returnTo) return 'Library';
+		if (returnTo.includes('/campaigns/') && campaign) {
+			return getCampaignDisplayName(campaign);
+		}
+		return 'Back';
+	});
+
 	const sheetMode = $derived(character?.kind && isNpcCharacterKind(character.kind) ? 'npc' : 'pc');
+
+	let loadedSheetForCharacterId = $state<string | null>(null);
 
 	$effect(() => {
 		if (!database.isReady) return;
 
+		const id = characterId;
+		if (!id) {
+			loadedSheetForCharacterId = null;
+			sheet.loading = false;
+			return;
+		}
+
+		if (id === loadedSheetForCharacterId) {
+			return;
+		}
+
 		if (!character || !isValidCharacter) {
+			loadedSheetForCharacterId = null;
 			sheet.loading = false;
 			return;
 		}
 
 		let cancelled = false;
+		loadedSheetForCharacterId = id;
 		sheet.loading = true;
 		sheet.error = null;
 
-		void Promise.all([
-			sheet.loadFromCharacter(character),
-			loadCharacterStatEvents(character.character_id)
-		])
+		void Promise.all([sheet.loadFromCharacter(character), loadCharacterStatEvents(id)])
 			.then(([, events]) => {
 				if (cancelled) return;
 				sheet.statEvents = events;
 			})
 			.catch((cause) => {
 				if (cancelled) return;
+				loadedSheetForCharacterId = null;
 				sheet.error = formatErrorMessage(cause, 'Could not load character sheet');
 				sheet.loading = false;
 			});
@@ -99,21 +126,29 @@
 				extras: payload.extras
 			});
 
-			if (payload.portraitFile || payload.presentationFile) {
+			if (payload.portraitFile || payload.portraitThumbCropFile || payload.presentationFile || payload.presentationThumbCropFile) {
 				await persistPendingCharacterMedia(character.character_id, {
-					portraitFile: payload.portraitFile,
+					portraitOriginalFile: payload.portraitFile,
+					portraitThumbCropFile: payload.portraitThumbCropFile,
+					portraitThumbCropRect: payload.portraitThumbCropRect,
 					portraitImageSource: payload.portraitImageSource,
-					presentationFile: payload.presentationFile,
+					presentationOriginalFile: payload.presentationFile,
+					presentationThumbCropFile: payload.presentationThumbCropFile,
+					presentationThumbCropRect: payload.presentationThumbCropRect,
 					presentationImageSource: payload.presentationImageSource
 				});
 
-				if (payload.portraitFile) {
+				if (payload.portraitFile || payload.portraitThumbCropFile) {
 					sheet.portraitFile = null;
+					sheet.portraitThumbCropFile = null;
+					sheet.portraitThumbCropRect = null;
 					sheet.portraitImageSource = null;
 				}
 
-				if (payload.presentationFile) {
+				if (payload.presentationFile || payload.presentationThumbCropFile) {
 					sheet.presentationFile = null;
+					sheet.presentationThumbCropFile = null;
+					sheet.presentationThumbCropRect = null;
 					sheet.presentationImageSource = null;
 				}
 			}
@@ -129,6 +164,12 @@
 			sheet.saving = false;
 		}
 	}
+
+	setupCharacterSheetAutoSave({
+		sheet,
+		save: handleSave,
+		isEnabled: () => database.isReady && Boolean(character && isValidCharacter)
+	});
 </script>
 
 <svelte:head>
@@ -149,13 +190,11 @@
 {:else}
 	<CharacterSheetPageShell
 		navLabel="Character sheet navigation"
-		backHref={resolve('/library/players')}
+		{backHref}
+		{backLabel}
 		title={sheet.name.trim() || character.display_name || 'Character'}
 		subtitle={campaignLabel}
-		loading={sheet.loading}
-		saving={sheet.saving}
 		error={sheet.error}
-		onSubmit={handleSave}
 	>
 		{#snippet headerActions()}
 			{#if sheetMode === 'npc'}

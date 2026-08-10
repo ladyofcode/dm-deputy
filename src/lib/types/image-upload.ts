@@ -1,5 +1,22 @@
+import type { NormalizedCropRect } from '$lib/domain/crop-image';
+
+export type { NormalizedCropRect };
+
 export type ImageUploadResult = {
+	/** Thumb crop when cropping, otherwise the uploaded file */
 	file: File;
+	imageSource: string | null;
+	/** Full upload when replacing the stored original */
+	originalFile?: File | null;
+	thumbCropRect?: NormalizedCropRect | null;
+	/** True when only the thumb crop changed; original stays in storage */
+	reCropOnly?: boolean;
+};
+
+export type CharacterPortraitUploadPayload = {
+	originalFile: File | null;
+	thumbCropFile?: File | null;
+	thumbCropRect?: NormalizedCropRect | null;
 	imageSource: string | null;
 };
 

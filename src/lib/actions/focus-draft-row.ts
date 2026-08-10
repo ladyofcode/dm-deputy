@@ -1,8 +1,9 @@
 import { tick } from 'svelte';
 
 export async function focusDraftRowInput(
-	getInput: () => HTMLInputElement | HTMLSelectElement | undefined
+	getInput: () => HTMLInputElement | HTMLSelectElement | undefined,
+	options?: { preventScroll?: boolean }
 ): Promise<void> {
 	await tick();
-	getInput()?.focus();
+	getInput()?.focus({ preventScroll: options?.preventScroll ?? true });
 }

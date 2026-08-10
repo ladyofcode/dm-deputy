@@ -8,6 +8,7 @@
 	import CloseIcon from '$lib/components/icons/CloseIcon.svelte';
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import LoadingState from '$lib/components/shared/LoadingState.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import PartAddNpcModal from '$lib/components/part/PartAddNpcModal.svelte';
 	import {
 		getPartViewerNpcs,
@@ -164,14 +165,12 @@
 					{#if selectedIsUnassigned}
 						<div class="npc-viewer-detail-actions">
 							<p class="npc-viewer-unassigned-note">Unassigned to a story node</p>
-							<Button.Root
-								type="button"
-								data-variant="ghost"
-								disabled={removingNpc}
+							<RemoveIconButton
+								variant="ghost"
+								ariaLabel="Remove from part"
+								busy={removingNpc}
 								onclick={handleRemoveUnassigned}
-							>
-								{removingNpc ? 'Removing…' : 'Remove from part'}
-							</Button.Root>
+							/>
 						</div>
 					{/if}
 					<CharacterSheetForm
@@ -213,7 +212,7 @@
 						onclick={() => (showAddNpcModal = true)}
 					>
 						<span class="npc-viewer-add-card-inner">
-							<span class="npc-viewer-add-card-icon" aria-hidden="true"><AddIcon size={24} /></span>
+							<span class="npc-viewer-add-card-icon" aria-hidden="true"><AddIcon /></span>
 							<span class="npc-viewer-add-card-label">Add NPC</span>
 						</span>
 					</button>
@@ -228,6 +227,7 @@
 	{campaignId}
 	{storyNodes}
 	{storyItems}
+	{partNpcs}
 	{onAddPartNpc}
 	{onSaveNodeArms}
 />
@@ -387,9 +387,14 @@
 	}
 
 	.npc-viewer-add-card-icon {
-		font-size: clamp(2rem, 14vw, 3rem);
-		font-weight: 300;
-		line-height: 1;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.npc-viewer-add-card-icon :global(svg) {
+		width: 2rem;
+		height: 2rem;
 	}
 
 	.npc-viewer-add-card-label {

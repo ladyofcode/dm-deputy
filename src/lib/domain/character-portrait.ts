@@ -1,15 +1,30 @@
+import {
+	computeCoverCropRect,
+	cropImageRectToFile,
+	type NormalizedCropRect,
+	serializeCropRect
+} from '$lib/domain/crop-image';
+import type { CharacterPortraitUploadPayload } from '$lib/types/image-upload';
+
+export const PORTRAIT_ORIGINAL_MAX_EDGE = 2048;
 export const PORTRAIT_FULL_MAX_EDGE = 800;
 export const PORTRAIT_THUMB_MAX_EDGE = 160;
 export const PORTRAIT_FULL_QUALITY = 0.88;
 export const PORTRAIT_THUMB_QUALITY = 0.82;
+export const PORTRAIT_THUMB_ASPECT_RATIO = 4 / 5;
 
 export type ProcessedCharacterPortrait = {
 	mime_type: 'image/jpeg' | 'image/webp' | 'image/png';
+	original_mime_type: 'image/jpeg' | 'image/webp' | 'image/png';
 	portrait_width: number;
 	portrait_height: number;
+	original_width: number;
+	original_height: number;
 	thumb_width: number;
 	thumb_height: number;
-	fullBuffer: ArrayBuffer;
+	thumb_crop_json: string;
+	fullBuffer: ArrayBuffer | null;
+	originalBuffer: ArrayBuffer | null;
 	thumbBuffer: ArrayBuffer;
 };
 
@@ -46,7 +61,7 @@ function fitWithin(width: number, height: number, maxEdge: number) {
 
 function canvasToBlob(
 	canvas: HTMLCanvasElement,
-	mimeType: OutputMimeType,
+	mimeType: OutputMimeType | 'image/webp',
 	quality: number
 ): Promise<ArrayBuffer> {
 	return new Promise((resolve, reject) => {
@@ -88,33 +103,111 @@ function outputMimeType(file: File): OutputMimeType {
 	return canvas.toDataURL('image/webp').startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
 }
 
+function thumbOutputMimeType(file: File): 'image/png' | 'image/webp' {
+	return isPngFile(file) ? 'image/png' : 'image/webp';
+}
+
+async function resolveThumbCrop(
+	originalFile: File,
+	thumbCropFile: File | null,
+	thumbCropRect: NormalizedCropRect | null
+): Promise<{ file: File; rect: NormalizedCropRect }> {
+	if (thumbCropFile && thumbCropRect) {
+		return { file: thumbCropFile, rect: thumbCropRect };
+	}
+
+	const image = await loadImageFromFile(originalFile);
+	const rect = computeCoverCropRect(
+		image.naturalWidth,
+		image.naturalHeight,
+		PORTRAIT_THUMB_ASPECT_RATIO
+	);
+	const file = await cropImageRectToFile(image, rect, originalFile.name, originalFile.type);
+
+	return { file, rect };
+}
+
 export async function processCharacterPortraitUpload(
-	file: File
+	payload: CharacterPortraitUploadPayload
 ): Promise<ProcessedCharacterPortrait> {
-	if (!file.type.startsWith('image/') && !isPngFile(file)) {
+	const originalFile = payload.originalFile;
+	if (!originalFile) {
 		throw new Error('Choose an image file');
 	}
 
-	const image = await loadImageFromFile(file);
-	const mime_type = outputMimeType(file);
-	const fullSize = fitWithin(image.naturalWidth, image.naturalHeight, PORTRAIT_FULL_MAX_EDGE);
-	const thumbSize = fitWithin(image.naturalWidth, image.naturalHeight, PORTRAIT_THUMB_MAX_EDGE);
+	if (!originalFile.type.startsWith('image/') && !isPngFile(originalFile)) {
+		throw new Error('Choose an image file');
+	}
 
-	const fullCanvas = drawScaledImage(image, fullSize.width, fullSize.height);
-	const thumbCanvas = drawScaledImage(image, thumbSize.width, thumbSize.height);
+	const { file: thumbSourceFile, rect: thumbCropRect } = await resolveThumbCrop(
+		originalFile,
+		payload.thumbCropFile ?? null,
+		payload.thumbCropRect ?? null
+	);
 
-	const [fullBuffer, thumbBuffer] = await Promise.all([
+	const originalImage = await loadImageFromFile(originalFile);
+	const thumbImage = await loadImageFromFile(thumbSourceFile);
+	const mime_type = outputMimeType(originalFile);
+	const original_mime_type = mime_type;
+	const originalSize = fitWithin(
+		originalImage.naturalWidth,
+		originalImage.naturalHeight,
+		PORTRAIT_ORIGINAL_MAX_EDGE
+	);
+	const fullSize = fitWithin(
+		originalImage.naturalWidth,
+		originalImage.naturalHeight,
+		PORTRAIT_FULL_MAX_EDGE
+	);
+	const thumbSize = fitWithin(thumbImage.naturalWidth, thumbImage.naturalHeight, PORTRAIT_THUMB_MAX_EDGE);
+	const thumbMime = thumbOutputMimeType(thumbSourceFile);
+
+	const originalCanvas = drawScaledImage(originalImage, originalSize.width, originalSize.height);
+	const fullCanvas = drawScaledImage(originalImage, fullSize.width, fullSize.height);
+	const thumbCanvas = drawScaledImage(thumbImage, thumbSize.width, thumbSize.height);
+
+	const [originalBuffer, fullBuffer, thumbBuffer] = await Promise.all([
+		canvasToBlob(originalCanvas, original_mime_type, PORTRAIT_FULL_QUALITY),
 		canvasToBlob(fullCanvas, mime_type, PORTRAIT_FULL_QUALITY),
-		canvasToBlob(thumbCanvas, mime_type, PORTRAIT_THUMB_QUALITY)
+		canvasToBlob(thumbCanvas, thumbMime, PORTRAIT_THUMB_QUALITY)
 	]);
 
 	return {
 		mime_type,
+		original_mime_type,
 		portrait_width: fullSize.width,
 		portrait_height: fullSize.height,
+		original_width: originalSize.width,
+		original_height: originalSize.height,
 		thumb_width: thumbSize.width,
 		thumb_height: thumbSize.height,
+		thumb_crop_json: serializeCropRect(thumbCropRect),
 		fullBuffer,
+		originalBuffer,
+		thumbBuffer
+	};
+}
+
+export async function processCharacterPortraitReCrop(
+	payload: CharacterPortraitUploadPayload
+): Promise<Pick<
+	ProcessedCharacterPortrait,
+	'thumb_width' | 'thumb_height' | 'thumb_crop_json' | 'thumbBuffer'
+>> {
+	if (!payload.thumbCropFile || !payload.thumbCropRect) {
+		throw new Error('Thumb crop is required');
+	}
+
+	const thumbImage = await loadImageFromFile(payload.thumbCropFile);
+	const thumbSize = fitWithin(thumbImage.naturalWidth, thumbImage.naturalHeight, PORTRAIT_THUMB_MAX_EDGE);
+	const thumbMime = thumbOutputMimeType(payload.thumbCropFile);
+	const thumbCanvas = drawScaledImage(thumbImage, thumbSize.width, thumbSize.height);
+	const thumbBuffer = await canvasToBlob(thumbCanvas, thumbMime, PORTRAIT_THUMB_QUALITY);
+
+	return {
+		thumb_width: thumbSize.width,
+		thumb_height: thumbSize.height,
+		thumb_crop_json: serializeCropRect(payload.thumbCropRect),
 		thumbBuffer
 	};
 }

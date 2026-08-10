@@ -399,7 +399,7 @@ export async function deleteCampaignMapInDb(mapId: string): Promise<void> {
 
 export async function loadCampaignMapBlobInDb(
 	mapId: string,
-	variant: 'thumb' | 'full'
+	variant: import('./types').CharacterPortraitBlobVariant
 ): Promise<ArrayBuffer | null> {
 	const buffer = await callWorker<ArrayBuffer | null>('loadCampaignMapBlob', [mapId, variant]);
 	return buffer ?? null;
@@ -495,12 +495,17 @@ export async function loadCharacterLoadoutInDb(
 export async function updateCharacterPortraitInDb(
 	input: import('./types').UpdateCharacterPortraitInput,
 	thumbBuffer: ArrayBuffer,
-	fullBuffer: ArrayBuffer
+	fullBuffer: ArrayBuffer | null,
+	originalBuffer: ArrayBuffer | null
 ): Promise<import('$lib/types/schema').Character> {
+	const transferables = [thumbBuffer, fullBuffer, originalBuffer].filter(
+		(buffer): buffer is ArrayBuffer => buffer !== null
+	);
+
 	return callWorkerWithTransfer(
 		'updateCharacterPortrait',
-		[input, thumbBuffer, fullBuffer],
-		[thumbBuffer, fullBuffer]
+		[input, thumbBuffer, fullBuffer, originalBuffer],
+		transferables
 	);
 }
 
@@ -513,7 +518,7 @@ export async function updateCharacterPortraitSourceInDb(
 
 export async function loadCharacterPortraitBlobInDb(
 	characterId: string,
-	variant: 'thumb' | 'full'
+	variant: import('./types').CharacterPortraitBlobVariant
 ): Promise<ArrayBuffer | null> {
 	const buffer = await callWorker<ArrayBuffer | null>('loadCharacterPortraitBlob', [
 		characterId,
@@ -525,12 +530,17 @@ export async function loadCharacterPortraitBlobInDb(
 export async function updateCharacterPresentationInDb(
 	input: import('./types').UpdateCharacterPresentationInput,
 	thumbBuffer: ArrayBuffer,
-	fullBuffer: ArrayBuffer
+	fullBuffer: ArrayBuffer | null,
+	originalBuffer: ArrayBuffer | null
 ): Promise<import('$lib/types/schema').Character> {
+	const transferables = [thumbBuffer, fullBuffer, originalBuffer].filter(
+		(buffer): buffer is ArrayBuffer => buffer !== null
+	);
+
 	return callWorkerWithTransfer(
 		'updateCharacterPresentation',
-		[input, thumbBuffer, fullBuffer],
-		[thumbBuffer, fullBuffer]
+		[input, thumbBuffer, fullBuffer, originalBuffer],
+		transferables
 	);
 }
 
@@ -543,7 +553,7 @@ export async function updateCharacterPresentationSourceInDb(
 
 export async function loadCharacterPresentationBlobInDb(
 	characterId: string,
-	variant: 'thumb' | 'full'
+	variant: import('./types').CharacterPortraitBlobVariant
 ): Promise<ArrayBuffer | null> {
 	const buffer = await callWorker<ArrayBuffer | null>('loadCharacterPresentationBlob', [
 		characterId,

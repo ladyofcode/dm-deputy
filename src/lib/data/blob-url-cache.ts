@@ -1,4 +1,6 @@
-type BlobVariant = 'thumb' | 'full';
+type BlobVariant = 'thumb' | 'full' | 'original';
+
+export type { BlobVariant };
 
 export type BlobUrlCache = {
 	getObjectUrl: (id: string, variant: BlobVariant) => Promise<string | null>;
@@ -8,7 +10,7 @@ export type BlobUrlCache = {
 
 export function createBlobUrlCache(
 	loadFn: (id: string, variant: BlobVariant) => Promise<ArrayBuffer | null>,
-	getMimeType?: (id: string) => string | null | undefined
+	getMimeType?: (id: string, variant: BlobVariant) => string | null | undefined
 ): BlobUrlCache {
 	const urlCache = new Map<string, string>();
 
@@ -24,7 +26,7 @@ export function createBlobUrlCache(
 		const buffer = await loadFn(id, variant);
 		if (!buffer) return null;
 
-		const mimeType = getMimeType?.(id) ?? 'image/jpeg';
+		const mimeType = getMimeType?.(id, variant) ?? 'image/jpeg';
 		const blob = new Blob([buffer], { type: mimeType });
 		const url = URL.createObjectURL(blob);
 		urlCache.set(key, url);
@@ -32,7 +34,7 @@ export function createBlobUrlCache(
 	}
 
 	function revokeObjectUrls(id: string): void {
-		for (const variant of ['thumb', 'full'] as const) {
+		for (const variant of ['thumb', 'full', 'original'] as const) {
 			const key = cacheKey(id, variant);
 			const url = urlCache.get(key);
 			if (!url) continue;

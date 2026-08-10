@@ -176,6 +176,7 @@ export type Character = {
 	alignment: string | null;
 	age: string | null;
 	class_name: string | null;
+	role_label: string | null;
 	background: string | null;
 	height: string | null;
 	weight: string | null;
@@ -224,12 +225,20 @@ export type Character = {
 	thumb_width: number | null;
 	thumb_height: number | null;
 	image_source: string | null;
+	original_mime_type: string | null;
+	original_width: number | null;
+	original_height: number | null;
+	thumb_crop_json: string | null;
 	presentation_mime_type: string | null;
 	presentation_width: number | null;
 	presentation_height: number | null;
 	presentation_thumb_width: number | null;
 	presentation_thumb_height: number | null;
 	presentation_image_source: string | null;
+	presentation_original_mime_type: string | null;
+	presentation_original_width: number | null;
+	presentation_original_height: number | null;
+	presentation_thumb_crop_json: string | null;
 	date_deleted: string | null;
 };
 

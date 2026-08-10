@@ -2,6 +2,7 @@
 	import { Button } from 'bits-ui';
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import StoryNodeFields from '$lib/components/shared/StoryNodeFields.svelte';
 	import { formatErrorMessage } from '$lib/domain/errors';
 	import { normalizeStoryNode } from '$lib/data/part-story';
@@ -176,14 +177,10 @@
 								<Button.Root type="button" onclick={() => openDetails(row.node.node_id)}>
 									Edit
 								</Button.Root>
-								<Button.Root
-									type="button"
-									data-variant="icon"
-									aria-label={`Delete ${row.node.title}`}
+								<RemoveIconButton
+									ariaLabel={`Delete ${row.node.title}`}
 									onclick={() => deleteNode(row.node.node_id)}
-								>
-									×
-								</Button.Root>
+								/>
 							</div>
 
 							{#if draftNode?.summary.trim()}

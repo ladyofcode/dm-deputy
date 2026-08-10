@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { Button, Label } from 'bits-ui';
+	import AddIcon from '$lib/components/icons/AddIcon.svelte';
 	import CatalogSelect from '$lib/components/shared/CatalogSelect.svelte';
 	import RewardIcon from '$lib/components/icons/RewardIcon.svelte';
 	import TreasureIcon from '$lib/components/icons/TreasureIcon.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import { ITEM_CATEGORY_ORDER, type CatalogOptionGroup } from '$lib/domain/catalog-select';
 	import { ITEM_CATEGORY_LABELS } from '$lib/domain/catalog';
 	import type { StoryArmLine } from '$lib/domain/story-item';
@@ -322,18 +324,14 @@
 						aria-label="Add item row"
 						onclick={onAddLine}
 					>
-						+
+						<AddIcon />
 					</Button.Root>
 				{/if}
 				{#if showRemove}
-					<Button.Root
-						type="button"
-						data-variant="icon"
-						aria-label="Remove item row"
+					<RemoveIconButton
+						ariaLabel="Remove item row"
 						onclick={() => onRemoveLine?.(line.id)}
-					>
-						×
-					</Button.Root>
+					/>
 				{/if}
 			</div>
 		</div>

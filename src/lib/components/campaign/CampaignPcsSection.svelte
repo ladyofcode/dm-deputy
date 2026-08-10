@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatErrorMessage } from '$lib/domain/errors';
-	import { Button, Label } from 'bits-ui';
+	import { Label } from 'bits-ui';
 	import CampaignCharacterListItem from '$lib/components/campaign/CampaignCharacterListItem.svelte';
 	import CampaignLinkExistingCharacterForm from '$lib/components/campaign/CampaignLinkExistingCharacterForm.svelte';
 	import EntitySection from '$lib/components/shared/EntitySection.svelte';
@@ -16,6 +16,7 @@
 		getReactivePcsForCampaign
 	} from '$lib/stores/campaign-characters.svelte';
 	import { createDraftLines } from '$lib/stores/draft-lines.svelte';
+	import { setupDraftBatchAutoSave } from '$lib/stores/autosave.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import type { CampaignPlayerDraft } from '$lib/types/convenience-schema';
 	import type { Character } from '$lib/types/schema';
@@ -36,7 +37,6 @@
 		character_name: ''
 	}));
 
-	let saving = $state(false);
 	let removingCharacterId = $state<string | null>(null);
 	let addingExistingCharacterId = $state<string | null>(null);
 	let selectedExistingCharacterId = $state('');
@@ -50,7 +50,17 @@
 		return Boolean(line.player_name.trim() || line.character_name.trim());
 	}
 
-	async function handleDraftKeydown(event: KeyboardEvent) {
+	async function handleDraftKeydown(event: KeyboardEvent, line: PlayerDraftLine, index: number) {
+		if (event.key !== 'Enter') return;
+
+		event.preventDefault();
+
+		const isLast = index === playerDraft.lines.length - 1;
+		if (isLast && line.player_name.trim() && line.character_name.trim()) {
+			await playerDraftAutoSave.commitLines([line]);
+			return;
+		}
+
 		await playerDraft.handleEnter(event, () => {
 			const newLine = playerDraft.lines[playerDraft.lines.length - 1];
 			return newLine ? draftPlayerNameInputs[newLine.id] : undefined;
@@ -69,30 +79,37 @@
 		return getUserById(member.user_id)?.username ?? null;
 	}
 
-	async function saveNewPlayers(event: SubmitEvent) {
-		event.preventDefault();
-		if (saving) return;
-
-		const players = playerDraft.lines
-			.map((line) => ({
-				player_name: line.player_name.trim(),
-				character_name: line.character_name.trim()
-			}))
-			.filter((line) => line.player_name && line.character_name);
-		if (players.length === 0) return;
-
-		saving = true;
-		error = null;
-
-		try {
-			await persistCampaignPlayers(campaignId, workspace.currentUserId, players);
-			playerDraft.reset();
-		} catch (cause) {
-			error = formatErrorMessage(cause, 'Could not save players');
-		} finally {
-			saving = false;
-		}
+	function completePlayerLines(lines: PlayerDraftLine[]) {
+		return lines.filter((line) => line.player_name.trim() && line.character_name.trim());
 	}
+
+	const playerDraftAutoSave = setupDraftBatchAutoSave({
+		isEnabled: () => Boolean(campaignId),
+		getLines: () => playerDraft.lines,
+		setLines: (lines) => {
+			playerDraft.lines = lines;
+		},
+		createEmptyLine: playerDraft.createEmpty,
+		getSavableLines: completePlayerLines,
+		serializeSavableLine: (line) => ({
+			player_name: line.player_name.trim(),
+			character_name: line.character_name.trim()
+		}),
+		persist: async (lines) => {
+			error = null;
+			await persistCampaignPlayers(
+				campaignId,
+				workspace.currentUserId,
+				lines.map((line) => ({
+					player_name: line.player_name.trim(),
+					character_name: line.character_name.trim()
+				}))
+			);
+		},
+		onError: (cause) => {
+			error = formatErrorMessage(cause, 'Could not save players');
+		}
+	});
 
 	async function handleRemove(pc: Character) {
 		if (removingCharacterId) return;
@@ -133,7 +150,6 @@
 <EntitySection
 	headingId="campaign-pcs-heading"
 	title="Player characters"
-	hint="Click a character to open their sheet. Remove players from this campaign without deleting their character, or link an existing character below."
 	emptyMessage="No player characters yet."
 	showEmpty={pcs.length === 0}
 	{error}
@@ -146,6 +162,7 @@
 					<CampaignCharacterListItem
 						characterId={pc.character_id}
 						character={pc}
+						{campaignId}
 						subtitle={playerName ? `Player: ${playerName}` : null}
 						removing={removingCharacterId === pc.character_id}
 						removeAriaLabel={`Remove ${pc.display_name} from campaign`}
@@ -181,13 +198,9 @@
 		{/if}
 	{/snippet}
 	{#snippet addForm()}
-		<form class="pcs-form" onsubmit={saveNewPlayers}>
+		<div class="pcs-form">
 			<div class="field">
 				<Label.Root>{pcs.length === 0 ? 'Add players' : 'Add more players'}</Label.Root>
-				<p class="hint">
-					Enter the player and character names, then press Enter in the last field to add another
-					row.
-				</p>
 				<DraftLinesForm
 					lines={playerDraft.lines}
 					listClass="pc-draft-lines list-plain"
@@ -197,7 +210,7 @@
 					showRemove={(line) =>
 						playerDraft.lines.length > 1 || draftHasContent(line as PlayerDraftLine)}
 				>
-					{#snippet row({ line })}
+					{#snippet row({ line, index })}
 						{@const draftLine = line as PlayerDraftLine}
 						<input
 							type="text"
@@ -211,18 +224,12 @@
 							bind:value={draftLine.character_name}
 							placeholder="Character name"
 							aria-label="Character name"
-							onkeydown={handleDraftKeydown}
+							onkeydown={(event) => handleDraftKeydown(event, draftLine, index)}
 						/>
 					{/snippet}
 				</DraftLinesForm>
 			</div>
-
-			<div class="pcs-form-submit">
-				<Button.Root type="submit" disabled={saving}>
-					{saving ? 'Saving…' : 'Save'}
-				</Button.Root>
-			</div>
-		</form>
+		</div>
 	{/snippet}
 </EntitySection>
 
@@ -234,12 +241,7 @@
 
 	.pcs-form {
 		margin-top: 0.5rem;
-	}
-
-	.pcs-form-submit {
-		display: flex;
-		justify-content: flex-start;
-		margin-top: 0.5rem;
+		overflow-anchor: auto;
 	}
 
 	.pcs-form .field {

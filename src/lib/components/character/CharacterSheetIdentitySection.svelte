@@ -90,6 +90,8 @@
 				<CharacterPortraitField
 					{characterId}
 					bind:file={sheet.portraitFile}
+					bind:thumbCropFile={sheet.portraitThumbCropFile}
+					bind:thumbCropRect={sheet.portraitThumbCropRect}
 					bind:imageSource={sheet.portraitImageSource}
 					disabled={loading}
 					onFileChange={onPortraitFileChange}
@@ -213,6 +215,18 @@
 						</InlineEditableSelect>
 					{/if}
 				</div>
+
+				{#if mode === 'npc'}
+					<div class="identity-field-span">
+						<InlineEditableField
+							id="character_sheet_role_label"
+							label="Role"
+							bind:value={sheet.identity.role_label}
+							placeholder="Inkeeper, farmer, overlord..."
+							disabled={loading}
+						/>
+					</div>
+				{/if}
 			</div>
 		</CharacterSheetPortraitLayout>
 

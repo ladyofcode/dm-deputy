@@ -145,6 +145,7 @@ export type CreateCampaignCharacterInput = {
 	alignment?: string | null;
 	age?: string | null;
 	class_name?: string | null;
+	role_label?: string | null;
 	armor_class?: number | null;
 	armor_class_notes?: string | null;
 	speed?: string | null;
@@ -208,6 +209,7 @@ export type UpdateCampaignCharacterInput = {
 	alignment?: string | null;
 	age?: string | null;
 	class_name?: string | null;
+	role_label?: string | null;
 	armor_class?: number | null;
 	armor_class_notes?: string | null;
 	speed?: string | null;
@@ -260,26 +262,35 @@ export type UpdateCampaignCharacterInput = {
 
 export type UpdateCharacterPortraitInput = {
 	character_id: string;
-	mime_type: string;
-	portrait_width: number;
-	portrait_height: number;
 	thumb_width: number;
 	thumb_height: number;
+	thumb_crop_json: string;
 	image_source?: string | null;
+	mime_type?: string;
+	portrait_width?: number;
+	portrait_height?: number;
+	original_mime_type?: string;
+	original_width?: number;
+	original_height?: number;
 };
 
 export type UpdateCharacterPresentationInput = {
 	character_id: string;
-	presentation_mime_type: string;
-	presentation_width: number;
-	presentation_height: number;
 	presentation_thumb_width: number;
 	presentation_thumb_height: number;
+	presentation_thumb_crop_json: string;
 	presentation_image_source?: string | null;
+	presentation_mime_type?: string;
+	presentation_width?: number;
+	presentation_height?: number;
+	presentation_original_mime_type?: string;
+	presentation_original_width?: number;
+	presentation_original_height?: number;
 };
 
-export type LoadCharacterPortraitBlobArgs = [string, 'thumb' | 'full'];
-export type LoadCharacterPresentationBlobArgs = [string, 'thumb' | 'full'];
+export type CharacterPortraitBlobVariant = 'thumb' | 'full' | 'original';
+export type LoadCharacterPortraitBlobArgs = [string, CharacterPortraitBlobVariant];
+export type LoadCharacterPresentationBlobArgs = [string, CharacterPortraitBlobVariant];
 
 export type UpdateCharacterStatCacheInput = {
 	character_id: string;
@@ -466,13 +477,23 @@ export type WorkerRequest =
 	| {
 			id: number;
 			method: 'updateCharacterPortrait';
-			args: [UpdateCharacterPortraitInput, ArrayBuffer, ArrayBuffer];
+			args: [
+				UpdateCharacterPortraitInput,
+				ArrayBuffer,
+				ArrayBuffer | null,
+				ArrayBuffer | null
+			];
 	  }
 	| { id: number; method: 'updateCharacterPortraitSource'; args: [string, string | null] }
 	| {
 			id: number;
 			method: 'updateCharacterPresentation';
-			args: [UpdateCharacterPresentationInput, ArrayBuffer, ArrayBuffer];
+			args: [
+				UpdateCharacterPresentationInput,
+				ArrayBuffer,
+				ArrayBuffer | null,
+				ArrayBuffer | null
+			];
 	  }
 	| { id: number; method: 'updateCharacterPresentationSource'; args: [string, string | null] }
 	| { id: number; method: 'loadCharacterPortraitBlob'; args: LoadCharacterPortraitBlobArgs }

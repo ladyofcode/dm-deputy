@@ -89,11 +89,6 @@
 		box-shadow: 0 4px 14px var(--color-shadow);
 	}
 
-	.part-actions :global([data-button-root][data-action='add']) {
-		font-size: 1.35rem;
-		line-height: 1;
-	}
-
 	.part-actions :global([data-button-root] svg),
 	.part-actions :global([data-dialog-trigger][data-variant='icon'] svg) {
 		display: block;

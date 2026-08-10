@@ -8,7 +8,7 @@ export const CHARACTER_SELECT_COLUMNS = `
 	character_id, campaign_id, kind, created_by_user_id, cloned_from_character_id,
 	display_name, experience_base, experience, level, hp_max_base, hp_current_base,
 	hp_current, hp_max, reputation, notes, presentation, race, creature_type,
-	alignment, age, class_name, background, height, weight, eyes, skin, hair,
+	alignment, age, class_name, role_label, background, height, weight, eyes, skin, hair,
 	inspiration, initiative, temp_hp, hit_dice_remaining, death_save_successes,
 	death_save_failures, personality_traits, ideals, bonds, flaws, backstory, allies,
 	features, proficiencies, treasure, armor_class, armor_class_notes, speed, hp_dice,
@@ -16,8 +16,11 @@ export const CHARACTER_SELECT_COLUMNS = `
 	skills, senses, languages, challenge_rating, traits, actions, is_spellcaster,
 	spellcasting_class, spellcasting_ability, spell_slots_total_json, spell_slots_expended_json,
 	mime_type, portrait_width, portrait_height, thumb_width, thumb_height, image_source,
+	original_mime_type, original_width, original_height, thumb_crop_json,
 	presentation_mime_type, presentation_width, presentation_height, presentation_thumb_width,
-	presentation_thumb_height, presentation_image_source, date_deleted
+	presentation_thumb_height, presentation_image_source, presentation_original_mime_type,
+	presentation_original_width, presentation_original_height, presentation_thumb_crop_json,
+	date_deleted
 `.replace(/\s+/g, ' ');
 
 export type SqliteModule = Awaited<ReturnType<typeof sqlite3InitModule>>;

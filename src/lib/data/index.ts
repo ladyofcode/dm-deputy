@@ -220,11 +220,10 @@ export type NpcLibraryRow = {
 	kind: CharacterKind;
 	campaignId: string | null;
 	campaignNames: string;
+	race: string | null;
+	className: string | null;
+	roleLabel: string | null;
 	level: number;
-	hpCurrent: number;
-	hpMax: number;
-	experience: number;
-	reputation: string | null;
 };
 
 export function getAllNpcLibraryRows(): NpcLibraryRow[] {
@@ -237,11 +236,10 @@ export function getAllNpcLibraryRows(): NpcLibraryRow[] {
 			kind: npc.kind,
 			campaignId: getPrimaryCampaignIdForNpc(npc.character_id),
 			campaignNames: campaignNames.length ? campaignNames.join(', ') : '—',
-			level: npc.level,
-			hpCurrent: npc.hp_current,
-			hpMax: npc.hp_max,
-			experience: npc.experience,
-			reputation: npc.reputation
+			race: npc.race,
+			className: npc.class_name,
+			roleLabel: npc.role_label,
+			level: npc.level
 		};
 	});
 }

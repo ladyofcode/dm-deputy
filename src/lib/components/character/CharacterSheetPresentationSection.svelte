@@ -26,6 +26,8 @@
 				variant="presentation"
 				{characterId}
 				bind:file={sheet.presentationFile}
+				bind:thumbCropFile={sheet.presentationThumbCropFile}
+				bind:thumbCropRect={sheet.presentationThumbCropRect}
 				bind:imageSource={sheet.presentationImageSource}
 				disabled={loading}
 				{readOnly}

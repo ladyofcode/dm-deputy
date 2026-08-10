@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatStoryItemCatalogStats } from '$lib/domain/story-item-catalog';
 	import { rewardGroupId } from '$lib/domain/story-item-reward';
+	import StoryNpcCanvasContent from '$lib/components/part/StoryNpcCanvasContent.svelte';
 	import RewardIcon from '$lib/components/icons/RewardIcon.svelte';
 	import TreasureIcon from '$lib/components/icons/TreasureIcon.svelte';
 	import { STORY_ITEM_KIND_LABELS, type StoryItem } from '$lib/types/schema';
@@ -74,7 +75,14 @@
 						</span>
 					{/if}
 				</div>
-				<p class="reward-label">{item.label}</p>
+				{#if item.kind === 'npc' && item.character_id}
+					<StoryNpcCanvasContent
+						characterId={item.character_id}
+						label={item.label}
+					/>
+				{:else}
+					<p class="reward-label">{item.label}</p>
+				{/if}
 				{#if item.kind === 'item'}
 					{@const stats = formatStoryItemCatalogStats(item)}
 					{#if stats.length}
@@ -121,6 +129,8 @@
 	.reward-group[data-dimmed='true'] .reward-kind,
 	.reward-group[data-dimmed='true'] .reward-label,
 	.reward-group[data-dimmed='true'] .reward-stats,
+	.reward-group[data-dimmed='true'] :global(.npc-canvas-name),
+	.reward-group[data-dimmed='true'] :global(.npc-canvas-meta),
 	.reward-group[data-dimmed='true'] .reward-note,
 	.reward-group[data-dimmed='true'] .assign-xp-link {
 		color: var(--color-node-dimmed-text);

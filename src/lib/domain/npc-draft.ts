@@ -1,4 +1,5 @@
 import type { AbilityKey } from '$lib/games/dnd5e/data/abilities';
+import type { NormalizedCropRect } from '$lib/domain/crop-image';
 import type { CharacterLoadout } from '$lib/db/types';
 import type { AbilityScores, Character, NpcCharacterKind } from '$lib/types/schema';
 import { DEFAULT_ABILITY_SCORES as defaultAbilityScores } from '$lib/types/schema';
@@ -37,6 +38,7 @@ export type CharacterIdentityDraft = {
 	alignment: string;
 	age: string;
 	class_name: string;
+	role_label: string;
 	presentation: string;
 };
 
@@ -78,8 +80,12 @@ export type NpcDraftLine = {
 	identity: CharacterIdentityDraft;
 	extras: CharacterExtrasDraft;
 	portraitFile: File | null;
+	portraitThumbCropFile: File | null;
+	portraitThumbCropRect: NormalizedCropRect | null;
 	portraitImageSource: string | null;
 	presentationFile: File | null;
+	presentationThumbCropFile: File | null;
+	presentationThumbCropRect: NormalizedCropRect | null;
 	presentationImageSource: string | null;
 };
 
@@ -109,6 +115,7 @@ export function createDefaultCharacterIdentity(): CharacterIdentityDraft {
 		alignment: '',
 		age: '',
 		class_name: '',
+		role_label: '',
 		presentation: ''
 	};
 }
@@ -148,8 +155,12 @@ export function createEmptyNpcDraftLine(): NpcDraftLine {
 		identity: createDefaultCharacterIdentity(),
 		extras: createDefaultCharacterExtras(),
 		portraitFile: null,
+		portraitThumbCropFile: null,
+		portraitThumbCropRect: null,
 		portraitImageSource: null,
 		presentationFile: null,
+		presentationThumbCropFile: null,
+		presentationThumbCropRect: null,
 		presentationImageSource: null
 	};
 }
@@ -171,6 +182,7 @@ export function cloneCharacterIdentity(identity: CharacterIdentityDraft): Charac
 		alignment: identity.alignment,
 		age: identity.age,
 		class_name: identity.class_name,
+		role_label: identity.role_label,
 		presentation: identity.presentation
 	};
 }
@@ -234,6 +246,7 @@ export function characterToIdentityDraft(character: Character): CharacterIdentit
 		alignment: character.alignment ?? '',
 		age: character.age ?? '',
 		class_name: character.class_name ?? '',
+		role_label: character.role_label ?? '',
 		presentation: character.presentation ?? ''
 	};
 }

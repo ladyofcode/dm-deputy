@@ -211,6 +211,7 @@ export function mapCharacterRow(row: {
 	alignment?: string | null;
 	age?: string | null;
 	class_name?: string | null;
+	role_label?: string | null;
 	background?: string | null;
 	height?: string | null;
 	weight?: string | null;
@@ -259,12 +260,20 @@ export function mapCharacterRow(row: {
 	thumb_width?: number | null;
 	thumb_height?: number | null;
 	image_source?: string | null;
+	original_mime_type?: string | null;
+	original_width?: number | null;
+	original_height?: number | null;
+	thumb_crop_json?: string | null;
 	presentation_mime_type?: string | null;
 	presentation_width?: number | null;
 	presentation_height?: number | null;
 	presentation_thumb_width?: number | null;
 	presentation_thumb_height?: number | null;
 	presentation_image_source?: string | null;
+	presentation_original_mime_type?: string | null;
+	presentation_original_width?: number | null;
+	presentation_original_height?: number | null;
+	presentation_thumb_crop_json?: string | null;
 	date_deleted?: string | null;
 }): Character {
 	return {
@@ -289,6 +298,7 @@ export function mapCharacterRow(row: {
 		alignment: row.alignment ?? null,
 		age: row.age ?? null,
 		class_name: row.class_name ?? null,
+		role_label: row.role_label ?? null,
 		background: row.background ?? null,
 		height: row.height ?? null,
 		weight: row.weight ?? null,
@@ -337,12 +347,20 @@ export function mapCharacterRow(row: {
 		thumb_width: row.thumb_width ?? null,
 		thumb_height: row.thumb_height ?? null,
 		image_source: row.image_source ?? null,
+		original_mime_type: row.original_mime_type ?? null,
+		original_width: row.original_width ?? null,
+		original_height: row.original_height ?? null,
+		thumb_crop_json: row.thumb_crop_json ?? null,
 		presentation_mime_type: row.presentation_mime_type ?? null,
 		presentation_width: row.presentation_width ?? null,
 		presentation_height: row.presentation_height ?? null,
 		presentation_thumb_width: row.presentation_thumb_width ?? null,
 		presentation_thumb_height: row.presentation_thumb_height ?? null,
 		presentation_image_source: row.presentation_image_source ?? null,
+		presentation_original_mime_type: row.presentation_original_mime_type ?? null,
+		presentation_original_width: row.presentation_original_width ?? null,
+		presentation_original_height: row.presentation_original_height ?? null,
+		presentation_thumb_crop_json: row.presentation_thumb_crop_json ?? null,
 		date_deleted: row.date_deleted ?? null
 	};
 }
@@ -390,7 +408,7 @@ export function createCampaignCharacterInTransaction(
 			character_id, campaign_id, kind, created_by_user_id, cloned_from_character_id,
 			display_name, experience_base, experience, level,
 			hp_max_base, hp_current_base, hp_current, hp_max, reputation, notes,
-			race, creature_type, alignment, age, class_name, presentation,
+			race, creature_type, alignment, age, class_name, role_label, presentation,
 			background, height, weight, eyes, skin, hair,
 			inspiration, initiative, temp_hp, hit_dice_remaining,
 			death_save_successes, death_save_failures,
@@ -404,7 +422,7 @@ export function createCampaignCharacterInTransaction(
 			$character_id, $campaign_id, $kind, $created_by_user_id, $cloned_from_character_id,
 			$display_name, $experience_base, $experience, $level,
 			$hp_max_base, $hp_current_base, $hp_current, $hp_max, $reputation, $notes,
-			$race, $creature_type, $alignment, $age, $class_name, $presentation,
+			$race, $creature_type, $alignment, $age, $class_name, $role_label, $presentation,
 			$background, $height, $weight, $eyes, $skin, $hair,
 			$inspiration, $initiative, $temp_hp, $hit_dice_remaining,
 			$death_save_successes, $death_save_failures,
@@ -436,6 +454,7 @@ export function createCampaignCharacterInTransaction(
 			alignment: input.alignment ?? null,
 			age: input.age ?? null,
 			class_name: input.class_name ?? null,
+			role_label: input.role_label ?? null,
 			presentation: input.presentation ?? null,
 			background: input.background ?? null,
 			height: input.height ?? null,
@@ -520,6 +539,7 @@ export function updateCampaignCharacter(
 			alignment = $alignment,
 			age = $age,
 			class_name = $class_name,
+			role_label = $role_label,
 			presentation = $presentation,
 			background = $background,
 			height = $height,
@@ -575,6 +595,7 @@ export function updateCampaignCharacter(
 				alignment: input.alignment ?? null,
 				age: input.age ?? null,
 				class_name: input.class_name ?? null,
+				role_label: input.role_label ?? null,
 				presentation: input.presentation ?? null,
 				background: input.background ?? null,
 				height: input.height ?? null,
@@ -634,30 +655,54 @@ export function updateCharacterPortrait(
 	database: AppDb,
 	input: UpdateCharacterPortraitInput,
 	thumbBuffer: ArrayBuffer,
-	fullBuffer: ArrayBuffer
+	fullBuffer: ArrayBuffer | null,
+	originalBuffer: ArrayBuffer | null
 ): Character {
+	const setClauses = [
+		'thumb_width = $thumb_width',
+		'thumb_height = $thumb_height',
+		'thumb_blob = $thumb_blob',
+		'thumb_crop_json = $thumb_crop_json',
+		'image_source = $image_source'
+	];
+	const bind: Record<string, unknown> = {
+		character_id: input.character_id,
+		thumb_width: input.thumb_width,
+		thumb_height: input.thumb_height,
+		thumb_blob: new Uint8Array(thumbBuffer),
+		thumb_crop_json: input.thumb_crop_json,
+		image_source: input.image_source ?? null
+	};
+
+	if (fullBuffer) {
+		setClauses.push(
+			'mime_type = $mime_type',
+			'portrait_width = $portrait_width',
+			'portrait_height = $portrait_height',
+			'full_blob = $full_blob'
+		);
+		bind.mime_type = input.mime_type;
+		bind.portrait_width = input.portrait_width;
+		bind.portrait_height = input.portrait_height;
+		bind.full_blob = new Uint8Array(fullBuffer);
+	}
+
+	if (originalBuffer) {
+		setClauses.push(
+			'original_mime_type = $original_mime_type',
+			'original_width = $original_width',
+			'original_height = $original_height',
+			'original_blob = $original_blob'
+		);
+		bind.original_mime_type = input.original_mime_type;
+		bind.original_width = input.original_width;
+		bind.original_height = input.original_height;
+		bind.original_blob = new Uint8Array(originalBuffer);
+	}
+
 	execSql(database, {
-		sql: `UPDATE characters SET
-			mime_type = $mime_type,
-			portrait_width = $portrait_width,
-			portrait_height = $portrait_height,
-			thumb_width = $thumb_width,
-			thumb_height = $thumb_height,
-			thumb_blob = $thumb_blob,
-			full_blob = $full_blob,
-			image_source = $image_source
-		WHERE character_id = $character_id`,
-		bind: {
-			character_id: input.character_id,
-			mime_type: input.mime_type,
-			portrait_width: input.portrait_width,
-			portrait_height: input.portrait_height,
-			thumb_width: input.thumb_width,
-			thumb_height: input.thumb_height,
-			thumb_blob: new Uint8Array(thumbBuffer),
-			full_blob: new Uint8Array(fullBuffer),
-			image_source: input.image_source ?? null
-		}
+		sql: `UPDATE characters SET ${setClauses.join(', ')} WHERE character_id = $character_id`,
+		bind
 	});
 
 	const character = loadCharacterById(database, input.character_id);
@@ -672,30 +717,54 @@ export function updateCharacterPresentation(
 	database: AppDb,
 	input: UpdateCharacterPresentationInput,
 	thumbBuffer: ArrayBuffer,
-	fullBuffer: ArrayBuffer
+	fullBuffer: ArrayBuffer | null,
+	originalBuffer: ArrayBuffer | null
 ): Character {
+	const setClauses = [
+		'presentation_thumb_width = $presentation_thumb_width',
+		'presentation_thumb_height = $presentation_thumb_height',
+		'presentation_thumb_blob = $presentation_thumb_blob',
+		'presentation_thumb_crop_json = $presentation_thumb_crop_json',
+		'presentation_image_source = $presentation_image_source'
+	];
+	const bind: Record<string, unknown> = {
+		character_id: input.character_id,
+		presentation_thumb_width: input.presentation_thumb_width,
+		presentation_thumb_height: input.presentation_thumb_height,
+		presentation_thumb_blob: new Uint8Array(thumbBuffer),
+		presentation_thumb_crop_json: input.presentation_thumb_crop_json,
+		presentation_image_source: input.presentation_image_source ?? null
+	};
+
+	if (fullBuffer) {
+		setClauses.push(
+			'presentation_mime_type = $presentation_mime_type',
+			'presentation_width = $presentation_width',
+			'presentation_height = $presentation_height',
+			'presentation_full_blob = $presentation_full_blob'
+		);
+		bind.presentation_mime_type = input.presentation_mime_type;
+		bind.presentation_width = input.presentation_width;
+		bind.presentation_height = input.presentation_height;
+		bind.presentation_full_blob = new Uint8Array(fullBuffer);
+	}
+
+	if (originalBuffer) {
+		setClauses.push(
+			'presentation_original_mime_type = $presentation_original_mime_type',
+			'presentation_original_width = $presentation_original_width',
+			'presentation_original_height = $presentation_original_height',
+			'presentation_original_blob = $presentation_original_blob'
+		);
+		bind.presentation_original_mime_type = input.presentation_original_mime_type;
+		bind.presentation_original_width = input.presentation_original_width;
+		bind.presentation_original_height = input.presentation_original_height;
+		bind.presentation_original_blob = new Uint8Array(originalBuffer);
+	}
+
 	execSql(database, {
-		sql: `UPDATE characters SET
-			presentation_mime_type = $presentation_mime_type,
-			presentation_width = $presentation_width,
-			presentation_height = $presentation_height,
-			presentation_thumb_width = $presentation_thumb_width,
-			presentation_thumb_height = $presentation_thumb_height,
-			presentation_thumb_blob = $presentation_thumb_blob,
-			presentation_full_blob = $presentation_full_blob,
-			presentation_image_source = $presentation_image_source
-		WHERE character_id = $character_id`,
-		bind: {
-			character_id: input.character_id,
-			presentation_mime_type: input.presentation_mime_type,
-			presentation_width: input.presentation_width,
-			presentation_height: input.presentation_height,
-			presentation_thumb_width: input.presentation_thumb_width,
-			presentation_thumb_height: input.presentation_thumb_height,
-			presentation_thumb_blob: new Uint8Array(thumbBuffer),
-			presentation_full_blob: new Uint8Array(fullBuffer),
-			presentation_image_source: input.presentation_image_source ?? null
-		}
+		sql: `UPDATE characters SET ${setClauses.join(', ')} WHERE character_id = $character_id`,
+		bind
 	});
 
 	const character = loadCharacterById(database, input.character_id);
@@ -817,9 +886,14 @@ export function addCampaignNpcToCampaign(
 export function loadCharacterPortraitBlob(
 	database: AppDb,
 	characterId: string,
-	variant: 'thumb' | 'full'
+	variant: 'thumb' | 'full' | 'original'
 ): ArrayBuffer | null {
-	const column = variant === 'thumb' ? 'thumb_blob' : 'full_blob';
+	const column =
+		variant === 'thumb'
+			? 'thumb_blob'
+			: variant === 'original'
+				? 'original_blob'
+				: 'full_blob';
 	const rows = selectObjects<Record<string, Uint8Array | null>>(
 		database,
 		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,
@@ -834,9 +908,14 @@ export function loadCharacterPortraitBlob(
 export function loadCharacterPresentationBlob(
 	database: AppDb,
 	characterId: string,
-	variant: 'thumb' | 'full'
+	variant: 'thumb' | 'full' | 'original'
 ): ArrayBuffer | null {
-	const column = variant === 'thumb' ? 'presentation_thumb_blob' : 'presentation_full_blob';
+	const column =
+		variant === 'thumb'
+			? 'presentation_thumb_blob'
+			: variant === 'original'
+				? 'presentation_original_blob'
+				: 'presentation_full_blob';
 	const rows = selectObjects<Record<string, Uint8Array | null>>(
 		database,
 		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,

@@ -127,7 +127,7 @@
 											aria-label={`Add ${question.prompt}`}
 											onclick={() => addQuestion(question.id)}
 										>
-											<AddIcon size={18} />
+											<AddIcon />
 										</Button.Root>
 									</li>
 								{/each}

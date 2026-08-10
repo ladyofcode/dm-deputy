@@ -1,10 +1,17 @@
 <script lang="ts">
 	import { getCharacterById } from '$lib/data';
-	import { getCharacterPortraitObjectUrl } from '$lib/data/character-blob-cache';
-	import { getCharacterPresentationObjectUrl } from '$lib/data/character-presentation-blob-cache';
+	import {
+		getCharacterPortraitCropSourceUrl,
+		getCharacterPortraitObjectUrl
+	} from '$lib/data/character-blob-cache';
+	import {
+		getCharacterPresentationCropSourceUrl,
+		getCharacterPresentationObjectUrl
+	} from '$lib/data/character-presentation-blob-cache';
 	import {
 		getCharacterMediaSourcePersist,
-		getCharacterMediaUploadPersist
+		getCharacterMediaUploadPersist,
+		imageUploadResultToPortraitPayload
 	} from '$lib/domain/character-media';
 	import LinkIcon from '$lib/components/icons/LinkIcon.svelte';
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
@@ -14,11 +21,14 @@
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
 	import { Label } from 'bits-ui';
 	import { normalizeImageSource, type ImageUploadResult } from '$lib/types/image-upload';
+	import { parseCropRect } from '$lib/domain/crop-image';
 
 	type Props = {
 		variant?: 'portrait' | 'presentation';
 		characterId?: string;
 		file?: File | null;
+		thumbCropFile?: File | null;
+		thumbCropRect?: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		imageSource?: string | null;
 		disabled?: boolean;
 		readOnly?: boolean;
@@ -29,6 +39,8 @@
 		variant = 'portrait',
 		characterId,
 		file = $bindable(null),
+		thumbCropFile = $bindable(null),
+		thumbCropRect = $bindable(null),
 		imageSource = $bindable(null),
 		disabled = false,
 		readOnly = false,
@@ -36,6 +48,7 @@
 	}: Props = $props();
 
 	let savedImageUrl = $state<string | null>(null);
+	let cropSourceUrl = $state<string | null>(null);
 	let uploadDialogOpen = $state(false);
 	let sourceDialogOpen = $state(false);
 	let sourceDraft = $state('');
@@ -51,6 +64,13 @@
 	const uploadTitle = $derived(
 		variant === 'presentation' ? 'Upload presentation image' : 'Upload portrait'
 	);
+	const cropDialogTitle = $derived(
+		displayUrl
+			? variant === 'presentation'
+				? 'Adjust presentation thumbnail'
+				: 'Adjust portrait thumbnail'
+			: uploadTitle
+	);
 	const sourceDialogTitle = $derived(
 		variant === 'presentation' ? 'Presentation image source' : 'Portrait image source'
 	);
@@ -62,6 +82,20 @@
 		imageSource?.trim() ? 'Edit image source' : 'Set image source'
 	);
 	const hasImageSource = $derived(Boolean(imageSource?.trim()));
+	const initialCropRect = $derived.by(() => {
+		if (!characterId || file) return null;
+
+		trackCampaignCharactersRevision();
+		const character = getCharacterById(characterId);
+		if (!character) return null;
+
+		const cropJson =
+			variant === 'presentation'
+				? character.presentation_thumb_crop_json
+				: character.thumb_crop_json;
+
+		return parseCropRect(cropJson);
+	});
 
 	$effect(() => {
 		if (!characterId || file) return;
@@ -77,18 +111,24 @@
 	$effect(() => {
 		if (!characterId || file) {
 			savedImageUrl = null;
+			cropSourceUrl = null;
 			return;
 		}
 
 		let cancelled = false;
-		const loadUrl =
+		const loadDisplayUrl =
 			variant === 'presentation'
 				? getCharacterPresentationObjectUrl(characterId, 'full')
 				: getCharacterPortraitObjectUrl(characterId, 'full');
+		const loadCropSourceUrl =
+			variant === 'presentation'
+				? getCharacterPresentationCropSourceUrl(characterId)
+				: getCharacterPortraitCropSourceUrl(characterId);
 
-		void loadUrl.then((url) => {
+		void Promise.all([loadDisplayUrl, loadCropSourceUrl]).then(([displayUrl, sourceUrl]) => {
 			if (!cancelled) {
-				savedImageUrl = url;
+				savedImageUrl = displayUrl;
+				cropSourceUrl = sourceUrl;
 			}
 		});
 
@@ -114,22 +154,34 @@
 		if (characterId) {
 			uploading = true;
 			try {
-				await getCharacterMediaUploadPersist(variant)(characterId, result.file, result.imageSource);
+				await getCharacterMediaUploadPersist(variant)(
+					characterId,
+					imageUploadResultToPortraitPayload(result)
+				);
 				file = null;
-				const reloadUrl =
+				thumbCropFile = null;
+				thumbCropRect = null;
+				savedImageUrl =
 					variant === 'presentation'
-						? getCharacterPresentationObjectUrl(characterId, 'full')
-						: getCharacterPortraitObjectUrl(characterId, 'full');
-				savedImageUrl = await reloadUrl;
+						? await getCharacterPresentationObjectUrl(characterId, 'full')
+						: await getCharacterPortraitObjectUrl(characterId, 'full');
+				cropSourceUrl =
+					variant === 'presentation'
+						? await getCharacterPresentationCropSourceUrl(characterId)
+						: await getCharacterPortraitCropSourceUrl(characterId);
 			} catch {
-				file = result.file;
+				file = result.originalFile ?? null;
+				thumbCropFile = result.file;
+				thumbCropRect = result.thumbCropRect ?? null;
 			} finally {
 				uploading = false;
 			}
 			return;
 		}
 
-		file = result.file;
+		file = result.originalFile ?? null;
+		thumbCropFile = result.file;
+		thumbCropRect = result.thumbCropRect ?? null;
 	}
 
 	$effect(() => {
@@ -224,7 +276,10 @@
 
 <ImageUploadDialog
 	bind:open={uploadDialogOpen}
-	title={uploadTitle}
+	title={cropDialogTitle}
+	cropSourceUrl={cropSourceUrl}
+	existingImageSource={imageSource}
+	{initialCropRect}
 	cropAspectRatio={4 / 5}
 	onConfirm={handleUploadConfirm}
 />
@@ -299,7 +354,7 @@
 	.portrait-preview img {
 		width: 100%;
 		height: 100%;
-		object-fit: cover;
+		object-fit: contain;
 	}
 
 	.portrait-source-row {

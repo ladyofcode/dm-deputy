@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { formatErrorMessage } from '$lib/domain/errors';
 	import { resolve } from '$app/paths';
-	import { Button } from 'bits-ui';
 	import CatalogTable from '$lib/components/catalog/CatalogTable.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import LibrarySectionHeader from '$lib/components/library/LibrarySectionHeader.svelte';
 	import MonsterTemplatesSection from '$lib/components/library/MonsterTemplatesSection.svelte';
 	import { getAllNpcLibraryRows, getAllPlayerRows } from '$lib/data';
 	import { softDeleteNpcFromLibrary, softDeletePlayerFromPlayerbase } from '$lib/data/writes';
-	import { resolveCampaignHref, resolveCharacterHref } from '$lib/navigation/hrefs';
+	import { resolveCampaignHref } from '$lib/navigation/hrefs';
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
 	import { database } from '$lib/stores/database.svelte';
 	import { CHARACTER_KIND_LABELS } from '$lib/types/schema';
@@ -31,6 +31,11 @@
 	function formatHp(current: number, max: number): string {
 		if (max <= 0) return '—';
 		return `${current}/${max}`;
+	}
+
+	function formatCell(value: string | null | undefined): string {
+		const trimmed = value?.trim();
+		return trimmed ? trimmed : '—';
 	}
 
 	async function handleRemoveFromPlayerbase(userId: string, username: string) {
@@ -106,7 +111,7 @@
 			{#snippet row(row)}
 				<td class="name-cell">{row.username}</td>
 				<td>
-					<a href={resolveCharacterHref(row.characterId)}>
+					<a href={resolve('/library/characters/[characterId]', { characterId: row.characterId })}>
 						{row.characterName}
 					</a>
 				</td>
@@ -117,14 +122,12 @@
 				<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
 			{/snippet}
 			{#snippet actions(row)}
-				<Button.Root
-					type="button"
-					data-variant="ghost"
-					disabled={removingUserId === row.userId}
+				<RemoveIconButton
+					variant="ghost"
+					ariaLabel={`Remove ${row.username} from playerbase`}
+					busy={removingUserId === row.userId}
 					onclick={() => handleRemoveFromPlayerbase(row.userId, row.username)}
-				>
-					{removingUserId === row.userId ? 'Removing…' : 'Remove'}
-				</Button.Root>
+				/>
 			{/snippet}
 		</CatalogTable>
 	</section>
@@ -146,15 +149,17 @@
 				<th scope="col">Name</th>
 				<th scope="col">Type</th>
 				<th scope="col">Campaign</th>
+				<th scope="col">Race</th>
+				<th scope="col">Class</th>
+				<th scope="col">Role</th>
 				<th scope="col">Level</th>
-				<th scope="col">HP</th>
-				<th scope="col">XP</th>
-				<th scope="col">Reputation</th>
 			{/snippet}
 			{#snippet row(row)}
 				<td class="name-cell">
 					{#if row.campaignId}
-						<a href={resolveCharacterHref(row.characterId)}>
+						<a
+							href={resolve('/library/characters/[characterId]', { characterId: row.characterId })}
+						>
 							{row.characterName}
 						</a>
 					{:else}
@@ -163,20 +168,18 @@
 				</td>
 				<td>{CHARACTER_KIND_LABELS[row.kind]}</td>
 				<td>{row.campaignNames}</td>
+				<td>{formatCell(row.race)}</td>
+				<td>{formatCell(row.className)}</td>
+				<td>{formatCell(row.roleLabel)}</td>
 				<td>{row.level}</td>
-				<td>{formatHp(row.hpCurrent, row.hpMax)}</td>
-				<td>{row.experience > 0 ? row.experience : '—'}</td>
-				<td>{row.reputation ?? '—'}</td>
 			{/snippet}
 			{#snippet actions(row)}
-				<Button.Root
-					type="button"
-					data-variant="ghost"
-					disabled={removingCharacterId === row.characterId}
+				<RemoveIconButton
+					variant="ghost"
+					ariaLabel={`Remove ${row.characterName} from library`}
+					busy={removingCharacterId === row.characterId}
 					onclick={() => handleRemoveNpcFromLibrary(row.characterId, row.characterName)}
-				>
-					{removingCharacterId === row.characterId ? 'Removing…' : 'Remove'}
-				</Button.Root>
+				/>
 			{/snippet}
 		</CatalogTable>
 	</section>

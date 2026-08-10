@@ -109,7 +109,7 @@
 			{#if hasArms}
 				<EditIcon size={16} />
 			{:else}
-				<AddIcon size={16} />
+				<AddIcon />
 			{/if}
 		</button>
 	{/if}
@@ -181,8 +181,11 @@
 	.complete-button,
 	.arm-button {
 		position: absolute;
-		width: 1.5rem;
-		height: 1.5rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
 		padding: 0;
 		border: 1px solid var(--color-border);
 		border-radius: 999px;
@@ -224,5 +227,11 @@
 		color: var(--color-node-completed-accent);
 		border-color: var(--color-node-completed-border);
 		background: var(--color-node-completed-bg);
+	}
+
+	.complete-button :global(svg),
+	.arm-button :global(svg) {
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 </style>

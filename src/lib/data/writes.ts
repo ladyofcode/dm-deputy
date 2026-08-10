@@ -97,7 +97,10 @@ import { processMapUpload } from '$lib/domain/map-image';
 import { revokeCampaignMapObjectUrls } from '$lib/data/map-blob-cache';
 import { revokeCharacterPortraitObjectUrls } from '$lib/data/character-blob-cache';
 import { revokeCharacterPresentationObjectUrls } from '$lib/data/character-presentation-blob-cache';
-import { processCharacterPortraitUpload } from '$lib/domain/character-portrait';
+import {
+	processCharacterPortraitReCrop,
+	processCharacterPortraitUpload
+} from '$lib/domain/character-portrait';
 import {
 	characterToIdentityDraft,
 	characterToCharacterExtrasDraft,
@@ -140,6 +143,7 @@ function createOnboardingPcCharacter(
 		alignment: null,
 		age: null,
 		class_name: null,
+		role_label: null,
 		background: null,
 		height: null,
 		weight: null,
@@ -188,12 +192,20 @@ function createOnboardingPcCharacter(
 		thumb_width: null,
 		thumb_height: null,
 		image_source: null,
+		original_mime_type: null,
+		original_width: null,
+		original_height: null,
+		thumb_crop_json: null,
 		presentation_mime_type: null,
 		presentation_width: null,
 		presentation_height: null,
 		presentation_thumb_width: null,
 		presentation_thumb_height: null,
 		presentation_image_source: null,
+		presentation_original_mime_type: null,
+		presentation_original_width: null,
+		presentation_original_height: null,
+		presentation_thumb_crop_json: null,
 		date_deleted: null
 	};
 }
@@ -565,11 +577,15 @@ export async function persistCampaignNpc(
 
 	let saved = character;
 
-	if (line.portraitFile || line.presentationFile) {
+	if (line.portraitFile || line.portraitThumbCropFile || line.presentationFile || line.presentationThumbCropFile) {
 		await persistPendingCharacterMedia(character.character_id, {
-			portraitFile: line.portraitFile,
+			portraitOriginalFile: line.portraitFile,
+			portraitThumbCropFile: line.portraitThumbCropFile,
+			portraitThumbCropRect: line.portraitThumbCropRect,
 			portraitImageSource: line.portraitImageSource,
-			presentationFile: line.presentationFile,
+			presentationOriginalFile: line.presentationFile,
+			presentationThumbCropFile: line.presentationThumbCropFile,
+			presentationThumbCropRect: line.presentationThumbCropRect,
 			presentationImageSource: line.presentationImageSource
 		});
 		saved = getCharacterById(character.character_id) ?? character;
@@ -580,22 +596,46 @@ export async function persistCampaignNpc(
 
 export async function persistCharacterPortrait(
 	characterId: string,
-	file: File,
-	imageSource: string | null = null
+	payload: import('$lib/types/image-upload').CharacterPortraitUploadPayload
 ): Promise<Character> {
-	const processed = await processCharacterPortraitUpload(file);
+	const processed = payload.originalFile
+		? await processCharacterPortraitUpload(payload)
+		: null;
+	const reCrop =
+		processed
+			? null
+			: await processCharacterPortraitReCrop({
+					originalFile: null,
+					thumbCropFile: payload.thumbCropFile ?? null,
+					thumbCropRect: payload.thumbCropRect ?? null,
+					imageSource: payload.imageSource
+				});
+
 	const character = await updateCharacterPortraitInDb(
-		{
-			character_id: characterId,
-			mime_type: processed.mime_type,
-			portrait_width: processed.portrait_width,
-			portrait_height: processed.portrait_height,
-			thumb_width: processed.thumb_width,
-			thumb_height: processed.thumb_height,
-			image_source: imageSource
-		},
-		processed.thumbBuffer,
-		processed.fullBuffer
+		processed
+			? {
+					character_id: characterId,
+					mime_type: processed.mime_type,
+					portrait_width: processed.portrait_width,
+					portrait_height: processed.portrait_height,
+					original_mime_type: processed.original_mime_type,
+					original_width: processed.original_width,
+					original_height: processed.original_height,
+					thumb_width: processed.thumb_width,
+					thumb_height: processed.thumb_height,
+					thumb_crop_json: processed.thumb_crop_json,
+					image_source: payload.imageSource
+				}
+			: {
+					character_id: characterId,
+					thumb_width: reCrop!.thumb_width,
+					thumb_height: reCrop!.thumb_height,
+					thumb_crop_json: reCrop!.thumb_crop_json,
+					image_source: payload.imageSource
+				},
+		processed?.thumbBuffer ?? reCrop!.thumbBuffer,
+		processed?.fullBuffer ?? null,
+		processed?.originalBuffer ?? null
 	);
 
 	revokeCharacterPortraitObjectUrls(characterId);
@@ -605,22 +645,46 @@ export async function persistCharacterPortrait(
 
 export async function persistCharacterPresentation(
 	characterId: string,
-	file: File,
-	imageSource: string | null = null
+	payload: import('$lib/types/image-upload').CharacterPortraitUploadPayload
 ): Promise<Character> {
-	const processed = await processCharacterPortraitUpload(file);
+	const processed = payload.originalFile
+		? await processCharacterPortraitUpload(payload)
+		: null;
+	const reCrop =
+		processed
+			? null
+			: await processCharacterPortraitReCrop({
+					originalFile: null,
+					thumbCropFile: payload.thumbCropFile ?? null,
+					thumbCropRect: payload.thumbCropRect ?? null,
+					imageSource: payload.imageSource
+				});
+
 	const character = await updateCharacterPresentationInDb(
-		{
-			character_id: characterId,
-			presentation_mime_type: processed.mime_type,
-			presentation_width: processed.portrait_width,
-			presentation_height: processed.portrait_height,
-			presentation_thumb_width: processed.thumb_width,
-			presentation_thumb_height: processed.thumb_height,
-			presentation_image_source: imageSource
-		},
-		processed.thumbBuffer,
-		processed.fullBuffer
+		processed
+			? {
+					character_id: characterId,
+					presentation_mime_type: processed.mime_type,
+					presentation_width: processed.portrait_width,
+					presentation_height: processed.portrait_height,
+					presentation_original_mime_type: processed.original_mime_type,
+					presentation_original_width: processed.original_width,
+					presentation_original_height: processed.original_height,
+					presentation_thumb_width: processed.thumb_width,
+					presentation_thumb_height: processed.thumb_height,
+					presentation_thumb_crop_json: processed.thumb_crop_json,
+					presentation_image_source: payload.imageSource
+				}
+			: {
+					character_id: characterId,
+					presentation_thumb_width: reCrop!.thumb_width,
+					presentation_thumb_height: reCrop!.thumb_height,
+					presentation_thumb_crop_json: reCrop!.thumb_crop_json,
+					presentation_image_source: payload.imageSource
+				},
+		processed?.thumbBuffer ?? reCrop!.thumbBuffer,
+		processed?.fullBuffer ?? null,
+		processed?.originalBuffer ?? null
 	);
 
 	revokeCharacterPresentationObjectUrls(characterId);

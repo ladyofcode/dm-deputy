@@ -6,6 +6,7 @@
 	import ImageCropEditor from '$lib/components/shared/ImageCropEditor.svelte';
 	import { createBlobPreview } from '$lib/stores/blob-preview.svelte';
 	import { normalizeImageSource, type ImageUploadResult } from '$lib/types/image-upload';
+	import type { NormalizedCropRect } from '$lib/domain/crop-image';
 
 	type Props = {
 		open?: boolean;
@@ -13,6 +14,9 @@
 		description?: string;
 		confirmLabel?: string;
 		file?: File | null;
+		cropSourceUrl?: string | null;
+		existingImageSource?: string | null;
+		initialCropRect?: NormalizedCropRect | null;
 		cropAspectRatio?: number | null;
 		onConfirm?: (result: ImageUploadResult) => void | Promise<void>;
 		onCancel?: () => void;
@@ -24,6 +28,9 @@
 		description = 'Optionally note where this image came from — a URL, artist name, or other credit.',
 		confirmLabel = 'Use image',
 		file = null,
+		cropSourceUrl = null,
+		existingImageSource = null,
+		initialCropRect = null,
 		cropAspectRatio = null,
 		onConfirm,
 		onCancel
@@ -34,16 +41,25 @@
 	let confirmed = $state(false);
 	let submitting = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
-	let cropEditor = $state<{ exportCroppedFile: () => Promise<File> } | null>(null);
+	let cropEditor = $state<{
+		exportCroppedFile: () => Promise<File>;
+		exportCropRect: () => import('$lib/domain/crop-image').NormalizedCropRect;
+	} | null>(null);
 	const fieldId = `image-upload-${crypto.randomUUID()}`;
 
 	const activeFile = $derived(file ?? pickedFile);
-	const usesCrop = $derived(Boolean(cropAspectRatio && activeFile));
-	const blobPreview = createBlobPreview(() => (open ? activeFile : null));
+	const usesCrop = $derived(Boolean(cropAspectRatio && (activeFile || cropSourceUrl)));
+	const blobPreview = createBlobPreview(() => (open && activeFile ? activeFile : null));
 	const previewUrl = $derived(blobPreview.url);
+	const cropEditorUrl = $derived(previewUrl ?? cropSourceUrl);
+	const canSubmit = $derived(Boolean(activeFile || (usesCrop && cropSourceUrl)));
+	const cropStartScaleMode = $derived<'cover' | 'contain'>(
+		activeFile ? 'cover' : cropSourceUrl ? 'contain' : 'cover'
+	);
+	const effectiveInitialCropRect = $derived(activeFile ? null : initialCropRect);
 	const dialogDescription = $derived(
 		usesCrop
-			? 'Drag to reposition and zoom. Zoom out to fit the whole image, or in to fill the frame. Optionally note where it came from.'
+			? 'Drag the image behind the frame to choose the thumbnail crop. Pick a new file to replace the original, or zoom to fit the whole image inside the frame.'
 			: description
 	);
 
@@ -52,7 +68,7 @@
 	$effect(() => {
 		if (open && !wasOpen) {
 			confirmed = false;
-			imageSource = '';
+			imageSource = existingImageSource ?? '';
 			if (!file) {
 				pickedFile = null;
 				if (fileInput) {
@@ -71,16 +87,22 @@
 
 	async function handleConfirm(event: SubmitEvent) {
 		event.preventDefault();
-		if (!activeFile || submitting) return;
+		if (!canSubmit || submitting) return;
 
 		confirmed = true;
 		submitting = true;
 
 		try {
-			const outputFile = usesCrop && cropEditor ? await cropEditor.exportCroppedFile() : activeFile;
+			const reCropOnly = !activeFile && Boolean(cropSourceUrl);
+			const outputFile =
+				usesCrop && cropEditor ? await cropEditor.exportCroppedFile() : activeFile!;
+			const thumbCropRect = usesCrop && cropEditor ? cropEditor.exportCropRect() : null;
 
 			await onConfirm?.({
 				file: outputFile,
+				originalFile: activeFile,
+				thumbCropRect,
+				reCropOnly,
 				imageSource: normalizeImageSource(imageSource)
 			});
 			open = false;
@@ -106,33 +128,35 @@
 	}}
 >
 	<form class="panel-form upload-dialog-form" onsubmit={handleConfirm}>
-		{#if !file}
-			<div class="field">
-				<Label.Root for="{fieldId}_file">Image file</Label.Root>
-				<input
-					id="{fieldId}_file"
-					bind:this={fileInput}
-					type="file"
-					accept="image/*"
-					onchange={handleFileChange}
-				/>
-			</div>
-		{/if}
+		<div class="field">
+			<Label.Root for="{fieldId}_file">
+				{usesCrop && cropSourceUrl ? 'Replace image (optional)' : 'Image file'}
+			</Label.Root>
+			<input
+				id="{fieldId}_file"
+				bind:this={fileInput}
+				type="file"
+				accept="image/*"
+				onchange={handleFileChange}
+			/>
+		</div>
 
-		{#if previewUrl}
-			{#if usesCrop && cropAspectRatio}
+		{#if cropEditorUrl && usesCrop && cropAspectRatio}
+			{#key `${cropEditorUrl}:${activeFile ? 'replace' : 'recrop'}`}
 				<ImageCropEditor
 					bind:this={cropEditor}
-					imageUrl={previewUrl}
+					imageUrl={cropEditorUrl}
 					fileName={activeFile?.name ?? 'image.jpg'}
 					mimeType={activeFile?.type}
 					aspectRatio={cropAspectRatio}
+					startScaleMode={cropStartScaleMode}
+					initialCropRect={effectiveInitialCropRect}
 				/>
-			{:else}
-				<figure class="upload-preview">
-					<img src={previewUrl} alt="" />
-				</figure>
-			{/if}
+			{/key}
+		{:else if previewUrl}
+			<figure class="upload-preview">
+				<img src={previewUrl} alt="" />
+			</figure>
 		{/if}
 
 		<ImageAttributionField id="{fieldId}_source" bind:value={imageSource} />
@@ -140,7 +164,7 @@
 		<DialogFormFooter
 			submitLabel={submitting ? 'Uploading…' : confirmLabel}
 			pending={submitting}
-			disabled={!activeFile}
+			disabled={!canSubmit}
 			useDialogClose={false}
 			onCancel={handleCancel}
 		/>

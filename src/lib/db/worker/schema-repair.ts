@@ -174,6 +174,7 @@ function repairCharacterSheetColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'characters', 'alignment', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'age', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'class_name', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'role_label', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'mime_type', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'portrait_width', 'INTEGER');
 	addColumnIfMissing(database, 'characters', 'portrait_height', 'INTEGER');
@@ -190,6 +191,16 @@ function repairCharacterSheetColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'characters', 'presentation_image_source', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'presentation_thumb_blob', 'BLOB');
 	addColumnIfMissing(database, 'characters', 'presentation_full_blob', 'BLOB');
+	addColumnIfMissing(database, 'characters', 'original_mime_type', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'original_width', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'original_height', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'original_blob', 'BLOB');
+	addColumnIfMissing(database, 'characters', 'thumb_crop_json', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'presentation_original_mime_type', 'TEXT');
+	addColumnIfMissing(database, 'characters', 'presentation_original_width', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'presentation_original_height', 'INTEGER');
+	addColumnIfMissing(database, 'characters', 'presentation_original_blob', 'BLOB');
+	addColumnIfMissing(database, 'characters', 'presentation_thumb_crop_json', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'presentation', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'creature_type', 'TEXT');
 	addColumnIfMissing(database, 'characters', 'armor_class', 'INTEGER');

@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 33;
+export const SCHEMA_VERSION = 34;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -593,6 +593,21 @@ Any attack that hits the creature is a critical hit if the attacker is within 5 
 		ALTER TABLE characters ADD COLUMN presentation_image_source TEXT;
 		ALTER TABLE characters ADD COLUMN presentation_thumb_blob BLOB;
 		ALTER TABLE characters ADD COLUMN presentation_full_blob BLOB;
+	`,
+	34: `
+		ALTER TABLE characters ADD COLUMN role_label TEXT;
+	`,
+	35: `
+		ALTER TABLE characters ADD COLUMN original_mime_type TEXT;
+		ALTER TABLE characters ADD COLUMN original_width INTEGER;
+		ALTER TABLE characters ADD COLUMN original_height INTEGER;
+		ALTER TABLE characters ADD COLUMN original_blob BLOB;
+		ALTER TABLE characters ADD COLUMN thumb_crop_json TEXT;
+		ALTER TABLE characters ADD COLUMN presentation_original_mime_type TEXT;
+		ALTER TABLE characters ADD COLUMN presentation_original_width INTEGER;
+		ALTER TABLE characters ADD COLUMN presentation_original_height INTEGER;
+		ALTER TABLE characters ADD COLUMN presentation_original_blob BLOB;
+		ALTER TABLE characters ADD COLUMN presentation_thumb_crop_json TEXT;
 	`
 };
 

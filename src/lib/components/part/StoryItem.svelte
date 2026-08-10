@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DragHandleIcon from '$lib/components/icons/DragHandleIcon.svelte';
 	import MediaThumb from '$lib/components/shared/MediaThumb.svelte';
+	import StoryNpcCanvasContent from '$lib/components/part/StoryNpcCanvasContent.svelte';
 	import { getStoryNodeCanvasContext } from '$lib/components/part/part-story-canvas';
 	import { getReactiveCampaignMapById } from '$lib/stores/campaign-maps.svelte';
 	import { formatStoryItemCatalogStats } from '$lib/domain/story-item-catalog';
@@ -47,6 +48,7 @@
 	data-kind={item.kind}
 	data-treasure={item.is_treasure ? 'true' : undefined}
 	data-has-stats={catalogStats.length ? 'true' : undefined}
+	data-has-npc-meta={item.kind === 'npc' && item.character_id ? 'true' : undefined}
 	data-dimmed={dimmed ? 'true' : undefined}
 >
 	{#if item.kind === 'map'}
@@ -61,6 +63,18 @@
 			/>
 		{/if}
 		<p class="label map-label">{displayLabel}</p>
+	{:else if item.kind === 'npc' && item.character_id}
+		{#if item.is_treasure}
+			<span class="treasure-badge" aria-label="Treasure">
+				<TreasureIcon size={16} />
+			</span>
+		{/if}
+
+		<span>{STORY_ITEM_KIND_LABELS[item.kind]}</span>
+		<StoryNpcCanvasContent
+			characterId={item.character_id}
+			label={displayLabel}
+		/>
 	{:else}
 		{#if item.is_treasure}
 			<span class="treasure-badge" aria-label="Treasure">
@@ -105,7 +119,8 @@
 		cursor: default;
 	}
 
-	div[data-has-stats='true'] {
+	div[data-has-stats='true'],
+	div[data-has-npc-meta='true'] {
 		max-width: 17rem;
 	}
 
@@ -125,7 +140,9 @@
 
 	div[data-dimmed='true'] span,
 	div[data-dimmed='true'] .label,
-	div[data-dimmed='true'] .stats li {
+	div[data-dimmed='true'] .stats li,
+	div[data-dimmed='true'] :global(.npc-canvas-name),
+	div[data-dimmed='true'] :global(.npc-canvas-meta) {
 		color: var(--color-node-dimmed-text);
 	}
 

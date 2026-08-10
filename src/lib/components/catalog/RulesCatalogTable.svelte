@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import type { RulesCatalogColumn, RulesCatalogEntry } from '$lib/domain/rules-catalog-table';
 
 	type Props = {
@@ -45,14 +46,12 @@
 							<Button.Root type="button" data-variant="ghost" onclick={() => onEdit(item)}>
 								Edit
 							</Button.Root>
-							<Button.Root
-								type="button"
-								data-variant="ghost"
-								disabled={deletingId === getId(item)}
+							<RemoveIconButton
+								variant="ghost"
+								ariaLabel="Delete"
+								busy={deletingId === getId(item)}
 								onclick={() => onDelete(getId(item))}
-							>
-								Delete
-							</Button.Root>
+							/>
 						</td>
 					</tr>
 				{/each}

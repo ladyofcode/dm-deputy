@@ -5,60 +5,48 @@
 	type Props = {
 		navLabel: string;
 		backHref: string;
+		backLabel?: string;
 		title: string;
 		subtitle?: string;
 		headerActions?: Snippet;
 		extraSections?: Snippet;
-		loading?: boolean;
-		saving?: boolean;
 		error?: string | null;
-		submitLabel?: string;
-		submitPendingLabel?: string;
 		secondaryAction?: Snippet;
-		onSubmit: () => void | Promise<void>;
 		form: Snippet;
 	};
 
 	let {
 		navLabel,
 		backHref,
+		backLabel = 'Library',
 		title,
 		subtitle = '',
 		headerActions,
 		extraSections,
-		loading = false,
-		saving = false,
 		error = null,
-		submitLabel = 'Save sheet',
-		submitPendingLabel = 'Saving…',
 		secondaryAction,
-		onSubmit,
 		form
 	}: Props = $props();
 </script>
 
 <section class="page-stack character-sheet-page">
 	<nav class="sheet-nav" aria-label={navLabel}>
-		<Button.Root href={backHref} data-variant="plain">← Library</Button.Root>
+		<Button.Root href={backHref} data-variant="plain">← {backLabel}</Button.Root>
 	</nav>
 
 	<header class="sheet-page-header">
-		{#if subtitle}
-			<p class="eyebrow">{subtitle}</p>
-		{/if}
-		<h1>{title}</h1>
+		<div class="sheet-page-header-text">
+			{#if subtitle}
+				<p class="eyebrow">{subtitle}</p>
+			{/if}
+			<h1>{title}</h1>
+		</div>
 		{#if headerActions}
 			{@render headerActions()}
 		{/if}
 	</header>
 
-	<form
-		class="sheet-page-form"
-		onsubmit={(event) => {
-			event.preventDefault();
-			void onSubmit();
-		}}
-	>
+	<div class="sheet-page-form">
 		{@render form()}
 
 		{#if extraSections}
@@ -69,15 +57,12 @@
 			<p class="hint error" role="alert">{error}</p>
 		{/if}
 
-		<div class="actions-row">
-			{#if secondaryAction}
+		{#if secondaryAction}
+			<div class="actions-row">
 				{@render secondaryAction()}
-			{/if}
-			<Button.Root type="submit" data-variant="primary" disabled={loading || saving}>
-				{saving ? submitPendingLabel : submitLabel}
-			</Button.Root>
-		</div>
-	</form>
+			</div>
+		{/if}
+	</div>
 </section>
 
 <style>

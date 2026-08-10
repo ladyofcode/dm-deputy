@@ -3,6 +3,7 @@
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
 	import InlineEditableSelect from '$lib/components/shared/InlineEditableSelect.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import {
 		appendLoadoutRowKey,
 		addLoadoutEntry,
@@ -318,15 +319,11 @@
 													</InlineEditableSelect>
 												</td>
 												<td class="actions-cell">
-													<Button.Root
-														type="button"
-														data-variant="icon"
-														aria-label="Remove spell"
-														{disabled}
+													<RemoveIconButton
+														ariaLabel="Remove spell"
+														disabled={disabled}
 														onclick={() => removeSpellEntry(row.index)}
-													>
-														−
-													</Button.Root>
+													/>
 												</td>
 											</tr>
 										{/each}

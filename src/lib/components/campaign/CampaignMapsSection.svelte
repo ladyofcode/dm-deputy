@@ -2,6 +2,7 @@
 	import { formatErrorMessage } from '$lib/domain/errors';
 	import { Button } from 'bits-ui';
 	import AddIcon from '$lib/components/icons/AddIcon.svelte';
+	import MinusIcon from '$lib/components/icons/MinusIcon.svelte';
 	import CampaignMapListItem from '$lib/components/campaign/CampaignMapListItem.svelte';
 	import EntitySection from '$lib/components/shared/EntitySection.svelte';
 	import FormField from '$lib/components/shared/FormField.svelte';
@@ -143,7 +144,7 @@
 			aria-label={showUploadForm ? 'Cancel add map' : 'Add map'}
 		>
 			{#if showUploadForm}
-				−
+				<MinusIcon />
 			{:else}
 				<AddIcon />
 			{/if}

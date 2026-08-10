@@ -21,8 +21,12 @@
 		identity: CharacterIdentityDraft;
 		extras: CharacterExtrasDraft;
 		portraitFile: File | null;
+		portraitThumbCropFile: File | null;
+		portraitThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		portraitImageSource: string | null;
 		presentationFile: File | null;
+		presentationThumbCropFile: File | null;
+		presentationThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		presentationImageSource: string | null;
 	};
 
@@ -36,8 +40,12 @@
 		identity: CharacterIdentityDraft;
 		extras: CharacterExtrasDraft;
 		portraitFile?: File | null;
+		portraitThumbCropFile?: File | null;
+		portraitThumbCropRect?: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		portraitImageSource?: string | null;
 		presentationFile?: File | null;
+		presentationThumbCropFile?: File | null;
+		presentationThumbCropRect?: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		presentationImageSource?: string | null;
 		onSave?: (payload: SavePayload) => void | Promise<void>;
 		loading?: boolean;
@@ -54,8 +62,12 @@
 		identity,
 		extras,
 		portraitFile = null,
+		portraitThumbCropFile = null,
+		portraitThumbCropRect = null,
 		portraitImageSource = null,
 		presentationFile = null,
+		presentationThumbCropFile = null,
+		presentationThumbCropRect = null,
 		presentationImageSource = null,
 		onSave,
 		loading = false,
@@ -81,8 +93,12 @@
 			identity: cloneCharacterIdentity(identity),
 			extras: cloneCharacterExtras(extras),
 			portraitFile,
+			portraitThumbCropFile,
+			portraitThumbCropRect,
 			portraitImageSource,
 			presentationFile,
+			presentationThumbCropFile,
+			presentationThumbCropRect,
 			presentationImageSource
 		});
 		sheet.loading = loading;
@@ -102,8 +118,12 @@
 			identity: payload.identity,
 			extras: payload.extras,
 			portraitFile: payload.portraitFile,
+			portraitThumbCropFile: payload.portraitThumbCropFile,
+			portraitThumbCropRect: payload.portraitThumbCropRect,
 			portraitImageSource: payload.portraitImageSource,
 			presentationFile: payload.presentationFile,
+			presentationThumbCropFile: payload.presentationThumbCropFile,
+			presentationThumbCropRect: payload.presentationThumbCropRect,
 			presentationImageSource: payload.presentationImageSource
 		});
 		open = false;

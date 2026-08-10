@@ -378,6 +378,13 @@ export const IDENTITY_DISPLAY_FIELDS: IdentityDisplayField[] = [
 		render: ({ kind }) => CHARACTER_KIND_LABELS[kind]
 	},
 	{
+		key: 'role_label',
+		label: 'Role',
+		wide: true,
+		show: ({ mode, identity }) => mode === 'npc' && identity.role_label.trim().length > 0,
+		render: ({ identity }) => identity.role_label.trim()
+	},
+	{
 		key: 'presentation',
 		label: 'Description',
 		wide: true,

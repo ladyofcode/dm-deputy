@@ -35,6 +35,37 @@ export function collectPartNpcCharacterIds(storyItems: StoryItem[], partNpcs: Pa
 	return [...ids];
 }
 
+export function getPartNpcCharacterIdSet(storyItems: StoryItem[], partNpcs: PartNpc[]): Set<string> {
+	return new Set(collectPartNpcCharacterIds(storyItems, partNpcs));
+}
+
+export function getExcludedCharacterIdsForPartNpcSelection(
+	storyItems: StoryItem[],
+	partNpcs: PartNpc[],
+	draftCharacterIds: string[],
+	currentLineCharacterId = ''
+): Set<string> {
+	const excluded = getPartNpcCharacterIdSet(storyItems, partNpcs);
+
+	for (const characterId of draftCharacterIds) {
+		if (characterId && characterId !== currentLineCharacterId) {
+			excluded.add(characterId);
+		}
+	}
+
+	return excluded;
+}
+
+export function filterSelectablePartNpcs(
+	npcs: Character[],
+	excludedCharacterIds: Set<string>,
+	currentCharacterId = ''
+): Character[] {
+	return npcs.filter(
+		(npc) => npc.character_id === currentCharacterId || !excludedCharacterIds.has(npc.character_id)
+	);
+}
+
 export function getPartViewerNpcs(storyItems: StoryItem[], partNpcs: PartNpc[]): Character[] {
 	const characterIds = collectPartNpcCharacterIds(storyItems, partNpcs);
 

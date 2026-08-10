@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
+	import AddIcon from '$lib/components/icons/AddIcon.svelte';
 
 	type Props = {
 		label: string;
@@ -13,12 +14,12 @@
 
 {#if href}
 	<Button.Root class="library-add-button" {href} {disabled}>
-		<span aria-hidden="true">+</span>
+		<AddIcon />
 		Add {label}
 	</Button.Root>
 {:else}
 	<Button.Root type="button" class="library-add-button" {disabled} {onclick}>
-		<span aria-hidden="true">+</span>
+		<AddIcon />
 		Add {label}
 	</Button.Root>
 {/if}

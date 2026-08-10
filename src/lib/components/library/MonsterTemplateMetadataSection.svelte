@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
 	import InlineEditableField from '$lib/components/shared/InlineEditableField.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 
 	type Props = {
 		weaponNames?: string[];
@@ -48,9 +49,10 @@
 						placeholder="Morningstar"
 						aria-label="Default weapon {index + 1}"
 					/>
-					<Button.Root type="button" data-variant="ghost" onclick={() => removeWeaponName(index)}>
-						Remove
-					</Button.Root>
+					<RemoveIconButton
+						ariaLabel={`Remove default weapon ${index + 1}`}
+						onclick={() => removeWeaponName(index)}
+					/>
 				</div>
 			{/each}
 		</div>

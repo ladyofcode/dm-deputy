@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
+	import AddIcon from '$lib/components/icons/AddIcon.svelte';
 	import InlineEditableCatalogSelect from '$lib/components/shared/InlineEditableCatalogSelect.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import {
 		addLoadoutEntry,
 		appendLoadoutRowKey,
@@ -75,18 +77,11 @@
 					onchange={(event) => updateRow(index, event.currentTarget.value)}
 				/>
 				{#if values.length > 1 || value}
-					<Button.Root
-						type="button"
-						data-variant="icon"
-						aria-label={removeLabel}
-						onclick={() => removeRow(index)}
-					>
-						−
-					</Button.Root>
+					<RemoveIconButton ariaLabel={removeLabel} onclick={() => removeRow(index)} />
 				{/if}
 				{#if index === values.length - 1}
 					<Button.Root type="button" data-variant="icon" aria-label={addLabel} onclick={addRow}>
-						+
+						<AddIcon />
 					</Button.Root>
 				{/if}
 			</li>

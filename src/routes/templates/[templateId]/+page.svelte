@@ -23,6 +23,7 @@
 		trackMonsterTemplatesRevision
 	} from '$lib/stores/monster-templates.svelte';
 	import { createCharacterSheetStore } from '$lib/stores/character-sheet.svelte';
+	import { setupCharacterSheetAutoSave } from '$lib/stores/autosave.svelte';
 	import { getReactiveCatalogArmor, getReactiveCatalogWeapons } from '$lib/stores/catalog.svelte';
 	import { CHARACTER_KIND_LABELS, type NpcCharacterKind } from '$lib/types/schema';
 	import { fileToDataUrl } from '$lib/types/image-upload';
@@ -142,6 +143,19 @@
 		resetMonsterTemplate(templateId);
 		void loadTemplateIntoSheet(templateId);
 	}
+
+	setupCharacterSheetAutoSave({
+		sheet,
+		save: handleSave,
+		isEnabled: () => Boolean(draftId) && !sheet.loading,
+		extraKey: () =>
+			JSON.stringify({
+				weaponNames,
+				armorName,
+				portraitDirty,
+				savedImageUrl
+			})
+	});
 </script>
 
 <svelte:head>
@@ -159,13 +173,10 @@
 	<CharacterSheetPageShell
 		navLabel="Template navigation"
 		backHref={resolveLibraryCharactersHref({ section: 'templates' })}
+		backLabel="Library"
 		subtitle="Monster template"
 		title={sheet.name.trim() || (isNew ? 'New template' : 'Template')}
-		loading={sheet.loading}
-		saving={sheet.saving}
 		error={sheet.error}
-		submitLabel={isNew ? 'Create template' : 'Save template'}
-		onSubmit={handleSave}
 	>
 		{#snippet form()}
 			<p class="hint">{CHARACTER_KIND_LABELS[sheet.kind]}</p>

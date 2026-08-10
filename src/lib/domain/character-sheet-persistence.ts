@@ -1,4 +1,5 @@
 import type { CharacterIdentityDraft, CharacterExtrasDraft } from '$lib/domain/npc-draft';
+import type { CharacterSheetSavePayload } from '$lib/stores/character-sheet.svelte';
 import {
 	physicalDraftToDbFields,
 	roleplayDraftToDbFields,
@@ -13,6 +14,7 @@ export function identityDraftToDbFields(identity: CharacterIdentityDraft) {
 		alignment: identity.alignment.trim() || null,
 		age: identity.age.trim() || null,
 		class_name: identity.class_name.trim() || null,
+		role_label: identity.role_label.trim() || null,
 		presentation: identity.presentation.trim() || null
 	};
 }
@@ -42,4 +44,23 @@ export function extrasDraftToDbFields(extras: CharacterExtrasDraft) {
 		...roleplayDraftToDbFields(roleplay),
 		...vitalityDraftToDbFields(vitality)
 	};
+}
+
+export function characterSheetPersistenceKey(payload: CharacterSheetSavePayload): string {
+	return JSON.stringify({
+		kind: payload.kind,
+		name: payload.name,
+		playerName: payload.playerName,
+		description: payload.description,
+		identity: payload.identity,
+		extras: payload.extras,
+		portraitImageSource: payload.portraitImageSource,
+		presentationImageSource: payload.presentationImageSource,
+		portraitFileName: payload.portraitFile?.name ?? null,
+		portraitFileSize: payload.portraitFile?.size ?? null,
+		portraitFileLastModified: payload.portraitFile?.lastModified ?? null,
+		presentationFileName: payload.presentationFile?.name ?? null,
+		presentationFileSize: payload.presentationFile?.size ?? null,
+		presentationFileLastModified: payload.presentationFile?.lastModified ?? null
+	});
 }

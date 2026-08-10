@@ -13,6 +13,7 @@ import { getSpeciesByName } from '$lib/games/dnd5e/data/species';
 import { loadCharacterSheetDraft } from '$lib/data/writes';
 import type { Character, CharacterStatEvent, NpcCharacterKind } from '$lib/types/schema';
 import { isNpcCharacterKind } from '$lib/types/schema';
+import type { NormalizedCropRect } from '$lib/domain/crop-image';
 import type { ApplyMonsterTemplateResult } from '$lib/games/dnd5e/data/monsters';
 
 export type CharacterSheetDraftSnapshot = {
@@ -26,8 +27,12 @@ export type CharacterSheetDraftSnapshot = {
 
 export type CharacterSheetSavePayload = CharacterSheetDraftSnapshot & {
 	portraitFile: File | null;
+	portraitThumbCropFile: File | null;
+	portraitThumbCropRect: NormalizedCropRect | null;
 	portraitImageSource: string | null;
 	presentationFile: File | null;
+	presentationThumbCropFile: File | null;
+	presentationThumbCropRect: NormalizedCropRect | null;
 	presentationImageSource: string | null;
 };
 
@@ -46,16 +51,24 @@ export function createCharacterSheetStore() {
 	let identity = $state<CharacterIdentityDraft>(createDefaultCharacterIdentity());
 	let extras = $state<CharacterExtrasDraft>(createDefaultCharacterExtras());
 	let portraitFile = $state<File | null>(null);
+	let portraitThumbCropFile = $state<File | null>(null);
+	let portraitThumbCropRect = $state<NormalizedCropRect | null>(null);
 	let portraitImageSource = $state<string | null>(null);
 	let presentationFile = $state<File | null>(null);
+	let presentationThumbCropFile = $state<File | null>(null);
+	let presentationThumbCropRect = $state<NormalizedCropRect | null>(null);
 	let presentationImageSource = $state<string | null>(null);
 	let combatExpanded = $state<boolean | null>(null);
 	let statEvents = $state<CharacterStatEvent[]>([]);
 
 	function clearPortraitFiles() {
 		portraitFile = null;
+		portraitThumbCropFile = null;
+		portraitThumbCropRect = null;
 		portraitImageSource = null;
 		presentationFile = null;
+		presentationThumbCropFile = null;
+		presentationThumbCropRect = null;
 		presentationImageSource = null;
 	}
 
@@ -111,8 +124,12 @@ export function createCharacterSheetStore() {
 		identity = cloneCharacterIdentity(props.identity ?? createDefaultCharacterIdentity());
 		extras = cloneCharacterExtras(props.extras ?? createDefaultCharacterExtras());
 		portraitFile = props.portraitFile ?? null;
+		portraitThumbCropFile = props.portraitThumbCropFile ?? null;
+		portraitThumbCropRect = props.portraitThumbCropRect ?? null;
 		portraitImageSource = props.portraitImageSource ?? null;
 		presentationFile = props.presentationFile ?? null;
+		presentationThumbCropFile = props.presentationThumbCropFile ?? null;
+		presentationThumbCropRect = props.presentationThumbCropRect ?? null;
 		presentationImageSource = props.presentationImageSource ?? null;
 		error = null;
 	}
@@ -129,8 +146,31 @@ export function createCharacterSheetStore() {
 			identity: cloneCharacterIdentity(identity),
 			extras: normalizedExtras,
 			portraitFile,
+			portraitThumbCropFile,
+			portraitThumbCropRect,
 			portraitImageSource,
 			presentationFile,
+			presentationThumbCropFile,
+			presentationThumbCropRect,
+			presentationImageSource
+		};
+	}
+
+	function snapshotForPersistence(): CharacterSheetSavePayload {
+		return {
+			kind,
+			name: name.trim(),
+			playerName: playerName.trim(),
+			description: description.trim(),
+			identity: cloneCharacterIdentity(identity),
+			extras: cloneCharacterExtras(extras),
+			portraitFile,
+			portraitThumbCropFile,
+			portraitThumbCropRect,
+			portraitImageSource,
+			presentationFile,
+			presentationThumbCropFile,
+			presentationThumbCropRect,
 			presentationImageSource
 		};
 	}
@@ -219,6 +259,18 @@ export function createCharacterSheetStore() {
 		set portraitFile(value: File | null) {
 			portraitFile = value;
 		},
+		get portraitThumbCropFile() {
+			return portraitThumbCropFile;
+		},
+		set portraitThumbCropFile(value: File | null) {
+			portraitThumbCropFile = value;
+		},
+		get portraitThumbCropRect() {
+			return portraitThumbCropRect;
+		},
+		set portraitThumbCropRect(value: NormalizedCropRect | null) {
+			portraitThumbCropRect = value;
+		},
 		get portraitImageSource() {
 			return portraitImageSource;
 		},
@@ -230,6 +282,18 @@ export function createCharacterSheetStore() {
 		},
 		set presentationFile(value: File | null) {
 			presentationFile = value;
+		},
+		get presentationThumbCropFile() {
+			return presentationThumbCropFile;
+		},
+		set presentationThumbCropFile(value: File | null) {
+			presentationThumbCropFile = value;
+		},
+		get presentationThumbCropRect() {
+			return presentationThumbCropRect;
+		},
+		set presentationThumbCropRect(value: NormalizedCropRect | null) {
+			presentationThumbCropRect = value;
 		},
 		get presentationImageSource() {
 			return presentationImageSource;
@@ -253,6 +317,7 @@ export function createCharacterSheetStore() {
 		loadFromCharacter,
 		loadFromProps,
 		cloneForSave,
+		snapshotForPersistence,
 		syncSavedStats,
 		applyMonsterTemplate,
 		clearPortraitFiles

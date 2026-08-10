@@ -3,6 +3,7 @@
 	import { Button, Label } from 'bits-ui';
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
+	import DraftLinesForm from '$lib/components/shared/DraftLinesForm.svelte';
 	import { createCampaignNpcFromTemplate } from '$lib/data/campaign-npc-from-template';
 	import {
 		armLineToStoryItem,
@@ -15,19 +16,33 @@
 		encodeStoryNpcSelection
 	} from '$lib/domain/story-npc-selection';
 	import { generateRandomNameForTemplate } from '$lib/domain/template-npc-name';
+	import {
+		filterSelectablePartNpcs,
+		getExcludedCharacterIdsForPartNpcSelection,
+		getPartNpcCharacterIdSet
+	} from '$lib/data/part-npcs';
 	import { getReactiveNpcsForCampaign } from '$lib/stores/campaign-characters.svelte';
+	import { createDraftLines } from '$lib/stores/draft-lines.svelte';
 	import {
 		getMonsterTemplates,
 		trackMonsterTemplatesRevision
 	} from '$lib/stores/monster-templates.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
-	import type { StoryItem, StoryNode } from '$lib/types/schema';
+	import type { Character, PartNpc, StoryItem, StoryNode } from '$lib/types/schema';
+
+	type PartNpcDraftLine = {
+		id: string;
+		characterId: string;
+		monsterTemplateId: string;
+		npcName: string;
+	};
 
 	type Props = {
 		open?: boolean;
 		campaignId: string;
 		storyNodes: StoryNode[];
 		storyItems: StoryItem[];
+		partNpcs: PartNpc[];
 		onAddPartNpc?: (characterId: string) => void | Promise<void>;
 		onSaveNodeArms?: (nodeId: string, items: StoryItem[]) => void | Promise<void>;
 	};
@@ -37,21 +52,29 @@
 		campaignId,
 		storyNodes,
 		storyItems,
+		partNpcs,
 		onAddPartNpc,
 		onSaveNodeArms
 	}: Props = $props();
 
-	let characterId = $state('');
-	let monsterTemplateId = $state('');
-	let npcName = $state('');
+	function createEmptyPartNpcDraftLine(): PartNpcDraftLine {
+		return {
+			id: crypto.randomUUID(),
+			characterId: '',
+			monsterTemplateId: '',
+			npcName: ''
+		};
+	}
+
+	const npcDraft = createDraftLines(createEmptyPartNpcDraftLine);
+
 	let selectedNodeId = $state('');
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 	let formInitialized = $state(false);
 
-	const npcs = $derived(getReactiveNpcsForCampaign(campaignId));
-	const generalNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_general'));
-	const foeNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_foe'));
+	const campaignNpcs = $derived(getReactiveNpcsForCampaign(campaignId));
+	const onPartCharacterIds = $derived(getPartNpcCharacterIdSet(storyItems, partNpcs));
 	const foeTemplates = $derived.by(() => {
 		trackMonsterTemplatesRevision();
 		return getMonsterTemplates()
@@ -61,9 +84,60 @@
 			);
 	});
 
-	const npcSelection = $derived(encodeStoryNpcSelection(characterId, monsterTemplateId));
-	const hasNpcSelection = $derived(Boolean(characterId || monsterTemplateId));
-	const canSave = $derived(hasNpcSelection && (!monsterTemplateId || npcName.trim().length > 0));
+	function isLineValid(line: PartNpcDraftLine): boolean {
+		const hasSelection = Boolean(line.characterId || line.monsterTemplateId);
+		if (!hasSelection || (line.monsterTemplateId && !line.npcName.trim())) {
+			return false;
+		}
+
+		if (line.characterId && onPartCharacterIds.has(line.characterId)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	function selectableNpcsForRow(
+		line: PartNpcDraftLine,
+		kind: Character['kind']
+	): Character[] {
+		const otherDraftCharacterIds = npcDraft.lines
+			.filter((draftLine) => draftLine.id !== line.id)
+			.map((draftLine) => draftLine.characterId)
+			.filter(Boolean);
+		const excludedCharacterIds = getExcludedCharacterIdsForPartNpcSelection(
+			storyItems,
+			partNpcs,
+			otherDraftCharacterIds,
+			line.characterId
+		);
+
+		return filterSelectablePartNpcs(
+			campaignNpcs.filter((npc) => npc.kind === kind),
+			excludedCharacterIds,
+			line.characterId
+		);
+	}
+
+	function hasDuplicateExistingCharacter(lines: PartNpcDraftLine[]): boolean {
+		const seen = new Set<string>();
+
+		for (const line of lines) {
+			if (!line.characterId) continue;
+
+			if (onPartCharacterIds.has(line.characterId) || seen.has(line.characterId)) {
+				return true;
+			}
+
+			seen.add(line.characterId);
+		}
+
+		return false;
+	}
+
+	const validLines = $derived(npcDraft.lines.filter(isLineValid));
+	const submitCount = $derived(validLines.length);
+	const canSubmit = $derived(submitCount > 0 && !hasDuplicateExistingCharacter(validLines));
 
 	$effect(() => {
 		if (!open) {
@@ -73,27 +147,25 @@
 
 		if (formInitialized) return;
 
-		characterId = '';
-		monsterTemplateId = '';
-		npcName = '';
+		npcDraft.reset();
 		selectedNodeId = '';
 		error = null;
 		formInitialized = true;
 	});
 
-	function handleNpcSelectionChange(event: Event) {
+	function handleNpcSelectionChange(line: PartNpcDraftLine, event: Event) {
 		const value = (event.currentTarget as HTMLSelectElement).value;
 		const decoded = decodeStoryNpcSelection(value);
-		characterId = decoded.characterId;
-		monsterTemplateId = decoded.monsterTemplateId;
-		npcName = decoded.monsterTemplateId
+		line.characterId = decoded.characterId;
+		line.monsterTemplateId = decoded.monsterTemplateId;
+		line.npcName = decoded.monsterTemplateId
 			? generateRandomNameForTemplate(decoded.monsterTemplateId)
 			: '';
 	}
 
-	function shuffleNpcName() {
-		if (!monsterTemplateId) return;
-		npcName = generateRandomNameForTemplate(monsterTemplateId);
+	function shuffleNpcName(line: PartNpcDraftLine) {
+		if (!line.monsterTemplateId) return;
+		line.npcName = generateRandomNameForTemplate(line.monsterTemplateId);
 	}
 
 	function createNpcArmLine(resolvedCharacterId: string): StoryArmLine {
@@ -107,47 +179,81 @@
 		};
 	}
 
+	async function resolveCharacterId(line: PartNpcDraftLine): Promise<string> {
+		if (line.characterId) return line.characterId;
+
+		if (line.monsterTemplateId) {
+			const character = await createCampaignNpcFromTemplate(
+				campaignId,
+				workspace.currentUserId,
+				line.monsterTemplateId,
+				line.npcName.trim()
+			);
+			return character.character_id;
+		}
+
+		throw new Error('Choose an NPC or template');
+	}
+
+	async function saveNpcLines(lines: PartNpcDraftLine[]) {
+		if (hasDuplicateExistingCharacter(lines)) {
+			throw new Error('Each existing NPC can only be added once to this part');
+		}
+
+		const unassignedCharacterIds: string[] = [];
+		const characterIdsByNode = new Map<string, string[]>();
+
+		for (const line of lines) {
+			const resolvedCharacterId = await resolveCharacterId(line);
+
+			if (selectedNodeId) {
+				const nodeCharacterIds = characterIdsByNode.get(selectedNodeId) ?? [];
+				if (!nodeCharacterIds.includes(resolvedCharacterId)) {
+					nodeCharacterIds.push(resolvedCharacterId);
+				}
+				characterIdsByNode.set(selectedNodeId, nodeCharacterIds);
+			} else if (!unassignedCharacterIds.includes(resolvedCharacterId)) {
+				unassignedCharacterIds.push(resolvedCharacterId);
+			}
+		}
+
+		for (const resolvedCharacterId of unassignedCharacterIds) {
+			if (onPartCharacterIds.has(resolvedCharacterId)) continue;
+			await onAddPartNpc?.(resolvedCharacterId);
+		}
+
+		if (characterIdsByNode.size === 0) return;
+
+		const npcsById = new Map(campaignNpcs.map((npc) => [npc.character_id, npc]));
+
+		for (const [nodeId, characterIds] of characterIdsByNode) {
+			const nodeItems = storyItems.filter((item) => item.parent_node_id === nodeId);
+			const newItems = characterIds
+				.filter((resolvedCharacterId) => !onPartCharacterIds.has(resolvedCharacterId))
+				.map((resolvedCharacterId) => {
+					const armLine = createNpcArmLine(resolvedCharacterId);
+					return armLineToStoryItem(
+						armLine,
+						nodeId,
+						buildStoryItemLabel(armLine, npcsById, null)
+					);
+				});
+
+			if (newItems.length === 0) continue;
+
+			await onSaveNodeArms?.(nodeId, [...nodeItems, ...newItems]);
+		}
+	}
+
 	async function handleSave(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving || !canSave) return;
+		if (saving || !canSubmit) return;
 
 		saving = true;
 		error = null;
 
 		try {
-			let resolvedCharacterId = characterId;
-
-			if (monsterTemplateId && !characterId) {
-				const character = await createCampaignNpcFromTemplate(
-					campaignId,
-					workspace.currentUserId,
-					monsterTemplateId,
-					npcName
-				);
-				resolvedCharacterId = character.character_id;
-			}
-
-			if (!resolvedCharacterId) {
-				throw new Error('Choose an NPC or template');
-			}
-
-			if (selectedNodeId) {
-				const nodeItems = storyItems.filter((item) => item.parent_node_id === selectedNodeId);
-				const line = createNpcArmLine(resolvedCharacterId);
-				const npcsById = new Map(
-					getReactiveNpcsForCampaign(campaignId).map((npc) => [npc.character_id, npc])
-				);
-				const newItem = armLineToStoryItem(
-					line,
-					selectedNodeId,
-					buildStoryItemLabel(line, npcsById, null)
-				);
-
-				await onSaveNodeArms?.(selectedNodeId, [...nodeItems, newItem]);
-			} else {
-				await onAddPartNpc?.(resolvedCharacterId);
-			}
-
+			await saveNpcLines(validLines);
 			open = false;
 		} catch (cause) {
 			error = formatErrorMessage(cause, 'Could not add NPC');
@@ -166,54 +272,74 @@
 >
 	<form class="add-npc-form" onsubmit={handleSave}>
 		<div class="field">
-			<Label.Root for="part_add_npc_select">NPC</Label.Root>
-			<select
-				id="part_add_npc_select"
-				value={npcSelection}
-				onchange={handleNpcSelectionChange}
-				aria-label="Choose NPC or template"
+			<Label.Root>NPC</Label.Root>
+			<DraftLinesForm
+				lines={npcDraft.lines}
+				listClass="add-npc-lines list-plain"
+				lineClass="add-npc-line"
+				removeAriaLabel="Remove NPC row"
+				onRemove={npcDraft.remove}
+				onAdd={npcDraft.add}
+				showRemove={(line) =>
+					npcDraft.lines.length > 1 ||
+					Boolean((line as PartNpcDraftLine).characterId || (line as PartNpcDraftLine).monsterTemplateId)}
 			>
-				<option value="">Choose an NPC…</option>
-				{#if generalNpcs.length}
-					<optgroup label="NPCs">
-						{#each generalNpcs as npc (npc.character_id)}
-							<option value="character:{npc.character_id}">{npc.display_name}</option>
-						{/each}
-					</optgroup>
-				{/if}
-				{#if foeNpcs.length}
-					<optgroup label="Foes">
-						{#each foeNpcs as npc (npc.character_id)}
-							<option value="character:{npc.character_id}">{npc.display_name}</option>
-						{/each}
-					</optgroup>
-				{/if}
-				{#if foeTemplates.length}
-					<optgroup label="Templates">
-						{#each foeTemplates as template (template.id)}
-							<option value="template:{template.id}">{template.name}</option>
-						{/each}
-					</optgroup>
-				{/if}
-			</select>
-		</div>
+				{#snippet row({ line })}
+					{@const draftLine = line as PartNpcDraftLine}
+					{@const rowGeneralNpcs = selectableNpcsForRow(draftLine, 'npc_general')}
+					{@const rowFoeNpcs = selectableNpcsForRow(draftLine, 'npc_foe')}
+					<div class="npc-row-fields">
+						<select
+							value={encodeStoryNpcSelection(draftLine.characterId, draftLine.monsterTemplateId)}
+							onchange={(event) => handleNpcSelectionChange(draftLine, event)}
+							aria-label="Choose NPC or template"
+						>
+							<option value="">Choose an NPC…</option>
+							{#if rowGeneralNpcs.length}
+								<optgroup label="NPCs">
+									{#each rowGeneralNpcs as npc (npc.character_id)}
+										<option value="character:{npc.character_id}">{npc.display_name}</option>
+									{/each}
+								</optgroup>
+							{/if}
+							{#if rowFoeNpcs.length}
+								<optgroup label="Foes">
+									{#each rowFoeNpcs as npc (npc.character_id)}
+										<option value="character:{npc.character_id}">{npc.display_name}</option>
+									{/each}
+								</optgroup>
+							{/if}
+							{#if foeTemplates.length}
+								<optgroup label="Templates">
+									{#each foeTemplates as template (template.id)}
+										<option value="template:{template.id}">{template.name}</option>
+									{/each}
+								</optgroup>
+							{/if}
+						</select>
 
-		{#if monsterTemplateId}
-			<div class="field">
-				<Label.Root for="part_add_npc_name">Name</Label.Root>
-				<div class="npc-name-controls">
-					<input id="part_add_npc_name" type="text" bind:value={npcName} placeholder="Foe name" />
-					<Button.Root
-						type="button"
-						data-variant="icon"
-						aria-label="Random name"
-						onclick={shuffleNpcName}
-					>
-						↻
-					</Button.Root>
-				</div>
-			</div>
-		{/if}
+						{#if draftLine.monsterTemplateId}
+							<div class="npc-name-controls">
+								<input
+									type="text"
+									bind:value={draftLine.npcName}
+									placeholder="Foe name"
+									aria-label="Foe name"
+								/>
+								<Button.Root
+									type="button"
+									data-variant="icon"
+									aria-label="Random name"
+									onclick={() => shuffleNpcName(draftLine)}
+								>
+									↻
+								</Button.Root>
+							</div>
+						{/if}
+					</div>
+				{/snippet}
+			</DraftLinesForm>
+		</div>
 
 		<div class="field">
 			<Label.Root for="part_add_npc_node">Story node</Label.Root>
@@ -231,9 +357,13 @@
 		{/if}
 
 		<DialogFormFooter
-			submitLabel={saving ? 'Adding…' : 'Add NPC'}
+			submitLabel={saving
+				? 'Adding…'
+				: submitCount > 1
+					? `Add ${submitCount} NPCs`
+					: 'Add NPC'}
 			pending={saving}
-			disabled={!canSave}
+			disabled={!canSubmit}
 		/>
 	</form>
 </AppDialog>
@@ -248,6 +378,26 @@
 		margin: 0.25rem 0 0.65rem;
 		font-size: 0.875rem;
 		color: var(--color-text-muted);
+	}
+
+	:global(.add-npc-lines) {
+		margin-top: 0.65rem;
+	}
+
+	:global(.add-npc-line) {
+		align-items: flex-start;
+	}
+
+	.npc-row-fields {
+		display: grid;
+		flex: 1;
+		gap: 0.5rem;
+		min-width: 0;
+	}
+
+	.npc-row-fields select,
+	.npc-name-controls input {
+		width: 100%;
 	}
 
 	.npc-name-controls {

@@ -278,7 +278,13 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 	}),
 	updateCharacterPortrait: (request) => ({
 		id: request.id,
-		result: updateCharacterPortrait(getDb(), request.args[0], request.args[1], request.args[2])
+		result: updateCharacterPortrait(
+			getDb(),
+			request.args[0],
+			request.args[1],
+			request.args[2],
+			request.args[3]
+		)
 	}),
 	updateCharacterPortraitSource: (request) => ({
 		id: request.id,
@@ -290,7 +296,13 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 	},
 	updateCharacterPresentation: (request) => ({
 		id: request.id,
-		result: updateCharacterPresentation(getDb(), request.args[0], request.args[1], request.args[2])
+		result: updateCharacterPresentation(
+			getDb(),
+			request.args[0],
+			request.args[1],
+			request.args[2],
+			request.args[3]
+		)
 	}),
 	updateCharacterPresentationSource: (request) => ({
 		id: request.id,

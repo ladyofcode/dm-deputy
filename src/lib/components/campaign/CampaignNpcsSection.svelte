@@ -5,6 +5,7 @@
 	import CampaignLinkExistingCharacterForm from '$lib/components/campaign/CampaignLinkExistingCharacterForm.svelte';
 	import NpcExtrasModal from '$lib/components/campaign/NpcExtrasModal.svelte';
 	import EntitySection from '$lib/components/shared/EntitySection.svelte';
+	import DraftLinesForm from '$lib/components/shared/DraftLinesForm.svelte';
 	import AddressCardIcon from '$lib/components/icons/AddressCardIcon.svelte';
 	import {
 		addCampaignNpcToCampaign,
@@ -25,6 +26,7 @@
 		getReactiveNpcsForCampaign
 	} from '$lib/stores/campaign-characters.svelte';
 	import { createDraftLines } from '$lib/stores/draft-lines.svelte';
+	import { fileFingerprint, setupDraftBatchAutoSave } from '$lib/stores/autosave.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { CHARACTER_KIND_LABELS, type Character, type NpcCharacterKind } from '$lib/types/schema';
 
@@ -36,7 +38,6 @@
 
 	const npcDraft = createDraftLines(createEmptyNpcDraftLine);
 
-	let saving = $state(false);
 	let removingCharacterId = $state<string | null>(null);
 	let addingExistingCharacterId = $state<string | null>(null);
 	let selectedExistingCharacterId = $state('');
@@ -50,8 +51,16 @@
 	let statsModalIdentity = $state(createEmptyNpcDraftLine().identity);
 	let statsModalExtras = $state(createEmptyNpcDraftLine().extras);
 	let statsModalPortraitFile = $state<File | null>(null);
+	let statsModalPortraitThumbCropFile = $state<File | null>(null);
+	let statsModalPortraitThumbCropRect = $state<
+		import('$lib/domain/crop-image').NormalizedCropRect | null
+	>(null);
 	let statsModalPortraitImageSource = $state<string | null>(null);
 	let statsModalPresentationFile = $state<File | null>(null);
+	let statsModalPresentationThumbCropFile = $state<File | null>(null);
+	let statsModalPresentationThumbCropRect = $state<
+		import('$lib/domain/crop-image').NormalizedCropRect | null
+	>(null);
 	let statsModalPresentationImageSource = $state<string | null>(null);
 
 	const npcs = $derived(getReactiveNpcsForCampaign(campaignId));
@@ -59,7 +68,17 @@
 	const generalNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_general'));
 	const foeNpcs = $derived(npcs.filter((npc) => npc.kind === 'npc_foe'));
 
-	async function handleDraftKeydown(event: KeyboardEvent) {
+	async function handleDraftKeydown(event: KeyboardEvent, line: NpcDraftLine, index: number) {
+		if (event.key !== 'Enter') return;
+
+		event.preventDefault();
+
+		const isLast = index === npcDraft.lines.length - 1;
+		if (isLast && line.name.trim()) {
+			await npcDraftAutoSave.commitLines([line]);
+			return;
+		}
+
 		await npcDraft.handleEnter(event, () => {
 			const newLine = npcDraft.lines[npcDraft.lines.length - 1];
 			return newLine ? draftNameInputs[newLine.id] : undefined;
@@ -70,12 +89,15 @@
 		return (
 			npcDraftLineHasStats(line.extras) ||
 			Boolean(line.portraitFile) ||
+			Boolean(line.portraitThumbCropFile) ||
 			Boolean(line.presentationFile) ||
+			Boolean(line.presentationThumbCropFile) ||
 			Boolean(line.identity.race.trim()) ||
 			Boolean(line.identity.creature_type.trim()) ||
 			Boolean(line.identity.alignment.trim()) ||
 			Boolean(line.identity.age.trim()) ||
 			Boolean(line.identity.class_name.trim()) ||
+			Boolean(line.identity.role_label.trim()) ||
 			Boolean(line.identity.presentation.trim()) ||
 			line.extras.level !== 1
 		);
@@ -89,8 +111,12 @@
 		statsModalIdentity = cloneCharacterIdentity(line.identity);
 		statsModalExtras = cloneCharacterExtras(line.extras);
 		statsModalPortraitFile = line.portraitFile;
+		statsModalPortraitThumbCropFile = line.portraitThumbCropFile;
+		statsModalPortraitThumbCropRect = line.portraitThumbCropRect;
 		statsModalPortraitImageSource = line.portraitImageSource;
 		statsModalPresentationFile = line.presentationFile;
+		statsModalPresentationThumbCropFile = line.presentationThumbCropFile;
+		statsModalPresentationThumbCropRect = line.presentationThumbCropRect;
 		statsModalPresentationImageSource = line.presentationImageSource;
 		statsModalOpen = true;
 	}
@@ -102,8 +128,12 @@
 		identity: CharacterIdentityDraft;
 		extras: CharacterExtrasDraft;
 		portraitFile: File | null;
+		portraitThumbCropFile: File | null;
+		portraitThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		portraitImageSource: string | null;
 		presentationFile: File | null;
+		presentationThumbCropFile: File | null;
+		presentationThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		presentationImageSource: string | null;
 	}) {
 		if (!draftLineId) return;
@@ -118,34 +148,59 @@
 						identity: cloneCharacterIdentity(payload.identity),
 						extras: cloneCharacterExtras(payload.extras),
 						portraitFile: payload.portraitFile,
+						portraitThumbCropFile: payload.portraitThumbCropFile,
+						portraitThumbCropRect: payload.portraitThumbCropRect,
 						portraitImageSource: payload.portraitImageSource,
 						presentationFile: payload.presentationFile,
+						presentationThumbCropFile: payload.presentationThumbCropFile,
+						presentationThumbCropRect: payload.presentationThumbCropRect,
 						presentationImageSource: payload.presentationImageSource
 					}
 				: line
 		);
 		draftLineId = null;
+		void npcDraftAutoSave.flush();
 	}
 
-	async function saveNewNpcs(event: SubmitEvent) {
-		event.preventDefault();
-		if (saving) return;
+	function savableNpcLines(lines: NpcDraftLine[]) {
+		return lines.filter((line, index) => {
+			if (!line.name.trim()) return false;
 
-		const lines = npcDraft.lines.filter((line) => line.name.trim());
-		if (lines.length === 0) return;
+			const isLast = index === lines.length - 1;
+			if (!isLast) return true;
 
-		saving = true;
-		error = null;
+			return draftLineHasSheet(line);
+		});
+	}
 
-		try {
+	const npcDraftAutoSave = setupDraftBatchAutoSave({
+		isEnabled: () => Boolean(campaignId),
+		getLines: () => npcDraft.lines,
+		setLines: (lines) => {
+			npcDraft.lines = lines;
+		},
+		createEmptyLine: npcDraft.createEmpty,
+		getSavableLines: savableNpcLines,
+		serializeSavableLine: (line) => ({
+			id: line.id,
+			kind: line.kind,
+			name: line.name.trim(),
+			description: line.description,
+			identity: line.identity,
+			extras: line.extras,
+			portraitImageSource: line.portraitImageSource,
+			presentationImageSource: line.presentationImageSource,
+			portraitFile: fileFingerprint(line.portraitFile),
+			presentationFile: fileFingerprint(line.presentationFile)
+		}),
+		persist: async (lines) => {
+			error = null;
 			await persistCampaignNpcs(campaignId, workspace.currentUserId, lines);
-			npcDraft.reset();
-		} catch (cause) {
+		},
+		onError: (cause) => {
 			error = formatErrorMessage(cause, 'Could not save NPCs');
-		} finally {
-			saving = false;
 		}
-	}
+	});
 
 	async function handleRemove(npc: Character) {
 		if (removingCharacterId) return;
@@ -188,7 +243,6 @@
 <EntitySection
 	headingId="campaign-npcs-heading"
 	title="NPCs"
-	hint="Click an NPC to open their sheet. Remove them from this campaign without deleting their record, or add existing NPCs from your library below."
 	emptyMessage="No NPCs yet."
 	showEmpty={npcs.length === 0}
 	{error}
@@ -202,6 +256,8 @@
 						<CampaignCharacterListItem
 							characterId={npc.character_id}
 							character={npc}
+							{campaignId}
+							listVariant="npc"
 							defaultLevel={1}
 							removing={removingCharacterId === npc.character_id}
 							removeAriaLabel={`Remove ${npc.display_name} from campaign`}
@@ -218,6 +274,8 @@
 						<CampaignCharacterListItem
 							characterId={npc.character_id}
 							character={npc}
+							{campaignId}
+							listVariant="npc"
 							defaultLevel={1}
 							removing={removingCharacterId === npc.character_id}
 							removeAriaLabel={`Remove ${npc.display_name} from campaign`}
@@ -256,68 +314,51 @@
 		{/if}
 	{/snippet}
 	{#snippet addForm()}
-		<form class="npcs-form" onsubmit={saveNewNpcs}>
+		<div class="npcs-form">
 			<div class="field">
 				<Label.Root>{npcs.length === 0 ? 'Create NPCs' : 'Create more NPCs'}</Label.Root>
-				<p class="hint">
-					Choose type, enter a name, then press Enter to add another row. Use the card icon for
-					stats and gear before saving.
-				</p>
-				<ul class="npc-draft-lines list-plain">
-					{#each npcDraft.lines as line, index (line.id)}
-						<li class="npc-draft-line">
-							<select bind:value={line.kind} aria-label="NPC type">
-								<option value="npc_general">{CHARACTER_KIND_LABELS.npc_general}</option>
-								<option value="npc_foe">{CHARACTER_KIND_LABELS.npc_foe}</option>
-							</select>
-							<input
-								type="text"
-								bind:this={draftNameInputs[line.id]}
-								bind:value={line.name}
-								placeholder="Name"
-								aria-label="NPC name"
-								onkeydown={handleDraftKeydown}
-							/>
-							<Button.Root
-								type="button"
-								data-variant="icon"
-								class={draftLineHasSheet(line) ? 'has-sheet' : undefined}
-								aria-label={`Open sheet for ${line.name || 'NPC'}`}
-								onclick={() => openDraftStatsModal(line)}
-							>
-								<AddressCardIcon size={20} />
-							</Button.Root>
-							{#if npcDraft.lines.length > 1 || Boolean(line.name.trim())}
-								<Button.Root
-									type="button"
-									data-variant="icon"
-									aria-label="Remove NPC row"
-									onclick={() => npcDraft.remove(line.id)}
-								>
-									−
-								</Button.Root>
-							{/if}
-							{#if index === npcDraft.lines.length - 1}
-								<Button.Root
-									type="button"
-									data-variant="icon"
-									aria-label="Add NPC row"
-									onclick={npcDraft.add}
-								>
-									+
-								</Button.Root>
-							{/if}
-						</li>
-					{/each}
-				</ul>
+				<div class="npc-draft-form">
+					<DraftLinesForm
+					lines={npcDraft.lines}
+					listClass="npc-draft-lines list-plain"
+					lineClass="npc-draft-line"
+					removeAriaLabel="Remove NPC row"
+					onRemove={npcDraft.remove}
+					onAdd={npcDraft.add}
+					showRemove={(line) =>
+						npcDraft.lines.length > 1 || Boolean((line as NpcDraftLine).name.trim())}
+				>
+					{#snippet row({ line, index })}
+						{@const draftLine = line as NpcDraftLine}
+						<select bind:value={draftLine.kind} aria-label="NPC type">
+							<option value="npc_general">{CHARACTER_KIND_LABELS.npc_general}</option>
+							<option value="npc_foe">{CHARACTER_KIND_LABELS.npc_foe}</option>
+						</select>
+						<input
+							type="text"
+							bind:this={draftNameInputs[draftLine.id]}
+							bind:value={draftLine.name}
+							placeholder="Name"
+							aria-label="NPC name"
+							onkeydown={(event) => handleDraftKeydown(event, draftLine, index)}
+						/>
+					{/snippet}
+					{#snippet actions({ line })}
+						{@const draftLine = line as NpcDraftLine}
+						<Button.Root
+							type="button"
+							data-variant="icon"
+							class={draftLineHasSheet(draftLine) ? 'has-sheet' : undefined}
+							aria-label={`Open sheet for ${draftLine.name || 'NPC'}`}
+							onclick={() => openDraftStatsModal(draftLine)}
+						>
+							<AddressCardIcon size={20} />
+						</Button.Root>
+					{/snippet}
+					</DraftLinesForm>
+				</div>
 			</div>
-
-			<div class="npcs-form-submit">
-				<Button.Root type="submit" disabled={saving}>
-					{saving ? 'Saving…' : 'Save'}
-				</Button.Root>
-			</div>
-		</form>
+		</div>
 	{/snippet}
 </EntitySection>
 
@@ -329,8 +370,12 @@
 	identity={statsModalIdentity}
 	extras={statsModalExtras}
 	portraitFile={statsModalPortraitFile}
+	portraitThumbCropFile={statsModalPortraitThumbCropFile}
+	portraitThumbCropRect={statsModalPortraitThumbCropRect}
 	portraitImageSource={statsModalPortraitImageSource}
 	presentationFile={statsModalPresentationFile}
+	presentationThumbCropFile={statsModalPresentationThumbCropFile}
+	presentationThumbCropRect={statsModalPresentationThumbCropRect}
 	presentationImageSource={statsModalPresentationImageSource}
 	onSave={handleStatsSave}
 />
@@ -352,37 +397,30 @@
 
 	.npcs-form {
 		margin-top: 0.5rem;
+		overflow-anchor: auto;
 	}
 
-	.npc-draft-lines {
+	.npc-draft-form :global(.npc-draft-lines) {
 		display: grid;
 		gap: 0.5rem;
 	}
 
-	.npc-draft-line {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
+	.npc-draft-form :global(.npc-draft-line) {
+		align-items: stretch;
 	}
 
-	.npc-draft-line select {
+	.npc-draft-form :global(.npc-draft-line select) {
 		flex: 0 0 9rem;
 		min-width: 0;
 	}
 
-	.npc-draft-line input {
+	.npc-draft-form :global(.npc-draft-line input) {
 		flex: 1;
 		min-width: 0;
 	}
 
-	.npc-draft-line :global([data-button-root].has-sheet) {
+	.npc-draft-form :global(.npc-draft-line [data-button-root].has-sheet) {
 		color: var(--color-accent);
-	}
-
-	.npcs-form-submit {
-		display: flex;
-		justify-content: flex-start;
-		margin-top: 0.5rem;
 	}
 
 	.npcs-form .field {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from 'bits-ui';
 	import MediaThumb from '$lib/components/shared/MediaThumb.svelte';
+	import RemoveIconButton from '$lib/components/shared/RemoveIconButton.svelte';
 	import type { CampaignMap } from '$lib/types/schema';
 
 	type Props = {
@@ -15,15 +15,12 @@
 <li class="map-list-item entity-list-item">
 	<MediaThumb variant="map" mapId={map.map_id} label={map.name} class="map-list-thumb" />
 	<span class="map-title">{map.name}</span>
-	<Button.Root
-		type="button"
-		data-variant="ghost"
-		disabled={deleting}
+	<RemoveIconButton
+		variant="ghost"
+		ariaLabel={`Delete ${map.name}`}
+		busy={deleting}
 		onclick={onDelete}
-		aria-label={`Delete ${map.name}`}
-	>
-		{deleting ? 'Deleting…' : 'Delete'}
-	</Button.Root>
+	/>
 </li>
 
 <style>
