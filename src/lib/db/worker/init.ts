@@ -107,13 +107,12 @@ function runMigrations(database: AppDb): void {
 
 	for (let version = currentVersion + 1; version <= SCHEMA_VERSION; version += 1) {
 		applyMigration(database, version);
+		execSql(database, {
+			sql: `INSERT INTO schema_meta (key, value) VALUES ('schema_version', $schema_version)
+				ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+			bind: { schema_version: String(version) }
+		});
 	}
-
-	execSql(database, {
-		sql: `INSERT INTO schema_meta (key, value) VALUES ('schema_version', $schema_version)
-			ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-		bind: { schema_version: String(SCHEMA_VERSION) }
-	});
 }
 
 function repairMissingRequiredTables(database: AppDb): void {

@@ -97,6 +97,7 @@ function repairMapBlobColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'maps', 'thumb_blob', 'BLOB');
 	addColumnIfMissing(database, 'maps', 'full_blob', 'BLOB');
 	addColumnIfMissing(database, 'maps', 'created_at', 'TEXT');
+	addColumnIfMissing(database, 'maps', 'image_source', 'TEXT');
 }
 
 function repairCharacterKinds(database: AppDb): void {
@@ -328,6 +329,11 @@ export function applyMigration(database: AppDb, version: number): void {
 		return;
 	}
 
+	if (version === 20) {
+		repairCharactersSoftDeleteColumn(database);
+		return;
+	}
+
 	if (version === 17) {
 		repairCharacterStatEventDescriptionColumn(database);
 		return;
@@ -343,10 +349,23 @@ export function applyMigration(database: AppDb, version: number): void {
 		return;
 	}
 
-	if (version === 33 || version === 34 || version === 35) {
+	if (
+		version === 21 ||
+		version === 22 ||
+		version === 23 ||
+		version === 24 ||
+		version === 25 ||
+		version === 27 ||
+		version === 33 ||
+		version === 34 ||
+		version === 35
+	) {
 		// These ALTER TABLEs also run from repairCharacterSheetColumns on every init.
-		// Existing OPFS DBs may already have the columns while schema_version is still 32–34.
+		// A failed later migration leaves schema_version behind while the columns exist.
 		repairCharacterSheetColumns(database);
+		if (version === 22) {
+			repairMapBlobColumns(database);
+		}
 		return;
 	}
 
