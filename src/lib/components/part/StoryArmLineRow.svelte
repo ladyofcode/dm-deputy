@@ -328,10 +328,7 @@
 					</Button.Root>
 				{/if}
 				{#if showRemove}
-					<RemoveIconButton
-						ariaLabel="Remove item row"
-						onclick={() => onRemoveLine?.(line.id)}
-					/>
+					<RemoveIconButton ariaLabel="Remove item row" onclick={() => onRemoveLine?.(line.id)} />
 				{/if}
 			</div>
 		</div>

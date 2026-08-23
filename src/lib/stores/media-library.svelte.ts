@@ -12,7 +12,7 @@ export function getMediaLibraryItems(): MediaAsset[] {
 	return items;
 }
 
-export function getMediaLibraryItemById(mediaId: string): MediaAsset | undefined {
+export function getMediaLibraryAssetById(mediaId: string): MediaAsset | undefined {
 	revision.track();
 	return items.find((item) => item.media_id === mediaId);
 }

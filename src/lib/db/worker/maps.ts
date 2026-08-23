@@ -89,11 +89,9 @@ export function loadCampaignMapBlob(
 		thumb_blob: Uint8Array | null;
 		full_blob: Uint8Array | null;
 		media_id: string | null;
-	}>(
-		database,
-		`SELECT thumb_blob, full_blob, media_id FROM maps WHERE map_id = $mapId LIMIT 1`,
-		{ mapId }
-	);
+	}>(database, `SELECT thumb_blob, full_blob, media_id FROM maps WHERE map_id = $mapId LIMIT 1`, {
+		mapId
+	});
 
 	const row = rows[0];
 	if (!row) return null;

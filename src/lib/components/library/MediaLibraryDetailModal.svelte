@@ -1,10 +1,7 @@
 <script lang="ts">
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import { getMediaAssetLabel, type MediaAsset } from '$lib/domain/media-asset';
-	import {
-		formatMediaDimensions,
-		isLikelyHttpUrl
-	} from '$lib/domain/media-library';
+	import { formatMediaDimensions, isLikelyHttpUrl } from '$lib/domain/media-library';
 	import { getMediaLibraryFullUrl } from '$lib/data/media-library-blob-cache';
 
 	type Props = {
@@ -57,52 +54,52 @@
 			<span>{itemLabel}</span>
 		{/if}
 	{/snippet}
-	{#snippet children()}
-		{#if item}
-			<div class="media-detail">
-				<figure class="media-detail-preview">
-					{#if fullUrl}
-						<img class="media-detail-image" src={fullUrl} alt="" />
-					{:else if loading}
-						<p class="media-detail-placeholder">Loading image…</p>
-					{:else}
-						<p class="media-detail-placeholder">Preview unavailable</p>
-					{/if}
-				</figure>
+	{#if item}
+		<div class="media-detail">
+			<figure class="media-detail-preview">
+				{#if fullUrl}
+					<img class="media-detail-image" src={fullUrl} alt="" />
+				{:else if loading}
+					<p class="media-detail-placeholder">Loading image…</p>
+				{:else}
+					<p class="media-detail-placeholder">Preview unavailable</p>
+				{/if}
+			</figure>
 
-				<dl class="media-detail-meta">
+			<dl class="media-detail-meta">
+				<div>
+					<dt>Format</dt>
+					<dd>{item.mime_type}</dd>
+				</div>
+				{#if fullDimensions}
 					<div>
-						<dt>Format</dt>
-						<dd>{item.mime_type}</dd>
+						<dt>Dimensions</dt>
+						<dd>{fullDimensions}</dd>
 					</div>
-					{#if fullDimensions}
-						<div>
-							<dt>Dimensions</dt>
-							<dd>{fullDimensions}</dd>
-						</div>
-					{/if}
+				{/if}
+				<div>
+					<dt>Uploaded</dt>
+					<dd>{new Date(item.created_at).toLocaleString()}</dd>
+				</div>
+				{#if item.image_source?.trim()}
 					<div>
-						<dt>Uploaded</dt>
-						<dd>{new Date(item.created_at).toLocaleString()}</dd>
-					</div>
-					{#if item.image_source?.trim()}
-						<div>
-							<dt>Source</dt>
-							<dd>
-								{#if isLikelyHttpUrl(item.image_source)}
-									<a href={item.image_source} target="_blank" rel="noopener noreferrer">
-										{item.image_source}
-									</a>
-								{:else}
+						<dt>Source</dt>
+						<dd>
+							{#if isLikelyHttpUrl(item.image_source)}
+								<!-- External attribution URL, not a SvelteKit route -->
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+								<a href={item.image_source} target="_blank" rel="noopener noreferrer">
 									{item.image_source}
-								{/if}
-							</dd>
-						</div>
-					{/if}
-				</dl>
-			</div>
-		{/if}
-	{/snippet}
+								</a>
+							{:else}
+								{item.image_source}
+							{/if}
+						</dd>
+					</div>
+				{/if}
+			</dl>
+		</div>
+	{/if}
 </AppDialog>
 
 <style>

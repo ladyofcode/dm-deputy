@@ -35,7 +35,10 @@ export function collectPartNpcCharacterIds(storyItems: StoryItem[], partNpcs: Pa
 	return [...ids];
 }
 
-export function getPartNpcCharacterIdSet(storyItems: StoryItem[], partNpcs: PartNpc[]): Set<string> {
+export function getPartNpcCharacterIdSet(
+	storyItems: StoryItem[],
+	partNpcs: PartNpc[]
+): Set<string> {
 	return new Set(collectPartNpcCharacterIds(storyItems, partNpcs));
 }
 

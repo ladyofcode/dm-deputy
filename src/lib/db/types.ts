@@ -526,7 +526,12 @@ export type WorkerRequest =
 	| {
 			id: number;
 			method: 'createMediaAsset';
-			args: [import('$lib/domain/media-asset').CreateMediaAssetInput, ArrayBuffer | null, ArrayBuffer, ArrayBuffer | null];
+			args: [
+				import('$lib/domain/media-asset').CreateMediaAssetInput,
+				ArrayBuffer | null,
+				ArrayBuffer,
+				ArrayBuffer | null
+			];
 	  }
 	| { id: number; method: 'loadMediaAssetById'; args: [string] };
 

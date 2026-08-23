@@ -959,11 +959,7 @@ function loadCharacterImageBlob(
 	}
 
 	if (row.media_id) {
-		return loadMediaAssetBlob(
-			database,
-			row.media_id,
-			variant === 'original' ? 'original' : 'full'
-		);
+		return loadMediaAssetBlob(database, row.media_id, variant === 'original' ? 'original' : 'full');
 	}
 
 	return null;

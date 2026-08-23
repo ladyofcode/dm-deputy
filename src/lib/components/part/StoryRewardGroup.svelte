@@ -76,10 +76,7 @@
 					{/if}
 				</div>
 				{#if item.kind === 'npc' && item.character_id}
-					<StoryNpcCanvasContent
-						characterId={item.character_id}
-						label={item.label}
-					/>
+					<StoryNpcCanvasContent characterId={item.character_id} label={item.label} />
 				{:else}
 					<p class="reward-label">{item.label}</p>
 				{/if}

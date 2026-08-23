@@ -55,13 +55,7 @@
 		error = null;
 
 		try {
-			await persistCampaignMap(
-				campaignId,
-				name,
-				selectedFile,
-				imageSource,
-				selectedMediaId
-			);
+			await persistCampaignMap(campaignId, name, selectedFile, imageSource, selectedMediaId);
 			resetUploadForm();
 			showUploadForm = false;
 		} catch (cause) {

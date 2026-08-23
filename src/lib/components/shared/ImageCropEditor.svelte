@@ -160,11 +160,7 @@
 		</div>
 
 		<div class="crop-overlay" aria-hidden="true">
-			<div
-				class="crop-window"
-				bind:this={cropFrameEl}
-				style:--crop-aspect={aspectRatio}
-			></div>
+			<div class="crop-window" bind:this={cropFrameEl} style:--crop-aspect={aspectRatio}></div>
 		</div>
 	</div>
 

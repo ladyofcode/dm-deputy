@@ -343,6 +343,13 @@ export function applyMigration(database: AppDb, version: number): void {
 		return;
 	}
 
+	if (version === 33 || version === 34 || version === 35) {
+		// These ALTER TABLEs also run from repairCharacterSheetColumns on every init.
+		// Existing OPFS DBs may already have the columns while schema_version is still 32–34.
+		repairCharacterSheetColumns(database);
+		return;
+	}
+
 	if (version === 37) {
 		ensureMediaAssetsSchema(database);
 		return;

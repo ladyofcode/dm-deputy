@@ -28,6 +28,7 @@
 		trackMonsterTemplatesRevision
 	} from '$lib/stores/monster-templates.svelte';
 	import { workspace } from '$lib/stores/workspace.svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Character, PartNpc, StoryItem, StoryNode } from '$lib/types/schema';
 
 	type PartNpcDraftLine = {
@@ -97,10 +98,7 @@
 		return true;
 	}
 
-	function selectableNpcsForRow(
-		line: PartNpcDraftLine,
-		kind: Character['kind']
-	): Character[] {
+	function selectableNpcsForRow(line: PartNpcDraftLine, kind: Character['kind']): Character[] {
 		const otherDraftCharacterIds = npcDraft.lines
 			.filter((draftLine) => draftLine.id !== line.id)
 			.map((draftLine) => draftLine.characterId)
@@ -120,7 +118,7 @@
 	}
 
 	function hasDuplicateExistingCharacter(lines: PartNpcDraftLine[]): boolean {
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 
 		for (const line of lines) {
 			if (!line.characterId) continue;
@@ -201,7 +199,7 @@
 		}
 
 		const unassignedCharacterIds: string[] = [];
-		const characterIdsByNode = new Map<string, string[]>();
+		const characterIdsByNode = new SvelteMap<string, string[]>();
 
 		for (const line of lines) {
 			const resolvedCharacterId = await resolveCharacterId(line);
@@ -224,7 +222,7 @@
 
 		if (characterIdsByNode.size === 0) return;
 
-		const npcsById = new Map(campaignNpcs.map((npc) => [npc.character_id, npc]));
+		const npcsById = new SvelteMap(campaignNpcs.map((npc) => [npc.character_id, npc]));
 
 		for (const [nodeId, characterIds] of characterIdsByNode) {
 			const nodeItems = storyItems.filter((item) => item.parent_node_id === nodeId);
@@ -232,11 +230,7 @@
 				.filter((resolvedCharacterId) => !onPartCharacterIds.has(resolvedCharacterId))
 				.map((resolvedCharacterId) => {
 					const armLine = createNpcArmLine(resolvedCharacterId);
-					return armLineToStoryItem(
-						armLine,
-						nodeId,
-						buildStoryItemLabel(armLine, npcsById, null)
-					);
+					return armLineToStoryItem(armLine, nodeId, buildStoryItemLabel(armLine, npcsById, null));
 				});
 
 			if (newItems.length === 0) continue;
@@ -282,7 +276,9 @@
 				onAdd={npcDraft.add}
 				showRemove={(line) =>
 					npcDraft.lines.length > 1 ||
-					Boolean((line as PartNpcDraftLine).characterId || (line as PartNpcDraftLine).monsterTemplateId)}
+					Boolean(
+						(line as PartNpcDraftLine).characterId || (line as PartNpcDraftLine).monsterTemplateId
+					)}
 			>
 				{#snippet row({ line })}
 					{@const draftLine = line as PartNpcDraftLine}
@@ -357,11 +353,7 @@
 		{/if}
 
 		<DialogFormFooter
-			submitLabel={saving
-				? 'Adding…'
-				: submitCount > 1
-					? `Add ${submitCount} NPCs`
-					: 'Add NPC'}
+			submitLabel={saving ? 'Adding…' : submitCount > 1 ? `Add ${submitCount} NPCs` : 'Add NPC'}
 			pending={saving}
 			disabled={!canSubmit}
 		/>

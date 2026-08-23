@@ -152,11 +152,7 @@
 			{/if}
 		</div>
 	{/snippet}
-	<CharacterSheetForm
-		{sheet}
-		{mode}
-		onPortraitFileChange={handlePortraitFileChange}
-	/>
+	<CharacterSheetForm {sheet} {mode} onPortraitFileChange={handlePortraitFileChange} />
 	{#snippet footer()}
 		<DialogFormFooter
 			submitLabel={saving ? 'Saving…' : 'Save'}

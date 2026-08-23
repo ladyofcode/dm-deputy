@@ -63,7 +63,9 @@
 	const fieldId = `image-upload-${crypto.randomUUID()}`;
 
 	const activeFile = $derived(file ?? pickedFile);
-	const usesCrop = $derived(Boolean(cropAspectRatio && (activeFile || cropSourceUrl || libraryPreviewUrl)));
+	const usesCrop = $derived(
+		Boolean(cropAspectRatio && (activeFile || cropSourceUrl || libraryPreviewUrl))
+	);
 	const blobPreview = createBlobPreview(() => (open && activeFile ? activeFile : null));
 	const previewUrl = $derived(blobPreview.url);
 	const cropEditorUrl = $derived(previewUrl ?? cropSourceUrl ?? libraryPreviewUrl);
@@ -73,7 +75,9 @@
 	const cropStartScaleMode = $derived<'cover' | 'contain'>(
 		activeFile ? 'cover' : cropSourceUrl || libraryPreviewUrl ? 'contain' : 'cover'
 	);
-	const effectiveInitialCropRect = $derived(activeFile || selectedLibraryItem ? null : initialCropRect);
+	const effectiveInitialCropRect = $derived(
+		activeFile || selectedLibraryItem ? null : initialCropRect
+	);
 	const dialogDescription = $derived(
 		usesCrop
 			? 'Drag the image behind the frame to choose the thumbnail crop. Pick a new file to replace the original, or zoom to fit the whole image inside the frame.'
@@ -179,7 +183,7 @@
 		try {
 			const reCropOnly = !activeFile && !selectedLibraryItem && Boolean(cropSourceUrl);
 			const outputFile =
-				usesCrop && cropEditor ? await cropEditor.exportCroppedFile() : activeFile ?? undefined;
+				usesCrop && cropEditor ? await cropEditor.exportCroppedFile() : (activeFile ?? undefined);
 			const thumbCropRect = usesCrop && cropEditor ? cropEditor.exportCropRect() : null;
 
 			await onConfirm?.({
@@ -281,7 +285,8 @@
 				<ImageCropEditor
 					bind:this={cropEditor}
 					imageUrl={cropEditorUrl}
-					fileName={activeFile?.name ?? (selectedLibraryItem ? getMediaAssetLabel(selectedLibraryItem) : 'image.jpg')}
+					fileName={activeFile?.name ??
+						(selectedLibraryItem ? getMediaAssetLabel(selectedLibraryItem) : 'image.jpg')}
 					mimeType={activeFile?.type ?? selectedLibraryItem?.mime_type ?? undefined}
 					aspectRatio={cropAspectRatio}
 					startScaleMode={cropStartScaleMode}

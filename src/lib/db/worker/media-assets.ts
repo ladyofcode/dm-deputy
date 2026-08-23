@@ -48,10 +48,7 @@ export function loadMediaAssetsSnapshot(database: AppDb): MediaAsset[] {
 	);
 }
 
-export function loadMediaLibrarySnapshot(
-	database: AppDb,
-	includeMapMedia: boolean
-): MediaAsset[] {
+export function loadMediaLibrarySnapshot(database: AppDb, includeMapMedia: boolean): MediaAsset[] {
 	ensureMediaAssetsSchema(database);
 
 	const mapMediaIds = includeMapMedia ? null : loadMapMediaIds(database);
@@ -216,8 +213,7 @@ function importLegacyCharacterImage(
 	const mediaId = `med-${characterId}-${suffix}`;
 	if (loadMediaAssetById(database, mediaId)) return;
 
-	const label =
-		suffix === 'presentation' ? `${displayName} (presentation)` : displayName;
+	const label = suffix === 'presentation' ? `${displayName} (presentation)` : displayName;
 
 	createMediaAsset(
 		database,
@@ -227,13 +223,9 @@ function importLegacyCharacterImage(
 			mime_type: (row[columns.mimeType] as string | null) ?? 'image/jpeg',
 			original_mime_type: row[columns.originalMimeType] as string | null,
 			full_width:
-				(row[columns.width] as number | null) ??
-				(row[columns.thumbWidth] as number | null) ??
-				1,
+				(row[columns.width] as number | null) ?? (row[columns.thumbWidth] as number | null) ?? 1,
 			full_height:
-				(row[columns.height] as number | null) ??
-				(row[columns.thumbHeight] as number | null) ??
-				1,
+				(row[columns.height] as number | null) ?? (row[columns.thumbHeight] as number | null) ?? 1,
 			original_width: row[columns.originalWidth] as number | null,
 			original_height: row[columns.originalHeight] as number | null,
 			thumb_width: row[columns.thumbWidth] as number | null,
@@ -257,7 +249,11 @@ function importLegacyCharacterImage(
 	});
 }
 
-function importLegacyCharacterPortrait(database: AppDb, characterId: string, displayName: string): void {
+function importLegacyCharacterPortrait(
+	database: AppDb,
+	characterId: string,
+	displayName: string
+): void {
 	importLegacyCharacterImage(
 		database,
 		characterId,

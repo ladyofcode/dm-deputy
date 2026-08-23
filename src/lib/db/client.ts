@@ -696,7 +696,11 @@ export async function createMediaAssetInDb(
 	const transfer = [fullBuffer];
 	if (thumbBuffer) transfer.push(thumbBuffer);
 	if (originalBuffer) transfer.push(originalBuffer);
-	return callWorkerWithTransfer('createMediaAsset', [input, thumbBuffer, fullBuffer, originalBuffer], transfer);
+	return callWorkerWithTransfer(
+		'createMediaAsset',
+		[input, thumbBuffer, fullBuffer, originalBuffer],
+		transfer
+	);
 }
 
 export async function loadMediaAssetByIdInDb(

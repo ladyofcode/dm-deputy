@@ -46,12 +46,7 @@
 				<RemoveIconButton ariaLabel={removeAriaLabel} onclick={() => onRemove(line.id)} />
 			{/if}
 			{#if showAdd && index === lines.length - 1}
-				<Button.Root
-					type="button"
-					data-variant="icon"
-					aria-label="Add row"
-					onclick={onAdd}
-				>
+				<Button.Root type="button" data-variant="icon" aria-label="Add row" onclick={onAdd}>
 					<AddIcon />
 				</Button.Root>
 			{/if}

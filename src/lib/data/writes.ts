@@ -663,12 +663,11 @@ export async function persistCampaignNpc(
 }
 
 type CharacterImageVariant = 'portrait' | 'presentation';
-type CharacterPortraitUploadPayload = import('$lib/types/image-upload').CharacterPortraitUploadPayload;
+type CharacterPortraitUploadPayload =
+	import('$lib/types/image-upload').CharacterPortraitUploadPayload;
 type MediaAsset = import('$lib/domain/media-asset').MediaAsset;
 type PortraitReCropResult = Awaited<ReturnType<typeof processCharacterPortraitReCrop>>;
-type PortraitUploadResult = NonNullable<
-	Awaited<ReturnType<typeof processCharacterPortraitUpload>>
->;
+type PortraitUploadResult = NonNullable<Awaited<ReturnType<typeof processCharacterPortraitUpload>>>;
 
 function getCharacterImageLabel(
 	character: Character | undefined,
@@ -685,7 +684,9 @@ function buildExistingMediaUpdate(
 	asset: MediaAsset,
 	reCrop: PortraitReCropResult,
 	imageSource: string | null
-): import('$lib/db/types').UpdateCharacterPortraitInput | import('$lib/db/types').UpdateCharacterPresentationInput {
+):
+	| import('$lib/db/types').UpdateCharacterPortraitInput
+	| import('$lib/db/types').UpdateCharacterPresentationInput {
 	if (variant === 'portrait') {
 		return {
 			character_id: characterId,
@@ -725,7 +726,9 @@ function buildProcessedUpdate(
 	mediaId: string | null,
 	processed: PortraitUploadResult,
 	imageSource: string | null
-): import('$lib/db/types').UpdateCharacterPortraitInput | import('$lib/db/types').UpdateCharacterPresentationInput {
+):
+	| import('$lib/db/types').UpdateCharacterPortraitInput
+	| import('$lib/db/types').UpdateCharacterPresentationInput {
 	if (variant === 'portrait') {
 		return {
 			character_id: characterId,
@@ -764,7 +767,9 @@ function buildReCropUpdate(
 	characterId: string,
 	reCrop: PortraitReCropResult,
 	imageSource: string | null
-): import('$lib/db/types').UpdateCharacterPortraitInput | import('$lib/db/types').UpdateCharacterPresentationInput {
+):
+	| import('$lib/db/types').UpdateCharacterPortraitInput
+	| import('$lib/db/types').UpdateCharacterPresentationInput {
 	if (variant === 'portrait') {
 		return {
 			character_id: characterId,

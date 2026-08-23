@@ -322,42 +322,42 @@
 				<Label.Root>{npcs.length === 0 ? 'Create NPCs' : 'Create more NPCs'}</Label.Root>
 				<div class="npc-draft-form">
 					<DraftLinesForm
-					lines={npcDraft.lines}
-					listClass="npc-draft-lines list-plain"
-					lineClass="npc-draft-line"
-					removeAriaLabel="Remove NPC row"
-					onRemove={npcDraft.remove}
-					onAdd={npcDraft.add}
-					showRemove={(line) =>
-						npcDraft.lines.length > 1 || Boolean((line as NpcDraftLine).name.trim())}
-				>
-					{#snippet row({ line, index })}
-						{@const draftLine = line as NpcDraftLine}
-						<select bind:value={draftLine.kind} aria-label="NPC type">
-							<option value="npc_general">{CHARACTER_KIND_LABELS.npc_general}</option>
-							<option value="npc_foe">{CHARACTER_KIND_LABELS.npc_foe}</option>
-						</select>
-						<input
-							type="text"
-							bind:this={draftNameInputs[draftLine.id]}
-							bind:value={draftLine.name}
-							placeholder="Name"
-							aria-label="NPC name"
-							onkeydown={(event) => handleDraftKeydown(event, draftLine, index)}
-						/>
-					{/snippet}
-					{#snippet actions({ line })}
-						{@const draftLine = line as NpcDraftLine}
-						<Button.Root
-							type="button"
-							data-variant="icon"
-							class={draftLineHasSheet(draftLine) ? 'has-sheet' : undefined}
-							aria-label={`Open sheet for ${draftLine.name || 'NPC'}`}
-							onclick={() => openDraftStatsModal(draftLine)}
-						>
-							<AddressCardIcon size={20} />
-						</Button.Root>
-					{/snippet}
+						lines={npcDraft.lines}
+						listClass="npc-draft-lines list-plain"
+						lineClass="npc-draft-line"
+						removeAriaLabel="Remove NPC row"
+						onRemove={npcDraft.remove}
+						onAdd={npcDraft.add}
+						showRemove={(line) =>
+							npcDraft.lines.length > 1 || Boolean((line as NpcDraftLine).name.trim())}
+					>
+						{#snippet row({ line, index })}
+							{@const draftLine = line as NpcDraftLine}
+							<select bind:value={draftLine.kind} aria-label="NPC type">
+								<option value="npc_general">{CHARACTER_KIND_LABELS.npc_general}</option>
+								<option value="npc_foe">{CHARACTER_KIND_LABELS.npc_foe}</option>
+							</select>
+							<input
+								type="text"
+								bind:this={draftNameInputs[draftLine.id]}
+								bind:value={draftLine.name}
+								placeholder="Name"
+								aria-label="NPC name"
+								onkeydown={(event) => handleDraftKeydown(event, draftLine, index)}
+							/>
+						{/snippet}
+						{#snippet actions({ line })}
+							{@const draftLine = line as NpcDraftLine}
+							<Button.Root
+								type="button"
+								data-variant="icon"
+								class={draftLineHasSheet(draftLine) ? 'has-sheet' : undefined}
+								aria-label={`Open sheet for ${draftLine.name || 'NPC'}`}
+								onclick={() => openDraftStatsModal(draftLine)}
+							>
+								<AddressCardIcon size={20} />
+							</Button.Root>
+						{/snippet}
 					</DraftLinesForm>
 				</div>
 			</div>

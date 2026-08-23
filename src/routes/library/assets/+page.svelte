@@ -9,13 +9,14 @@
 	import { workspace } from '$lib/stores/workspace.svelte';
 	import { formatMediaDimensions } from '$lib/domain/media-library';
 	import type { CampaignMap } from '$lib/types/schema';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	const maps = $derived(database.isReady ? getReactiveAllCampaignMaps() : []);
 
 	const campaignSections = $derived.by(() => {
 		if (!database.isReady) return [];
 
-		const mapsByCampaign = new Map<string, CampaignMap[]>();
+		const mapsByCampaign = new SvelteMap<string, CampaignMap[]>();
 
 		for (const map of maps) {
 			const existing = mapsByCampaign.get(map.campaign_id) ?? [];

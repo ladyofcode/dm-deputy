@@ -71,10 +71,7 @@
 		{/if}
 
 		<span>{STORY_ITEM_KIND_LABELS[item.kind]}</span>
-		<StoryNpcCanvasContent
-			characterId={item.character_id}
-			label={displayLabel}
-		/>
+		<StoryNpcCanvasContent characterId={item.character_id} label={displayLabel} />
 	{:else}
 		{#if item.is_treasure}
 			<span class="treasure-badge" aria-label="Treasure">

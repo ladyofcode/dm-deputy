@@ -85,7 +85,12 @@ import {
 	deleteMonsterTemplate,
 	migrateMonsterTemplatesFromLocalStorage
 } from './monster-templates';
-import { loadMediaLibrarySnapshot, loadMediaLibraryBlob, createMediaAsset, loadMediaAssetById } from './media-assets';
+import {
+	loadMediaLibrarySnapshot,
+	loadMediaLibraryBlob,
+	createMediaAsset,
+	loadMediaAssetById
+} from './media-assets';
 
 type WorkerMethod = WorkerRequest['method'];
 
@@ -413,9 +418,7 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 	}),
 	loadMediaLibraryBlob: (request) => {
 		const buffer = loadMediaLibraryBlob(getDb(), request.args[0], request.args[1]);
-		return buffer
-			? { id: request.id, result: null, buffer }
-			: { id: request.id, result: null };
+		return buffer ? { id: request.id, result: null, buffer } : { id: request.id, result: null };
 	},
 	createMediaAsset: (request) => ({
 		id: request.id,

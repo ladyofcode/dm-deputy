@@ -73,7 +73,14 @@ export function serializeCropRect(rect: NormalizedCropRect): string {
 function intersectCropWithImage(
 	image: HTMLImageElement,
 	rect: CropRect
-): { srcX: number; srcY: number; srcWidth: number; srcHeight: number; destX: number; destY: number } | null {
+): {
+	srcX: number;
+	srcY: number;
+	srcWidth: number;
+	srcHeight: number;
+	destX: number;
+	destY: number;
+} | null {
 	const srcLeft = rect.x;
 	const srcTop = rect.y;
 	const srcRight = rect.x + rect.width;

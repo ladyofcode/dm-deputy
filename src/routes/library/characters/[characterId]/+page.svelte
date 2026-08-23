@@ -126,7 +126,12 @@
 				extras: payload.extras
 			});
 
-			if (payload.portraitFile || payload.portraitThumbCropFile || payload.presentationFile || payload.presentationThumbCropFile) {
+			if (
+				payload.portraitFile ||
+				payload.portraitThumbCropFile ||
+				payload.presentationFile ||
+				payload.presentationThumbCropFile
+			) {
 				await persistPendingCharacterMedia(character.character_id, {
 					portraitOriginalFile: payload.portraitFile,
 					portraitThumbCropFile: payload.portraitThumbCropFile,

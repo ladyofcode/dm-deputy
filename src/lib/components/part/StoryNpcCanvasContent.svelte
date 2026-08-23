@@ -19,9 +19,7 @@
 		return getCharacterById(characterId);
 	});
 
-	const summary = $derived(
-		character ? formatNpcCampaignListSummary(character) : null
-	);
+	const summary = $derived(character ? formatNpcCampaignListSummary(character) : null);
 
 	const showPortrait = $derived(Boolean(character && characterHasPortrait(character)));
 

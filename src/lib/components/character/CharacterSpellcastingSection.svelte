@@ -321,7 +321,7 @@
 												<td class="actions-cell">
 													<RemoveIconButton
 														ariaLabel="Remove spell"
-														disabled={disabled}
+														{disabled}
 														onclick={() => removeSpellEntry(row.index)}
 													/>
 												</td>

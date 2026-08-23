@@ -3,10 +3,7 @@
 	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import MediaLibraryDetailModal from '$lib/components/library/MediaLibraryDetailModal.svelte';
 	import MediaLibraryTile from '$lib/components/library/MediaLibraryTile.svelte';
-	import {
-		ensureMediaLibraryLoaded,
-		getMediaLibraryItems
-	} from '$lib/stores/media-library.svelte';
+	import { ensureMediaLibraryLoaded, getMediaLibraryItems } from '$lib/stores/media-library.svelte';
 	import type { MediaAsset } from '$lib/domain/media-asset';
 	import { database } from '$lib/stores/database.svelte';
 
@@ -44,9 +41,7 @@
 
 <header class="library-header">
 	<h1>Media library</h1>
-	<p class="library-intro">
-		Portraits, presentation images, and template art you have uploaded.
-	</p>
+	<p class="library-intro">Portraits, presentation images, and template art you have uploaded.</p>
 </header>
 
 {#if !database.isReady || loading}

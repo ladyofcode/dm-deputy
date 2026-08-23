@@ -86,12 +86,13 @@
 		imageSource?.trim() ? 'Edit image source' : 'Set image source'
 	);
 	const hasImageSource = $derived(Boolean(imageSource?.trim()));
+	const pendingThumbCropRect = $derived(thumbCropFile ? thumbCropRect : null);
 	const initialCropRect = $derived.by(() => {
-		if (!characterId || file) return null;
+		if (!characterId || file) return pendingThumbCropRect;
 
 		trackCampaignCharactersRevision();
 		const character = getCharacterById(characterId);
-		if (!character) return null;
+		if (!character) return pendingThumbCropRect;
 
 		const cropJson =
 			variant === 'presentation'
@@ -150,12 +151,14 @@
 
 			let cancelled = false;
 
-			void loadSavedCharacterUrls(characterId, variant).then(({ displayUrl, cropSourceUrl: sourceUrl }) => {
-				if (!cancelled) {
-					savedImageUrl = displayUrl;
-					cropSourceUrl = sourceUrl;
+			void loadSavedCharacterUrls(characterId, variant).then(
+				({ displayUrl, cropSourceUrl: sourceUrl }) => {
+					if (!cancelled) {
+						savedImageUrl = displayUrl;
+						cropSourceUrl = sourceUrl;
+					}
 				}
-			});
+			);
 
 			return () => {
 				cancelled = true;
@@ -172,12 +175,14 @@
 		if (libraryDisplayMediaId) {
 			let cancelled = false;
 
-			void loadLibraryMediaUrls(libraryDisplayMediaId).then(({ displayUrl, cropSourceUrl: sourceUrl }) => {
-				if (!cancelled) {
-					savedImageUrl = displayUrl;
-					cropSourceUrl = sourceUrl;
+			void loadLibraryMediaUrls(libraryDisplayMediaId).then(
+				({ displayUrl, cropSourceUrl: sourceUrl }) => {
+					if (!cancelled) {
+						savedImageUrl = displayUrl;
+						cropSourceUrl = sourceUrl;
+					}
 				}
-			});
+			);
 
 			return () => {
 				cancelled = true;
@@ -341,7 +346,7 @@
 <ImageUploadDialog
 	bind:open={uploadDialogOpen}
 	title={cropDialogTitle}
-	cropSourceUrl={cropSourceUrl}
+	{cropSourceUrl}
 	existingImageSource={imageSource}
 	{initialCropRect}
 	cropAspectRatio={4 / 5}
