@@ -253,9 +253,7 @@ export function isArmLineValid(line: StoryArmLine): boolean {
 	return !isArmLineBlank(line);
 }
 
-export function isPersistedStoryItem(item: StoryItem): boolean {
-	return isArmLineValid(storyItemToArmLine(item));
-}
+export { isPersistedStoryItem } from '$lib/domain/story-item-reward';
 
 export function storyItemSize(item: StoryItem): { width: number; height: number } {
 	if (item.kind === 'map') {

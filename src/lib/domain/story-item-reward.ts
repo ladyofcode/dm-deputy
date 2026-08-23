@@ -1,6 +1,25 @@
 import type { StoryItem } from '$lib/types/schema';
-import { isPersistedStoryItem } from '$lib/domain/story-item';
 import type { ItemSize } from '$lib/data/part-story-layout';
+
+/** Keep this module free of `.svelte.ts` imports — the database worker loads it. */
+export function isPersistedStoryItem(item: StoryItem): boolean {
+	switch (item.kind) {
+		case 'xp':
+			return (item.xp_amount ?? 0) > 0;
+		case 'npc':
+			return Boolean(item.character_id);
+		case 'money':
+			return (item.gold ?? 0) > 0 || (item.silver ?? 0) > 0 || (item.copper ?? 0) > 0;
+		case 'item':
+			return Boolean(item.catalog_type && item.catalog_id);
+		case 'note':
+			return Boolean(item.note_text?.trim());
+		case 'map':
+			return Boolean(item.map_id);
+		default:
+			return false;
+	}
+}
 
 export function rewardXpFromItems(rewardItems: StoryItem[]): number {
 	return rewardItems
