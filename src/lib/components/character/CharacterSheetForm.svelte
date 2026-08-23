@@ -25,6 +25,7 @@
 		templateMode?: boolean;
 		readOnly?: boolean;
 		onPortraitFileChange?: (result: ImageUploadResult) => void;
+		portraitFallbackUrl?: string | null;
 		statBases?: {
 			experience: number;
 			hp_max: number;
@@ -40,6 +41,7 @@
 		templateMode = false,
 		readOnly = false,
 		onPortraitFileChange,
+		portraitFallbackUrl = null,
 		statBases = { experience: 0, hp_max: 0, hp_current: 0 }
 	}: Props = $props();
 
@@ -65,6 +67,7 @@
 				{showPortrait}
 				descriptionBeforeNotes={templateMode}
 				{onPortraitFileChange}
+				{portraitFallbackUrl}
 				loading={sheet.loading}
 				{readOnly}
 			/>

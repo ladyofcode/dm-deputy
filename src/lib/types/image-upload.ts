@@ -4,13 +4,15 @@ export type { NormalizedCropRect };
 
 export type ImageUploadResult = {
 	/** Thumb crop when cropping, otherwise the uploaded file */
-	file: File;
+	file?: File;
 	imageSource: string | null;
 	/** Full upload when replacing the stored original */
 	originalFile?: File | null;
 	thumbCropRect?: NormalizedCropRect | null;
 	/** True when only the thumb crop changed; original stays in storage */
 	reCropOnly?: boolean;
+	/** Pick an existing shared image instead of uploading a new copy */
+	existingMediaId?: string | null;
 };
 
 export type CharacterPortraitUploadPayload = {
@@ -18,6 +20,7 @@ export type CharacterPortraitUploadPayload = {
 	thumbCropFile?: File | null;
 	thumbCropRect?: NormalizedCropRect | null;
 	imageSource: string | null;
+	existingMediaId?: string | null;
 };
 
 export function normalizeImageSource(value: string | null | undefined): string | null {

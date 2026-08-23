@@ -24,6 +24,7 @@ export type PendingCharacterMedia = {
 	portraitThumbCropFile?: File | null;
 	portraitThumbCropRect?: NormalizedCropRect | null;
 	portraitImageSource?: string | null;
+	portraitExistingMediaId?: string | null;
 	presentationOriginalFile?: File | null;
 	presentationThumbCropFile?: File | null;
 	presentationThumbCropRect?: NormalizedCropRect | null;
@@ -34,15 +35,17 @@ function buildPortraitUploadPayload(
 	originalFile: File | null | undefined,
 	thumbCropFile: File | null | undefined,
 	thumbCropRect: NormalizedCropRect | null | undefined,
-	imageSource: string | null | undefined
+	imageSource: string | null | undefined,
+	existingMediaId?: string | null
 ): CharacterPortraitUploadPayload | null {
-	if (!originalFile && !thumbCropFile) return null;
+	if (!originalFile && !thumbCropFile && !existingMediaId) return null;
 
 	return {
 		originalFile: originalFile ?? null,
 		thumbCropFile: thumbCropFile ?? null,
 		thumbCropRect: thumbCropRect ?? null,
-		imageSource: imageSource ?? null
+		imageSource: imageSource ?? null,
+		existingMediaId: existingMediaId ?? null
 	};
 }
 
@@ -54,7 +57,8 @@ export async function persistPendingCharacterMedia(
 		media.portraitOriginalFile,
 		media.portraitThumbCropFile,
 		media.portraitThumbCropRect,
-		media.portraitImageSource
+		media.portraitImageSource,
+		media.portraitExistingMediaId
 	);
 	if (portraitPayload) {
 		await persistCharacterPortrait(characterId, portraitPayload);
@@ -75,9 +79,14 @@ export function imageUploadResultToPortraitPayload(
 	result: import('$lib/types/image-upload').ImageUploadResult
 ): CharacterPortraitUploadPayload {
 	return {
-		originalFile: result.reCropOnly ? null : (result.originalFile ?? null),
-		thumbCropFile: result.file,
+		originalFile: result.existingMediaId
+			? null
+			: result.reCropOnly
+				? null
+				: (result.originalFile ?? null),
+		thumbCropFile: result.file ?? null,
 		thumbCropRect: result.thumbCropRect ?? null,
-		imageSource: result.imageSource
+		imageSource: result.imageSource,
+		existingMediaId: result.existingMediaId ?? null
 	};
 }

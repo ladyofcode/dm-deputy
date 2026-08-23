@@ -12,6 +12,7 @@
 	} from '$lib/domain/npc-draft';
 	import { createCharacterSheetStore } from '$lib/stores/character-sheet.svelte';
 	import type { NpcCharacterKind } from '$lib/types/schema';
+	import type { ImageUploadResult } from '$lib/types/image-upload';
 
 	type SavePayload = {
 		kind: NpcCharacterKind;
@@ -28,6 +29,7 @@
 		presentationThumbCropFile: File | null;
 		presentationThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		presentationImageSource: string | null;
+		portraitExistingMediaId: string | null;
 	};
 
 	type Props = {
@@ -76,6 +78,11 @@
 
 	const sheet = createCharacterSheetStore();
 	let modalInitialized = $state(false);
+	let portraitExistingMediaId = $state<string | null>(null);
+
+	function handlePortraitFileChange(result: ImageUploadResult) {
+		portraitExistingMediaId = result.existingMediaId ?? null;
+	}
 
 	$effect(() => {
 		if (!open) {
@@ -84,6 +91,8 @@
 		}
 
 		if (modalInitialized) return;
+
+		portraitExistingMediaId = null;
 
 		sheet.loadFromProps({
 			kind,
@@ -124,7 +133,8 @@
 			presentationFile: payload.presentationFile,
 			presentationThumbCropFile: payload.presentationThumbCropFile,
 			presentationThumbCropRect: payload.presentationThumbCropRect,
-			presentationImageSource: payload.presentationImageSource
+			presentationImageSource: payload.presentationImageSource,
+			portraitExistingMediaId
 		});
 		open = false;
 	}
@@ -142,7 +152,11 @@
 			{/if}
 		</div>
 	{/snippet}
-	<CharacterSheetForm {sheet} {mode} />
+	<CharacterSheetForm
+		{sheet}
+		{mode}
+		onPortraitFileChange={handlePortraitFileChange}
+	/>
 	{#snippet footer()}
 		<DialogFormFooter
 			submitLabel={saving ? 'Saving…' : 'Save'}

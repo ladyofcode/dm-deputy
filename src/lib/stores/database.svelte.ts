@@ -24,6 +24,12 @@ import {
 import { readCampaignSessionCache } from '$lib/db/campaign-session-cache';
 import { clearCatalogCache, setCatalogSnapshot } from '$lib/db/catalog-cache';
 import { bumpCatalogRevision } from '$lib/stores/catalog.svelte';
+import {
+	clearMonsterTemplatesCache,
+	initMonsterTemplatesFromDatabase
+} from '$lib/stores/monster-templates.svelte';
+import { clearMediaLibraryCache } from '$lib/stores/media-library.svelte';
+import { clearMediaLibraryObjectUrlCache } from '$lib/data/media-library-blob-cache';
 import { clearCampaignMapObjectUrlCache } from '$lib/data/map-blob-cache';
 import { clearCharacterPortraitObjectUrlCache } from '$lib/data/character-blob-cache';
 import { clearCharacterPresentationObjectUrlCache } from '$lib/data/character-presentation-blob-cache';
@@ -67,6 +73,7 @@ class DatabaseController {
 
 	private async populateCache(): Promise<void> {
 		await timeAsync('db: load campaign snapshot', () => reloadDatabaseCache(loadCampaignSnapshot));
+		await timeAsync('db: load monster templates', () => initMonsterTemplatesFromDatabase());
 		this.ensureWorkspaceUserCanSeeCampaigns();
 	}
 
@@ -142,6 +149,9 @@ class DatabaseController {
 				clearCampaignMapObjectUrlCache();
 				clearCharacterPortraitObjectUrlCache();
 				clearCharacterPresentationObjectUrlCache();
+				clearMonsterTemplatesCache();
+				clearMediaLibraryCache();
+				clearMediaLibraryObjectUrlCache();
 			}
 
 			await this.ensureWorkerInitialized();
@@ -221,6 +231,9 @@ class DatabaseController {
 		clearCampaignMapObjectUrlCache();
 		clearCharacterPortraitObjectUrlCache();
 		clearCharacterPresentationObjectUrlCache();
+		clearMonsterTemplatesCache();
+		clearMediaLibraryCache();
+		clearMediaLibraryObjectUrlCache();
 		this.bootstrapInFlight = null;
 		this.status = 'idle';
 		this.error = null;

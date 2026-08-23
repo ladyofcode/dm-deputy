@@ -1,27 +1,6 @@
 import { MONSTER_TEMPLATES, type MonsterTemplate } from '$lib/games/dnd5e/data/monsters';
 
-const STORAGE_KEY = 'dm-deputy:monster-templates';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
-}
-
-function isMonsterTemplate(value: unknown): value is MonsterTemplate {
-	return isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string';
-}
-
-function parseStoredMonsterTemplates(raw: string): MonsterTemplate[] | null {
-	try {
-		const parsed: unknown = JSON.parse(raw);
-		if (!Array.isArray(parsed) || !parsed.every(isMonsterTemplate)) {
-			return null;
-		}
-
-		return parsed;
-	} catch {
-		return null;
-	}
-}
+export const MONSTER_TEMPLATES_STORAGE_KEY = 'dm-deputy:monster-templates';
 
 export function cloneMonsterTemplate(template: MonsterTemplate): MonsterTemplate {
 	return structuredClone(template);
@@ -50,29 +29,70 @@ export function createBlankMonsterTemplate(): MonsterTemplate {
 	};
 }
 
-export function loadStoredMonsterTemplates(): MonsterTemplate[] {
-	if (typeof localStorage === 'undefined') {
-		return MONSTER_TEMPLATES.map(cloneMonsterTemplate);
-	}
+export function getDefaultMonsterTemplate(id: string): MonsterTemplate | undefined {
+	const template = MONSTER_TEMPLATES.find((entry) => entry.id === id);
+	return template ? cloneMonsterTemplate(template) : undefined;
+}
 
-	const raw = localStorage.getItem(STORAGE_KEY);
-	if (!raw) {
-		return MONSTER_TEMPLATES.map(cloneMonsterTemplate);
-	}
+function isMonsterTemplate(value: unknown): value is MonsterTemplate {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		typeof (value as MonsterTemplate).id === 'string' &&
+		typeof (value as MonsterTemplate).name === 'string'
+	);
+}
 
-	const stored = parseStoredMonsterTemplates(raw);
-	if (!stored) {
-		return MONSTER_TEMPLATES.map(cloneMonsterTemplate);
-	}
+function parseStoredMonsterTemplates(raw: string): MonsterTemplate[] | null {
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed) || !parsed.every(isMonsterTemplate)) {
+			return null;
+		}
 
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+/** One-time migration helper: read templates saved before SQLite storage existed. */
+export function collectLocalStorageMonsterTemplateMigration(): MonsterTemplate[] {
+	if (typeof localStorage === 'undefined') return [];
+
+	const raw = localStorage.getItem(MONSTER_TEMPLATES_STORAGE_KEY);
+	if (!raw) return [];
+
+	return parseStoredMonsterTemplates(raw) ?? [];
+}
+
+export function clearLocalStorageMonsterTemplates(): void {
+	if (typeof localStorage === 'undefined') return;
+
+	localStorage.removeItem(MONSTER_TEMPLATES_STORAGE_KEY);
+}
+
+export function mergeStoredMonsterTemplates(stored: MonsterTemplate[]): MonsterTemplate[] {
 	const storedById = new Map(stored.map((template) => [template.id, template]));
 	const defaultIds = new Set(MONSTER_TEMPLATES.map((template) => template.id));
 
 	const defaults = MONSTER_TEMPLATES.map((defaultTemplate) => {
 		const saved = storedById.get(defaultTemplate.id);
-		return saved
-			? { ...cloneMonsterTemplate(defaultTemplate), ...saved, id: defaultTemplate.id }
-			: cloneMonsterTemplate(defaultTemplate);
+		if (!saved) {
+			return cloneMonsterTemplate(defaultTemplate);
+		}
+
+		const merged = { ...cloneMonsterTemplate(defaultTemplate), ...saved, id: defaultTemplate.id };
+
+		if (!saved.media_id && !saved.image_url?.trim()) {
+			merged.image_url = defaultTemplate.image_url;
+		}
+
+		if (!saved.image_source?.trim()) {
+			merged.image_source = defaultTemplate.image_source;
+		}
+
+		return merged;
 	});
 
 	const customs = stored
@@ -80,15 +100,4 @@ export function loadStoredMonsterTemplates(): MonsterTemplate[] {
 		.map(cloneMonsterTemplate);
 
 	return [...defaults, ...customs];
-}
-
-export function saveStoredMonsterTemplates(templates: MonsterTemplate[]): void {
-	if (typeof localStorage === 'undefined') return;
-
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-}
-
-export function getDefaultMonsterTemplate(id: string): MonsterTemplate | undefined {
-	const template = MONSTER_TEMPLATES.find((entry) => entry.id === id);
-	return template ? cloneMonsterTemplate(template) : undefined;
 }

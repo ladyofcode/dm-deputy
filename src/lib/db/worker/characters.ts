@@ -1,4 +1,4 @@
-import { execSql, selectObjects } from '../bind';
+import { execSql, selectObjects, bufferFromBytes } from '../bind';
 import { withTransaction } from '../sql';
 import type {
 	AddCampaignNpcToCampaignInput,
@@ -18,6 +18,7 @@ import {
 	type SpellcastingAbilityKey
 } from '$lib/types/schema';
 import { CHARACTER_SELECT_COLUMNS, type AppDb } from './context';
+import { loadMediaAssetBlob } from './media-assets';
 
 export function clearCharacterLoadout(database: AppDb, characterId: string): void {
 	for (const table of [
@@ -274,6 +275,8 @@ export function mapCharacterRow(row: {
 	presentation_original_width?: number | null;
 	presentation_original_height?: number | null;
 	presentation_thumb_crop_json?: string | null;
+	portrait_media_id?: string | null;
+	presentation_media_id?: string | null;
 	date_deleted?: string | null;
 }): Character {
 	return {
@@ -361,6 +364,8 @@ export function mapCharacterRow(row: {
 		presentation_original_width: row.presentation_original_width ?? null,
 		presentation_original_height: row.presentation_original_height ?? null,
 		presentation_thumb_crop_json: row.presentation_thumb_crop_json ?? null,
+		portrait_media_id: row.portrait_media_id ?? null,
+		presentation_media_id: row.presentation_media_id ?? null,
 		date_deleted: row.date_deleted ?? null
 	};
 }
@@ -679,12 +684,26 @@ export function updateCharacterPortrait(
 			'mime_type = $mime_type',
 			'portrait_width = $portrait_width',
 			'portrait_height = $portrait_height',
-			'full_blob = $full_blob'
+			'full_blob = $full_blob',
+			'portrait_media_id = NULL'
 		);
 		bind.mime_type = input.mime_type;
 		bind.portrait_width = input.portrait_width;
 		bind.portrait_height = input.portrait_height;
 		bind.full_blob = new Uint8Array(fullBuffer);
+	} else if (input.portrait_media_id) {
+		setClauses.push(
+			'portrait_media_id = $portrait_media_id',
+			'mime_type = $mime_type',
+			'portrait_width = $portrait_width',
+			'portrait_height = $portrait_height',
+			'full_blob = NULL',
+			'original_blob = NULL'
+		);
+		bind.portrait_media_id = input.portrait_media_id;
+		bind.mime_type = input.mime_type;
+		bind.portrait_width = input.portrait_width;
+		bind.portrait_height = input.portrait_height;
 	}
 
 	if (originalBuffer) {
@@ -741,12 +760,26 @@ export function updateCharacterPresentation(
 			'presentation_mime_type = $presentation_mime_type',
 			'presentation_width = $presentation_width',
 			'presentation_height = $presentation_height',
-			'presentation_full_blob = $presentation_full_blob'
+			'presentation_full_blob = $presentation_full_blob',
+			'presentation_media_id = NULL'
 		);
 		bind.presentation_mime_type = input.presentation_mime_type;
 		bind.presentation_width = input.presentation_width;
 		bind.presentation_height = input.presentation_height;
 		bind.presentation_full_blob = new Uint8Array(fullBuffer);
+	} else if (input.presentation_media_id) {
+		setClauses.push(
+			'presentation_media_id = $presentation_media_id',
+			'presentation_mime_type = $presentation_mime_type',
+			'presentation_width = $presentation_width',
+			'presentation_height = $presentation_height',
+			'presentation_full_blob = NULL',
+			'presentation_original_blob = NULL'
+		);
+		bind.presentation_media_id = input.presentation_media_id;
+		bind.presentation_mime_type = input.presentation_mime_type;
+		bind.presentation_width = input.presentation_width;
+		bind.presentation_height = input.presentation_height;
 	}
 
 	if (originalBuffer) {
@@ -883,26 +916,70 @@ export function addCampaignNpcToCampaign(
 	};
 }
 
+function loadCharacterImageBlob(
+	database: AppDb,
+	characterId: string,
+	variant: 'thumb' | 'full' | 'original',
+	columns: { thumb: string; full: string; original: string; mediaId: string }
+): ArrayBuffer | null {
+	const rows = selectObjects<{
+		thumb_blob: Uint8Array | null;
+		full_blob: Uint8Array | null;
+		original_blob: Uint8Array | null;
+		media_id: string | null;
+	}>(
+		database,
+		`SELECT ${columns.thumb} AS thumb_blob, ${columns.full} AS full_blob,
+			${columns.original} AS original_blob, ${columns.mediaId} AS media_id
+		 FROM characters WHERE character_id = $characterId LIMIT 1`,
+		{ characterId }
+	);
+
+	const row = rows[0];
+	if (!row) return null;
+
+	if (variant === 'thumb') {
+		const thumbBytes = row.thumb_blob;
+		if (thumbBytes?.byteLength) {
+			return bufferFromBytes(thumbBytes);
+		}
+		if (row.media_id) {
+			return (
+				loadMediaAssetBlob(database, row.media_id, 'thumb') ??
+				loadMediaAssetBlob(database, row.media_id, 'full')
+			);
+		}
+		return null;
+	}
+
+	const column = variant === 'original' ? 'original_blob' : 'full_blob';
+	const bytes = row[column];
+	if (bytes?.byteLength) {
+		return bufferFromBytes(bytes);
+	}
+
+	if (row.media_id) {
+		return loadMediaAssetBlob(
+			database,
+			row.media_id,
+			variant === 'original' ? 'original' : 'full'
+		);
+	}
+
+	return null;
+}
+
 export function loadCharacterPortraitBlob(
 	database: AppDb,
 	characterId: string,
 	variant: 'thumb' | 'full' | 'original'
 ): ArrayBuffer | null {
-	const column =
-		variant === 'thumb'
-			? 'thumb_blob'
-			: variant === 'original'
-				? 'original_blob'
-				: 'full_blob';
-	const rows = selectObjects<Record<string, Uint8Array | null>>(
-		database,
-		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,
-		{ characterId }
-	);
-	const bytes = rows[0]?.blob;
-	if (!bytes?.byteLength) return null;
-
-	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+	return loadCharacterImageBlob(database, characterId, variant, {
+		thumb: 'thumb_blob',
+		full: 'full_blob',
+		original: 'original_blob',
+		mediaId: 'portrait_media_id'
+	});
 }
 
 export function loadCharacterPresentationBlob(
@@ -910,19 +987,10 @@ export function loadCharacterPresentationBlob(
 	characterId: string,
 	variant: 'thumb' | 'full' | 'original'
 ): ArrayBuffer | null {
-	const column =
-		variant === 'thumb'
-			? 'presentation_thumb_blob'
-			: variant === 'original'
-				? 'presentation_original_blob'
-				: 'presentation_full_blob';
-	const rows = selectObjects<Record<string, Uint8Array | null>>(
-		database,
-		`SELECT ${column} AS blob FROM characters WHERE character_id = $characterId LIMIT 1`,
-		{ characterId }
-	);
-	const bytes = rows[0]?.blob;
-	if (!bytes?.byteLength) return null;
-
-	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+	return loadCharacterImageBlob(database, characterId, variant, {
+		thumb: 'presentation_thumb_blob',
+		full: 'presentation_full_blob',
+		original: 'presentation_original_blob',
+		mediaId: 'presentation_media_id'
+	});
 }

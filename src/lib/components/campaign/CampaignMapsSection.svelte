@@ -22,6 +22,7 @@
 	let showUploadForm = $state(false);
 	let mapName = $state('');
 	let selectedFile = $state<File | null>(null);
+	let selectedMediaId = $state<string | null>(null);
 	let imageSource = $state<string | null>(null);
 	let uploadDialogOpen = $state(false);
 	let saving = $state(false);
@@ -36,6 +37,7 @@
 		revokeBlobPreviewUrl(previewUrl);
 		mapName = '';
 		selectedFile = null;
+		selectedMediaId = null;
 		imageSource = null;
 		error = null;
 	}
@@ -47,13 +49,19 @@
 	}
 
 	async function persistSelectedMap(name: string) {
-		if (!selectedFile) return;
+		if (!selectedFile && !selectedMediaId) return;
 
 		saving = true;
 		error = null;
 
 		try {
-			await persistCampaignMap(campaignId, name, selectedFile, imageSource);
+			await persistCampaignMap(
+				campaignId,
+				name,
+				selectedFile,
+				imageSource,
+				selectedMediaId
+			);
 			resetUploadForm();
 			showUploadForm = false;
 		} catch (cause) {
@@ -65,7 +73,8 @@
 
 	async function handleUploadConfirm(result: ImageUploadResult) {
 		revokeBlobPreviewUrl(previewUrl);
-		selectedFile = result.file;
+		selectedFile = result.file ?? null;
+		selectedMediaId = result.existingMediaId ?? null;
 		imageSource = result.imageSource;
 
 		const name = mapName.trim();
@@ -76,7 +85,7 @@
 
 	async function handleUpload(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving || !selectedFile) return;
+		if (saving || (!selectedFile && !selectedMediaId)) return;
 
 		const name = mapName.trim();
 		if (!name) {

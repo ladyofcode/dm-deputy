@@ -90,6 +90,7 @@
 			npcDraftLineHasStats(line.extras) ||
 			Boolean(line.portraitFile) ||
 			Boolean(line.portraitThumbCropFile) ||
+			Boolean(line.portraitExistingMediaId) ||
 			Boolean(line.presentationFile) ||
 			Boolean(line.presentationThumbCropFile) ||
 			Boolean(line.identity.race.trim()) ||
@@ -131,6 +132,7 @@
 		portraitThumbCropFile: File | null;
 		portraitThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
 		portraitImageSource: string | null;
+		portraitExistingMediaId: string | null;
 		presentationFile: File | null;
 		presentationThumbCropFile: File | null;
 		presentationThumbCropRect: import('$lib/domain/crop-image').NormalizedCropRect | null;
@@ -151,6 +153,7 @@
 						portraitThumbCropFile: payload.portraitThumbCropFile,
 						portraitThumbCropRect: payload.portraitThumbCropRect,
 						portraitImageSource: payload.portraitImageSource,
+						portraitExistingMediaId: payload.portraitExistingMediaId,
 						presentationFile: payload.presentationFile,
 						presentationThumbCropFile: payload.presentationThumbCropFile,
 						presentationThumbCropRect: payload.presentationThumbCropRect,

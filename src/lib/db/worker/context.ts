@@ -17,9 +17,11 @@ export const CHARACTER_SELECT_COLUMNS = `
 	spellcasting_class, spellcasting_ability, spell_slots_total_json, spell_slots_expended_json,
 	mime_type, portrait_width, portrait_height, thumb_width, thumb_height, image_source,
 	original_mime_type, original_width, original_height, thumb_crop_json,
+	portrait_media_id,
 	presentation_mime_type, presentation_width, presentation_height, presentation_thumb_width,
 	presentation_thumb_height, presentation_image_source, presentation_original_mime_type,
 	presentation_original_width, presentation_original_height, presentation_thumb_crop_json,
+	presentation_media_id,
 	date_deleted
 `.replace(/\s+/g, ' ');
 

@@ -107,6 +107,7 @@ export type CreateCampaignMapInput = {
 	thumb_width: number;
 	thumb_height: number;
 	image_source?: string | null;
+	media_id?: string | null;
 	created_at: string;
 };
 
@@ -266,6 +267,7 @@ export type UpdateCharacterPortraitInput = {
 	thumb_height: number;
 	thumb_crop_json: string;
 	image_source?: string | null;
+	portrait_media_id?: string | null;
 	mime_type?: string;
 	portrait_width?: number;
 	portrait_height?: number;
@@ -280,6 +282,7 @@ export type UpdateCharacterPresentationInput = {
 	presentation_thumb_height: number;
 	presentation_thumb_crop_json: string;
 	presentation_image_source?: string | null;
+	presentation_media_id?: string | null;
 	presentation_mime_type?: string;
 	presentation_width?: number;
 	presentation_height?: number;
@@ -428,7 +431,7 @@ export type WorkerRequest =
 	| {
 			id: number;
 			method: 'createCampaignMap';
-			args: [CreateCampaignMapInput, ArrayBuffer, ArrayBuffer];
+			args: [CreateCampaignMapInput, ArrayBuffer | null, ArrayBuffer | null];
 	  }
 	| { id: number; method: 'deleteCampaignMap'; args: [string] }
 	| { id: number; method: 'loadCampaignMapBlob'; args: LoadCampaignMapBlobArgs }
@@ -477,23 +480,13 @@ export type WorkerRequest =
 	| {
 			id: number;
 			method: 'updateCharacterPortrait';
-			args: [
-				UpdateCharacterPortraitInput,
-				ArrayBuffer,
-				ArrayBuffer | null,
-				ArrayBuffer | null
-			];
+			args: [UpdateCharacterPortraitInput, ArrayBuffer, ArrayBuffer | null, ArrayBuffer | null];
 	  }
 	| { id: number; method: 'updateCharacterPortraitSource'; args: [string, string | null] }
 	| {
 			id: number;
 			method: 'updateCharacterPresentation';
-			args: [
-				UpdateCharacterPresentationInput,
-				ArrayBuffer,
-				ArrayBuffer | null,
-				ArrayBuffer | null
-			];
+			args: [UpdateCharacterPresentationInput, ArrayBuffer, ArrayBuffer | null, ArrayBuffer | null];
 	  }
 	| { id: number; method: 'updateCharacterPresentationSource'; args: [string, string | null] }
 	| { id: number; method: 'loadCharacterPortraitBlob'; args: LoadCharacterPortraitBlobArgs }
@@ -515,7 +508,29 @@ export type WorkerRequest =
 	| { id: number; method: 'upsertCondition'; args: [import('$lib/types/schema').Condition] }
 	| { id: number; method: 'deleteCondition'; args: [string] }
 	| { id: number; method: 'upsertSpecies'; args: [import('$lib/types/schema').Species] }
-	| { id: number; method: 'deleteSpecies'; args: [string] };
+	| { id: number; method: 'deleteSpecies'; args: [string] }
+	| { id: number; method: 'loadMonsterTemplates'; args: [] }
+	| {
+			id: number;
+			method: 'upsertMonsterTemplate';
+			args: [import('$lib/games/dnd5e/data/monsters').MonsterTemplate];
+	  }
+	| { id: number; method: 'deleteMonsterTemplate'; args: [string] }
+	| {
+			id: number;
+			method: 'migrateMonsterTemplates';
+			args: [import('$lib/games/dnd5e/data/monsters').MonsterTemplate[]];
+	  }
+	| { id: number; method: 'loadMediaLibrarySnapshot'; args: [boolean] }
+	| { id: number; method: 'loadMediaLibraryBlob'; args: LoadMediaLibraryBlobArgs }
+	| {
+			id: number;
+			method: 'createMediaAsset';
+			args: [import('$lib/domain/media-asset').CreateMediaAssetInput, ArrayBuffer | null, ArrayBuffer, ArrayBuffer | null];
+	  }
+	| { id: number; method: 'loadMediaAssetById'; args: [string] };
+
+export type LoadMediaLibraryBlobArgs = [string, 'thumb' | 'full'];
 
 export type WorkerResponse =
 	| { id: number; result: unknown; buffer?: ArrayBuffer }

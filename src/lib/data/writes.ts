@@ -28,9 +28,11 @@ import {
 	createCampaignCharacterInDb,
 	createCampaignInDb,
 	createCampaignMapInDb,
+	createMediaAssetInDb,
 	deleteCampaignMapInDb,
 	loadCampaignSnapshot,
 	loadCharacterLoadoutInDb,
+	loadMediaAssetByIdInDb,
 	promoteAdventureToCampaignInDb,
 	removeCampaignNpcFromCampaignInDb,
 	removeCampaignPlayerInDb,
@@ -94,6 +96,7 @@ import { persistCharacterSheetStatChanges } from '$lib/data/character-stats-pers
 import { preferences } from '$lib/stores/preferences.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
 import { processMapUpload } from '$lib/domain/map-image';
+import { buildMediaAssetId } from '$lib/domain/media-asset';
 import { revokeCampaignMapObjectUrls } from '$lib/data/map-blob-cache';
 import { revokeCharacterPortraitObjectUrls } from '$lib/data/character-blob-cache';
 import { revokeCharacterPresentationObjectUrls } from '$lib/data/character-presentation-blob-cache';
@@ -115,6 +118,7 @@ import {
 } from '$lib/domain/character-sheet-persistence';
 import type { PromoteAdventureOptions } from '$lib/domain/promote-adventure';
 import { bumpCampaignCharactersRevision } from '$lib/stores/campaign-characters-revision.svelte';
+import { refreshMediaLibrary } from '$lib/stores/media-library.svelte';
 
 function createOnboardingPcCharacter(
 	player: { character_id: string; display_name: string },
@@ -206,6 +210,8 @@ function createOnboardingPcCharacter(
 		presentation_original_width: null,
 		presentation_original_height: null,
 		presentation_thumb_crop_json: null,
+		portrait_media_id: null,
+		presentation_media_id: null,
 		date_deleted: null
 	};
 }
@@ -494,12 +500,65 @@ export async function touchCampaign(userId: string, campaignId: string): Promise
 export async function persistCampaignMap(
 	campaignId: string,
 	name: string,
-	file: File,
-	imageSource: string | null = null
+	file: File | null,
+	imageSource: string | null = null,
+	existingMediaId: string | null = null
 ): Promise<CampaignMap> {
-	const processed = await processMapUpload(file);
 	const mapId = `map-${crypto.randomUUID()}`;
 	const now = new Date().toISOString();
+
+	if (existingMediaId) {
+		const asset = await loadMediaAssetByIdInDb(existingMediaId);
+		if (!asset) {
+			throw new Error('Selected image not found');
+		}
+
+		const map = await createCampaignMapInDb(
+			{
+				map_id: mapId,
+				campaign_id: campaignId,
+				name: name.trim(),
+				mime_type: asset.mime_type,
+				full_width: asset.full_width,
+				full_height: asset.full_height,
+				thumb_width: asset.thumb_width ?? asset.full_width,
+				thumb_height: asset.thumb_height ?? asset.full_height,
+				image_source: imageSource ?? asset.image_source,
+				media_id: existingMediaId,
+				created_at: now
+			},
+			null,
+			null
+		);
+
+		mergeCampaignMapIntoCache(map);
+		void refreshMediaLibrary();
+		return map;
+	}
+
+	if (!file) {
+		throw new Error('No image selected');
+	}
+
+	const processed = await processMapUpload(file);
+	const mediaId = buildMediaAssetId();
+
+	await createMediaAssetInDb(
+		{
+			media_id: mediaId,
+			label: name.trim(),
+			mime_type: processed.mime_type,
+			full_width: processed.full_width,
+			full_height: processed.full_height,
+			thumb_width: processed.thumb_width,
+			thumb_height: processed.thumb_height,
+			image_source: imageSource,
+			created_at: now
+		},
+		processed.thumbBuffer,
+		processed.fullBuffer,
+		null
+	);
 
 	const map = await createCampaignMapInDb(
 		{
@@ -512,13 +571,15 @@ export async function persistCampaignMap(
 			thumb_width: processed.thumb_width,
 			thumb_height: processed.thumb_height,
 			image_source: imageSource,
+			media_id: mediaId,
 			created_at: now
 		},
-		processed.thumbBuffer,
-		processed.fullBuffer
+		null,
+		null
 	);
 
 	mergeCampaignMapIntoCache(map);
+	void refreshMediaLibrary();
 	return map;
 }
 
@@ -577,12 +638,19 @@ export async function persistCampaignNpc(
 
 	let saved = character;
 
-	if (line.portraitFile || line.portraitThumbCropFile || line.presentationFile || line.presentationThumbCropFile) {
+	if (
+		line.portraitFile ||
+		line.portraitThumbCropFile ||
+		line.portraitExistingMediaId ||
+		line.presentationFile ||
+		line.presentationThumbCropFile
+	) {
 		await persistPendingCharacterMedia(character.character_id, {
 			portraitOriginalFile: line.portraitFile,
 			portraitThumbCropFile: line.portraitThumbCropFile,
 			portraitThumbCropRect: line.portraitThumbCropRect,
 			portraitImageSource: line.portraitImageSource,
+			portraitExistingMediaId: line.portraitExistingMediaId,
 			presentationOriginalFile: line.presentationFile,
 			presentationThumbCropFile: line.presentationThumbCropFile,
 			presentationThumbCropRect: line.presentationThumbCropRect,
@@ -594,102 +662,260 @@ export async function persistCampaignNpc(
 	return saved;
 }
 
+type CharacterImageVariant = 'portrait' | 'presentation';
+type CharacterPortraitUploadPayload = import('$lib/types/image-upload').CharacterPortraitUploadPayload;
+type MediaAsset = import('$lib/domain/media-asset').MediaAsset;
+type PortraitReCropResult = Awaited<ReturnType<typeof processCharacterPortraitReCrop>>;
+type PortraitUploadResult = NonNullable<
+	Awaited<ReturnType<typeof processCharacterPortraitUpload>>
+>;
+
+function getCharacterImageLabel(
+	character: Character | undefined,
+	variant: CharacterImageVariant
+): string {
+	const base = character?.display_name ?? (variant === 'portrait' ? 'Portrait' : 'Character');
+	return variant === 'presentation' ? `${base} (presentation)` : base;
+}
+
+function buildExistingMediaUpdate(
+	variant: CharacterImageVariant,
+	characterId: string,
+	existingMediaId: string,
+	asset: MediaAsset,
+	reCrop: PortraitReCropResult,
+	imageSource: string | null
+): import('$lib/db/types').UpdateCharacterPortraitInput | import('$lib/db/types').UpdateCharacterPresentationInput {
+	if (variant === 'portrait') {
+		return {
+			character_id: characterId,
+			portrait_media_id: existingMediaId,
+			mime_type: asset.mime_type,
+			portrait_width: asset.full_width,
+			portrait_height: asset.full_height,
+			original_mime_type: asset.original_mime_type ?? asset.mime_type,
+			original_width: asset.original_width ?? asset.full_width,
+			original_height: asset.original_height ?? asset.full_height,
+			thumb_width: reCrop.thumb_width,
+			thumb_height: reCrop.thumb_height,
+			thumb_crop_json: reCrop.thumb_crop_json,
+			image_source: imageSource ?? asset.image_source
+		};
+	}
+
+	return {
+		character_id: characterId,
+		presentation_media_id: existingMediaId,
+		presentation_mime_type: asset.mime_type,
+		presentation_width: asset.full_width,
+		presentation_height: asset.full_height,
+		presentation_original_mime_type: asset.original_mime_type ?? asset.mime_type,
+		presentation_original_width: asset.original_width ?? asset.full_width,
+		presentation_original_height: asset.original_height ?? asset.full_height,
+		presentation_thumb_width: reCrop.thumb_width,
+		presentation_thumb_height: reCrop.thumb_height,
+		presentation_thumb_crop_json: reCrop.thumb_crop_json,
+		presentation_image_source: imageSource ?? asset.image_source
+	};
+}
+
+function buildProcessedUpdate(
+	variant: CharacterImageVariant,
+	characterId: string,
+	mediaId: string | null,
+	processed: PortraitUploadResult,
+	imageSource: string | null
+): import('$lib/db/types').UpdateCharacterPortraitInput | import('$lib/db/types').UpdateCharacterPresentationInput {
+	if (variant === 'portrait') {
+		return {
+			character_id: characterId,
+			portrait_media_id: mediaId,
+			mime_type: processed.mime_type,
+			portrait_width: processed.portrait_width,
+			portrait_height: processed.portrait_height,
+			original_mime_type: processed.original_mime_type,
+			original_width: processed.original_width,
+			original_height: processed.original_height,
+			thumb_width: processed.thumb_width,
+			thumb_height: processed.thumb_height,
+			thumb_crop_json: processed.thumb_crop_json,
+			image_source: imageSource
+		};
+	}
+
+	return {
+		character_id: characterId,
+		presentation_media_id: mediaId,
+		presentation_mime_type: processed.mime_type,
+		presentation_width: processed.portrait_width,
+		presentation_height: processed.portrait_height,
+		presentation_original_mime_type: processed.original_mime_type,
+		presentation_original_width: processed.original_width,
+		presentation_original_height: processed.original_height,
+		presentation_thumb_width: processed.thumb_width,
+		presentation_thumb_height: processed.thumb_height,
+		presentation_thumb_crop_json: processed.thumb_crop_json,
+		presentation_image_source: imageSource
+	};
+}
+
+function buildReCropUpdate(
+	variant: CharacterImageVariant,
+	characterId: string,
+	reCrop: PortraitReCropResult,
+	imageSource: string | null
+): import('$lib/db/types').UpdateCharacterPortraitInput | import('$lib/db/types').UpdateCharacterPresentationInput {
+	if (variant === 'portrait') {
+		return {
+			character_id: characterId,
+			thumb_width: reCrop.thumb_width,
+			thumb_height: reCrop.thumb_height,
+			thumb_crop_json: reCrop.thumb_crop_json,
+			image_source: imageSource
+		};
+	}
+
+	return {
+		character_id: characterId,
+		presentation_thumb_width: reCrop.thumb_width,
+		presentation_thumb_height: reCrop.thumb_height,
+		presentation_thumb_crop_json: reCrop.thumb_crop_json,
+		presentation_image_source: imageSource
+	};
+}
+
+async function persistCharacterImage(
+	characterId: string,
+	variant: CharacterImageVariant,
+	payload: CharacterPortraitUploadPayload
+): Promise<Character> {
+	const character = getCharacterById(characterId);
+	const label = getCharacterImageLabel(character, variant);
+	const revokeObjectUrls =
+		variant === 'presentation'
+			? revokeCharacterPresentationObjectUrls
+			: revokeCharacterPortraitObjectUrls;
+
+	if (payload.existingMediaId) {
+		const asset = await loadMediaAssetByIdInDb(payload.existingMediaId);
+		if (!asset) {
+			throw new Error('Selected image not found');
+		}
+
+		const reCrop = await processCharacterPortraitReCrop({
+			originalFile: null,
+			thumbCropFile: payload.thumbCropFile ?? null,
+			thumbCropRect: payload.thumbCropRect ?? null,
+			imageSource: payload.imageSource
+		});
+
+		const updated =
+			variant === 'presentation'
+				? await updateCharacterPresentationInDb(
+						buildExistingMediaUpdate(
+							variant,
+							characterId,
+							payload.existingMediaId,
+							asset,
+							reCrop,
+							payload.imageSource
+						) as import('$lib/db/types').UpdateCharacterPresentationInput,
+						reCrop.thumbBuffer,
+						null,
+						null
+					)
+				: await updateCharacterPortraitInDb(
+						buildExistingMediaUpdate(
+							variant,
+							characterId,
+							payload.existingMediaId,
+							asset,
+							reCrop,
+							payload.imageSource
+						) as import('$lib/db/types').UpdateCharacterPortraitInput,
+						reCrop.thumbBuffer,
+						null,
+						null
+					);
+
+		revokeObjectUrls(characterId);
+		mergeCharacterIntoCache(updated);
+		void refreshMediaLibrary();
+		return getCharacterById(characterId) ?? updated;
+	}
+
+	const processed = payload.originalFile ? await processCharacterPortraitUpload(payload) : null;
+	const reCrop = processed
+		? null
+		: await processCharacterPortraitReCrop({
+				originalFile: null,
+				thumbCropFile: payload.thumbCropFile ?? null,
+				thumbCropRect: payload.thumbCropRect ?? null,
+				imageSource: payload.imageSource
+			});
+
+	let mediaId: string | null = null;
+
+	if (processed?.fullBuffer) {
+		mediaId = buildMediaAssetId();
+		await createMediaAssetInDb(
+			{
+				media_id: mediaId,
+				label,
+				mime_type: processed.mime_type,
+				original_mime_type: processed.original_mime_type,
+				full_width: processed.portrait_width,
+				full_height: processed.portrait_height,
+				original_width: processed.original_width,
+				original_height: processed.original_height,
+				thumb_width: processed.thumb_width,
+				thumb_height: processed.thumb_height,
+				image_source: payload.imageSource,
+				created_at: new Date().toISOString()
+			},
+			processed.thumbBuffer,
+			processed.fullBuffer,
+			processed.originalBuffer
+		);
+	}
+
+	const updateInput = processed
+		? buildProcessedUpdate(variant, characterId, mediaId, processed, payload.imageSource)
+		: buildReCropUpdate(variant, characterId, reCrop!, payload.imageSource);
+
+	const updatedCharacter =
+		variant === 'presentation'
+			? await updateCharacterPresentationInDb(
+					updateInput as import('$lib/db/types').UpdateCharacterPresentationInput,
+					processed?.thumbBuffer ?? reCrop!.thumbBuffer,
+					null,
+					null
+				)
+			: await updateCharacterPortraitInDb(
+					updateInput as import('$lib/db/types').UpdateCharacterPortraitInput,
+					processed?.thumbBuffer ?? reCrop!.thumbBuffer,
+					null,
+					null
+				);
+
+	revokeObjectUrls(characterId);
+	mergeCharacterIntoCache(updatedCharacter);
+	void refreshMediaLibrary();
+	return getCharacterById(characterId) ?? updatedCharacter;
+}
+
 export async function persistCharacterPortrait(
 	characterId: string,
-	payload: import('$lib/types/image-upload').CharacterPortraitUploadPayload
+	payload: CharacterPortraitUploadPayload
 ): Promise<Character> {
-	const processed = payload.originalFile
-		? await processCharacterPortraitUpload(payload)
-		: null;
-	const reCrop =
-		processed
-			? null
-			: await processCharacterPortraitReCrop({
-					originalFile: null,
-					thumbCropFile: payload.thumbCropFile ?? null,
-					thumbCropRect: payload.thumbCropRect ?? null,
-					imageSource: payload.imageSource
-				});
-
-	const character = await updateCharacterPortraitInDb(
-		processed
-			? {
-					character_id: characterId,
-					mime_type: processed.mime_type,
-					portrait_width: processed.portrait_width,
-					portrait_height: processed.portrait_height,
-					original_mime_type: processed.original_mime_type,
-					original_width: processed.original_width,
-					original_height: processed.original_height,
-					thumb_width: processed.thumb_width,
-					thumb_height: processed.thumb_height,
-					thumb_crop_json: processed.thumb_crop_json,
-					image_source: payload.imageSource
-				}
-			: {
-					character_id: characterId,
-					thumb_width: reCrop!.thumb_width,
-					thumb_height: reCrop!.thumb_height,
-					thumb_crop_json: reCrop!.thumb_crop_json,
-					image_source: payload.imageSource
-				},
-		processed?.thumbBuffer ?? reCrop!.thumbBuffer,
-		processed?.fullBuffer ?? null,
-		processed?.originalBuffer ?? null
-	);
-
-	revokeCharacterPortraitObjectUrls(characterId);
-	mergeCharacterIntoCache(character);
-	return getCharacterById(characterId) ?? character;
+	return persistCharacterImage(characterId, 'portrait', payload);
 }
 
 export async function persistCharacterPresentation(
 	characterId: string,
-	payload: import('$lib/types/image-upload').CharacterPortraitUploadPayload
+	payload: CharacterPortraitUploadPayload
 ): Promise<Character> {
-	const processed = payload.originalFile
-		? await processCharacterPortraitUpload(payload)
-		: null;
-	const reCrop =
-		processed
-			? null
-			: await processCharacterPortraitReCrop({
-					originalFile: null,
-					thumbCropFile: payload.thumbCropFile ?? null,
-					thumbCropRect: payload.thumbCropRect ?? null,
-					imageSource: payload.imageSource
-				});
-
-	const character = await updateCharacterPresentationInDb(
-		processed
-			? {
-					character_id: characterId,
-					presentation_mime_type: processed.mime_type,
-					presentation_width: processed.portrait_width,
-					presentation_height: processed.portrait_height,
-					presentation_original_mime_type: processed.original_mime_type,
-					presentation_original_width: processed.original_width,
-					presentation_original_height: processed.original_height,
-					presentation_thumb_width: processed.thumb_width,
-					presentation_thumb_height: processed.thumb_height,
-					presentation_thumb_crop_json: processed.thumb_crop_json,
-					presentation_image_source: payload.imageSource
-				}
-			: {
-					character_id: characterId,
-					presentation_thumb_width: reCrop!.thumb_width,
-					presentation_thumb_height: reCrop!.thumb_height,
-					presentation_thumb_crop_json: reCrop!.thumb_crop_json,
-					presentation_image_source: payload.imageSource
-				},
-		processed?.thumbBuffer ?? reCrop!.thumbBuffer,
-		processed?.fullBuffer ?? null,
-		processed?.originalBuffer ?? null
-	);
-
-	revokeCharacterPresentationObjectUrls(characterId);
-	mergeCharacterIntoCache(character);
-	return getCharacterById(characterId) ?? character;
+	return persistCharacterImage(characterId, 'presentation', payload);
 }
 
 export async function persistCharacterPortraitSource(

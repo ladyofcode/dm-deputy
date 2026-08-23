@@ -31,6 +31,7 @@ export type MonsterTemplate = {
 	weapon_names?: string[];
 	armor_name?: string;
 	image_url?: string;
+	media_id?: string;
 	image_source?: string;
 };
 
@@ -965,20 +966,42 @@ export function applyMonsterTemplateToDraft(
 export async function fetchMonsterTemplatePortrait(
 	template: MonsterTemplate
 ): Promise<File | null> {
-	if (!template.image_url) return null;
+	if (template.media_id?.trim()) {
+		const { loadMediaLibraryBlobInDb, loadMediaAssetByIdInDb } = await import('$lib/db/client');
+		const asset = await loadMediaAssetByIdInDb(template.media_id);
+		const buffer = await loadMediaLibraryBlobInDb(template.media_id, 'full');
+		if (!buffer) return null;
+
+		return new File([buffer], `${template.id}.jpg`, {
+			type: asset?.mime_type ?? 'image/jpeg'
+		});
+	}
+
+	const imageUrl = template.image_url?.trim();
+	if (!imageUrl) return null;
 
 	try {
-		const response = await fetch(template.image_url);
+		const response = await fetch(imageUrl);
 		if (!response.ok) return null;
 
 		const blob = await response.blob();
 		if (!blob.type.startsWith('image/')) return null;
 
-		const filename = template.image_url.split('/').pop() ?? `${template.id}.png`;
+		const filename = imageUrl.startsWith('data:')
+			? `${template.id}.png`
+			: (imageUrl.split('/').pop() ?? `${template.id}.png`);
 		return new File([blob], filename, { type: blob.type });
 	} catch {
 		return null;
 	}
+}
+
+export function getMonsterTemplatePortraitUrl(template: MonsterTemplate): string | null {
+	if (template.media_id?.trim()) {
+		return null;
+	}
+
+	return template.image_url?.trim() || null;
 }
 
 export async function loadMonsterTemplateIntoDraft(

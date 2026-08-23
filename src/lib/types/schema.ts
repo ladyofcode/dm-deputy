@@ -239,15 +239,17 @@ export type Character = {
 	presentation_original_width: number | null;
 	presentation_original_height: number | null;
 	presentation_thumb_crop_json: string | null;
+	portrait_media_id: string | null;
+	presentation_media_id: string | null;
 	date_deleted: string | null;
 };
 
 export function characterHasPortrait(character: Character | undefined): boolean {
-	return Boolean(character?.mime_type);
+	return Boolean(character?.mime_type || character?.portrait_media_id);
 }
 
 export function characterHasPresentationImage(character: Character | undefined): boolean {
-	return Boolean(character?.presentation_mime_type);
+	return Boolean(character?.presentation_mime_type || character?.presentation_media_id);
 }
 
 export type StatKind = 'experience' | 'hp_current' | 'hp_max';
@@ -310,6 +312,7 @@ export type CampaignMap = {
 	thumb_width: number;
 	thumb_height: number;
 	image_source: string | null;
+	media_id: string | null;
 	created_at: string;
 };
 

@@ -1,7 +1,8 @@
-import { execSql, selectObjects } from '../bind';
+import { execSql, selectObjects, bufferFromBytes } from '../bind';
 import type { CreateCampaignMapInput } from '../types';
 import type { CampaignMap } from '$lib/types/schema';
 import type { AppDb } from './context';
+import { loadMediaAssetBlob } from './media-assets';
 
 export function loadCampaignMapsMetadata(database: AppDb): CampaignMap[] {
 	return selectObjects<{
@@ -14,12 +15,14 @@ export function loadCampaignMapsMetadata(database: AppDb): CampaignMap[] {
 		thumb_width: number;
 		thumb_height: number;
 		image_source: string | null;
+		media_id: string | null;
 		created_at: string;
 	}>(
 		database,
-		`SELECT map_id, campaign_id, name, mime_type, full_width, full_height, thumb_width, thumb_height, image_source, created_at
+		`SELECT map_id, campaign_id, name, mime_type, full_width, full_height, thumb_width, thumb_height,
+			image_source, media_id, created_at
 		 FROM maps
-		 WHERE thumb_blob IS NOT NULL AND full_blob IS NOT NULL
+		 WHERE (thumb_blob IS NOT NULL AND full_blob IS NOT NULL) OR media_id IS NOT NULL
 		 ORDER BY name COLLATE NOCASE`
 	);
 }
@@ -27,16 +30,16 @@ export function loadCampaignMapsMetadata(database: AppDb): CampaignMap[] {
 export function createCampaignMap(
 	database: AppDb,
 	input: CreateCampaignMapInput,
-	thumbBuffer: ArrayBuffer,
-	fullBuffer: ArrayBuffer
+	thumbBuffer: ArrayBuffer | null,
+	fullBuffer: ArrayBuffer | null
 ): CampaignMap {
 	execSql(database, {
 		sql: `INSERT INTO maps (
 			map_id, campaign_id, name, mime_type, full_width, full_height, thumb_width, thumb_height,
-			thumb_blob, full_blob, created_at, layout_mode, image_source
+			thumb_blob, full_blob, created_at, layout_mode, image_source, media_id
 		) VALUES (
 			$map_id, $campaign_id, $name, $mime_type, $full_width, $full_height, $thumb_width, $thumb_height,
-			$thumb_blob, $full_blob, $created_at, 'popup', $image_source
+			$thumb_blob, $full_blob, $created_at, 'popup', $image_source, $media_id
 		)`,
 		bind: {
 			map_id: input.map_id,
@@ -47,10 +50,11 @@ export function createCampaignMap(
 			full_height: input.full_height,
 			thumb_width: input.thumb_width,
 			thumb_height: input.thumb_height,
-			thumb_blob: new Uint8Array(thumbBuffer),
-			full_blob: new Uint8Array(fullBuffer),
+			thumb_blob: thumbBuffer ? new Uint8Array(thumbBuffer) : null,
+			full_blob: fullBuffer ? new Uint8Array(fullBuffer) : null,
 			created_at: input.created_at,
-			image_source: input.image_source ?? null
+			image_source: input.image_source ?? null,
+			media_id: input.media_id ?? null
 		}
 	});
 
@@ -64,6 +68,7 @@ export function createCampaignMap(
 		thumb_width: input.thumb_width,
 		thumb_height: input.thumb_height,
 		image_source: input.image_source ?? null,
+		media_id: input.media_id ?? null,
 		created_at: input.created_at
 	};
 }
@@ -80,14 +85,28 @@ export function loadCampaignMapBlob(
 	mapId: string,
 	variant: 'thumb' | 'full'
 ): ArrayBuffer | null {
-	const column = variant === 'thumb' ? 'thumb_blob' : 'full_blob';
-	const rows = selectObjects<Record<string, Uint8Array | null>>(
+	const rows = selectObjects<{
+		thumb_blob: Uint8Array | null;
+		full_blob: Uint8Array | null;
+		media_id: string | null;
+	}>(
 		database,
-		`SELECT ${column} AS blob FROM maps WHERE map_id = $mapId LIMIT 1`,
+		`SELECT thumb_blob, full_blob, media_id FROM maps WHERE map_id = $mapId LIMIT 1`,
 		{ mapId }
 	);
-	const bytes = rows[0]?.blob;
-	if (!bytes?.byteLength) return null;
 
-	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+	const row = rows[0];
+	if (!row) return null;
+
+	const column = variant === 'thumb' ? 'thumb_blob' : 'full_blob';
+	const bytes = row[column];
+	if (bytes?.byteLength) {
+		return bufferFromBytes(bytes);
+	}
+
+	if (row.media_id) {
+		return loadMediaAssetBlob(database, row.media_id, variant === 'thumb' ? 'thumb' : 'full');
+	}
+
+	return null;
 }

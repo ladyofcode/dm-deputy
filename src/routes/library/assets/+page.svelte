@@ -1,17 +1,43 @@
 <script lang="ts">
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import MediaThumb from '$lib/components/shared/MediaThumb.svelte';
-	import { getCampaignById } from '$lib/data';
+	import { getCampaignListForUser } from '$lib/data';
+	import { getCampaignDisplayName } from '$lib/domain/display-names';
 	import { resolveCampaignHref } from '$lib/navigation/hrefs';
 	import { getReactiveAllCampaignMaps } from '$lib/stores/campaign-maps.svelte';
 	import { database } from '$lib/stores/database.svelte';
+	import { workspace } from '$lib/stores/workspace.svelte';
+	import { formatMediaDimensions } from '$lib/domain/media-library';
+	import type { CampaignMap } from '$lib/types/schema';
 
 	const maps = $derived(database.isReady ? getReactiveAllCampaignMaps() : []);
 
-	function formatDimensions(width: number, height: number): string {
-		if (!width || !height) return '—';
-		return `${width}×${height}`;
-	}
+	const campaignSections = $derived.by(() => {
+		if (!database.isReady) return [];
+
+		const mapsByCampaign = new Map<string, CampaignMap[]>();
+
+		for (const map of maps) {
+			const existing = mapsByCampaign.get(map.campaign_id) ?? [];
+			existing.push(map);
+			mapsByCampaign.set(map.campaign_id, existing);
+		}
+
+		const campaigns = getCampaignListForUser(workspace.currentUserId).filter((entry) =>
+			mapsByCampaign.has(entry.campaign.campaign_id)
+		);
+
+		return campaigns
+			.map((entry) => ({
+				campaign: entry.campaign,
+				maps: (mapsByCampaign.get(entry.campaign.campaign_id) ?? []).sort((left, right) =>
+					left.name.localeCompare(right.name)
+				)
+			}))
+			.sort((left, right) =>
+				getCampaignDisplayName(left.campaign).localeCompare(getCampaignDisplayName(right.campaign))
+			);
+	});
 </script>
 
 <svelte:head>
@@ -20,37 +46,72 @@
 
 <header class="library-header">
 	<h1>Asset library</h1>
+	<p class="library-intro">Campaign maps and other playable pieces, grouped by campaign.</p>
 </header>
 
 {#if database.isReady}
-	{#if maps.length}
-		<ul class="asset-grid list-plain">
-			{#each maps as map (map.map_id)}
-				{@const campaign = getCampaignById(map.campaign_id)}
-				<li class="asset-card">
-					<MediaThumb variant="map" mapId={map.map_id} label={map.name} class="asset-thumb" />
-					<div class="asset-meta">
-						<h2>{map.name}</h2>
-						{#if campaign}
-							<p>
-								<a href={resolveCampaignHref(campaign.campaign_id)}>{campaign.campaign_name}</a>
-							</p>
-						{/if}
-						<p class="asset-dimensions">
-							{formatDimensions(map.full_width, map.full_height)}
-						</p>
-					</div>
-				</li>
+	{#if campaignSections.length}
+		<div class="campaign-sections">
+			{#each campaignSections as section (section.campaign.campaign_id)}
+				<section class="campaign-section" aria-labelledby="campaign-{section.campaign.campaign_id}">
+					<h2 id="campaign-{section.campaign.campaign_id}" class="campaign-heading">
+						<a href={resolveCampaignHref(section.campaign.campaign_id)}>
+							{getCampaignDisplayName(section.campaign)}
+						</a>
+					</h2>
+					<ul class="asset-grid list-plain">
+						{#each section.maps as map (map.map_id)}
+							<li class="asset-card">
+								<MediaThumb variant="map" mapId={map.map_id} label={map.name} class="asset-thumb" />
+								<div class="asset-meta">
+									<h3>{map.name}</h3>
+									<p class="asset-dimensions">
+										{formatMediaDimensions(map.full_width, map.full_height) ?? '—'}
+									</p>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				</section>
 			{/each}
-		</ul>
+		</div>
 	{:else}
-		<EmptyState message="No images yet. Upload maps from a campaign page." />
+		<EmptyState message="No maps yet. Upload maps from a campaign page." />
 	{/if}
 {/if}
 
 <style>
 	.library-header h1 {
 		margin: 0;
+	}
+
+	.library-intro {
+		margin: 0.35rem 0 0;
+		color: var(--color-text-muted);
+		max-width: 42rem;
+	}
+
+	.campaign-sections {
+		display: grid;
+		gap: 2rem;
+	}
+
+	.campaign-heading {
+		margin: 0 0 0.75rem;
+		font-size: 1.05rem;
+		font-weight: 600;
+	}
+
+	.campaign-heading a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.campaign-heading a:hover,
+	.campaign-heading a:focus-visible {
+		color: var(--color-accent);
+		outline: none;
+		text-decoration: underline;
 	}
 
 	.asset-grid {
@@ -82,18 +143,15 @@
 		aspect-ratio: 4 / 3;
 	}
 
-	.asset-meta h2 {
+	.asset-meta h3 {
 		margin: 0;
 		font-size: 0.95rem;
 		font-weight: 600;
 	}
 
-	.asset-meta p {
+	.asset-dimensions {
 		margin: 0.25rem 0 0;
 		font-size: 0.85rem;
-	}
-
-	.asset-dimensions {
 		color: var(--color-text-muted);
 	}
 </style>

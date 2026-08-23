@@ -1,4 +1,22 @@
-export const SCHEMA_VERSION = 34;
+export const SCHEMA_VERSION = 37;
+
+export const MEDIA_ASSETS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS media_assets (
+	media_id TEXT PRIMARY KEY NOT NULL,
+	label TEXT,
+	mime_type TEXT NOT NULL,
+	original_mime_type TEXT,
+	full_width INTEGER NOT NULL,
+	full_height INTEGER NOT NULL,
+	original_width INTEGER,
+	original_height INTEGER,
+	thumb_width INTEGER,
+	thumb_height INTEGER,
+	image_source TEXT,
+	thumb_blob BLOB,
+	full_blob BLOB NOT NULL,
+	original_blob BLOB,
+	created_at TEXT NOT NULL
+)`;
 
 export const MIGRATIONS: Record<number, string> = {
 	1: `
@@ -608,6 +626,18 @@ Any attack that hits the creature is a critical hit if the attacker is within 5 
 		ALTER TABLE characters ADD COLUMN presentation_original_height INTEGER;
 		ALTER TABLE characters ADD COLUMN presentation_original_blob BLOB;
 		ALTER TABLE characters ADD COLUMN presentation_thumb_crop_json TEXT;
+	`,
+	36: `
+		CREATE TABLE IF NOT EXISTS monster_templates (
+			template_id TEXT PRIMARY KEY NOT NULL,
+			data_json TEXT NOT NULL
+		);
+	`,
+	37: `${MEDIA_ASSETS_TABLE_SQL};
+
+		ALTER TABLE characters ADD COLUMN portrait_media_id TEXT;
+		ALTER TABLE characters ADD COLUMN presentation_media_id TEXT;
+		ALTER TABLE maps ADD COLUMN media_id TEXT;
 	`
 };
 

@@ -1,4 +1,4 @@
-import { MIGRATIONS } from '../migrations';
+import { MIGRATIONS, MEDIA_ASSETS_TABLE_SQL } from '../migrations';
 import { execSql, selectObjects } from '../bind';
 import { safeJsonParse } from '../json';
 import type { StoryItem } from '$lib/types/schema';
@@ -13,7 +13,7 @@ export function tableExists(database: AppDb, table: string): boolean {
 	return rows.length > 0;
 }
 
-function tableHasColumn(database: AppDb, table: string, column: string): boolean {
+export function tableHasColumn(database: AppDb, table: string, column: string): boolean {
 	const rows = selectObjects<{ name: string }>(
 		database,
 		`SELECT name FROM pragma_table_info('${table.replace(/'/g, "''")}')`
@@ -257,6 +257,28 @@ function repairCampaignAdventureDisplayColumns(database: AppDb): void {
 	}
 }
 
+function repairMonsterTemplatesTable(database: AppDb): void {
+	if (!tableExists(database, 'monster_templates')) {
+		applyMigration(database, 36);
+	}
+}
+
+/** Idempotent — safe to call before any media_assets query (e.g. stale worker after HMR). */
+export function ensureMediaAssetsSchema(database: AppDb): void {
+	execSql(database, {
+		sql: MEDIA_ASSETS_TABLE_SQL
+	});
+
+	if (tableExists(database, 'characters')) {
+		addColumnIfMissing(database, 'characters', 'portrait_media_id', 'TEXT');
+		addColumnIfMissing(database, 'characters', 'presentation_media_id', 'TEXT');
+	}
+
+	if (tableExists(database, 'maps')) {
+		addColumnIfMissing(database, 'maps', 'media_id', 'TEXT');
+	}
+}
+
 export function repairSchemaColumns(database: AppDb): void {
 	addColumnIfMissing(database, 'story_nodes', 'activated_at', 'TEXT');
 	addColumnIfMissing(database, 'story_nodes', 'completed_at', 'TEXT');
@@ -271,6 +293,8 @@ export function repairSchemaColumns(database: AppDb): void {
 	repairStoryNodeXpAwardColumn(database);
 	repairCharacterSheetColumns(database);
 	repairCampaignAdventureDisplayColumns(database);
+	repairMonsterTemplatesTable(database);
+	ensureMediaAssetsSchema(database);
 }
 
 export function applyMigration(database: AppDb, version: number): void {
@@ -316,6 +340,11 @@ export function applyMigration(database: AppDb, version: number): void {
 
 	if (version === 30) {
 		repairCampaignAdventureDisplayColumns(database);
+		return;
+	}
+
+	if (version === 37) {
+		ensureMediaAssetsSchema(database);
 		return;
 	}
 

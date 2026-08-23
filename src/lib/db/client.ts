@@ -383,14 +383,13 @@ export function downloadDatabaseBackup(blob: Blob, filename = 'dm-deputy-backup.
 
 export async function createCampaignMapInDb(
 	input: import('./types').CreateCampaignMapInput,
-	thumbBuffer: ArrayBuffer,
-	fullBuffer: ArrayBuffer
+	thumbBuffer: ArrayBuffer | null,
+	fullBuffer: ArrayBuffer | null
 ): Promise<import('$lib/types/schema').CampaignMap> {
-	return callWorkerWithTransfer(
-		'createCampaignMap',
-		[input, thumbBuffer, fullBuffer],
-		[thumbBuffer, fullBuffer]
-	);
+	const transfer: ArrayBuffer[] = [];
+	if (thumbBuffer) transfer.push(thumbBuffer);
+	if (fullBuffer) transfer.push(fullBuffer);
+	return callWorkerWithTransfer('createCampaignMap', [input, thumbBuffer, fullBuffer], transfer);
 }
 
 export async function deleteCampaignMapInDb(mapId: string): Promise<void> {
@@ -650,4 +649,58 @@ export async function upsertSpeciesInDb(
 
 export async function deleteSpeciesInDb(speciesId: string): Promise<void> {
 	await callWorker('deleteSpecies', [speciesId]);
+}
+
+export async function loadMonsterTemplatesFromDb(): Promise<
+	import('$lib/games/dnd5e/data/monsters').MonsterTemplate[]
+> {
+	return callWorker('loadMonsterTemplates');
+}
+
+export async function upsertMonsterTemplateInDb(
+	template: import('$lib/games/dnd5e/data/monsters').MonsterTemplate
+): Promise<void> {
+	await callWorker('upsertMonsterTemplate', [template]);
+}
+
+export async function deleteMonsterTemplateInDb(templateId: string): Promise<void> {
+	await callWorker('deleteMonsterTemplate', [templateId]);
+}
+
+export async function migrateMonsterTemplatesInDb(
+	templates: import('$lib/games/dnd5e/data/monsters').MonsterTemplate[]
+): Promise<number> {
+	return callWorker('migrateMonsterTemplates', [templates]);
+}
+
+export async function loadMediaLibrarySnapshot(
+	includeMapMedia = false
+): Promise<import('$lib/domain/media-asset').MediaAsset[]> {
+	return callWorker('loadMediaLibrarySnapshot', [includeMapMedia]);
+}
+
+export async function loadMediaLibraryBlobInDb(
+	mediaId: string,
+	variant: 'thumb' | 'full'
+): Promise<ArrayBuffer | null> {
+	const buffer = await callWorker<ArrayBuffer | null>('loadMediaLibraryBlob', [mediaId, variant]);
+	return buffer ?? null;
+}
+
+export async function createMediaAssetInDb(
+	input: import('$lib/domain/media-asset').CreateMediaAssetInput,
+	thumbBuffer: ArrayBuffer | null,
+	fullBuffer: ArrayBuffer,
+	originalBuffer: ArrayBuffer | null
+): Promise<import('$lib/domain/media-asset').MediaAsset> {
+	const transfer = [fullBuffer];
+	if (thumbBuffer) transfer.push(thumbBuffer);
+	if (originalBuffer) transfer.push(originalBuffer);
+	return callWorkerWithTransfer('createMediaAsset', [input, thumbBuffer, fullBuffer, originalBuffer], transfer);
+}
+
+export async function loadMediaAssetByIdInDb(
+	mediaId: string
+): Promise<import('$lib/domain/media-asset').MediaAsset | null> {
+	return callWorker('loadMediaAssetById', [mediaId]);
 }

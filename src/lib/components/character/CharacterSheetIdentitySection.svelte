@@ -21,6 +21,7 @@
 		showPortrait?: boolean;
 		descriptionBeforeNotes?: boolean;
 		onPortraitFileChange?: (result: ImageUploadResult) => void;
+		portraitFallbackUrl?: string | null;
 		loading?: boolean;
 		readOnly?: boolean;
 	};
@@ -32,6 +33,7 @@
 		showPortrait = true,
 		descriptionBeforeNotes = false,
 		onPortraitFileChange,
+		portraitFallbackUrl = null,
 		loading = false,
 		readOnly = false
 	}: Props = $props();
@@ -89,6 +91,7 @@
 			{#snippet portrait()}
 				<CharacterPortraitField
 					{characterId}
+					fallbackImageUrl={portraitFallbackUrl}
 					bind:file={sheet.portraitFile}
 					bind:thumbCropFile={sheet.portraitThumbCropFile}
 					bind:thumbCropRect={sheet.portraitThumbCropRect}

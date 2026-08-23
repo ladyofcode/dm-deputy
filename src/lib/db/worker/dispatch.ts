@@ -79,6 +79,13 @@ import {
 	updateCharacterStatCache
 } from './stats';
 import { promoteAdventureToCampaign } from './promote';
+import {
+	loadMonsterTemplates,
+	upsertMonsterTemplate,
+	deleteMonsterTemplate,
+	migrateMonsterTemplatesFromLocalStorage
+} from './monster-templates';
+import { loadMediaLibrarySnapshot, loadMediaLibraryBlob, createMediaAsset, loadMediaAssetById } from './media-assets';
 
 type WorkerMethod = WorkerRequest['method'];
 
@@ -383,7 +390,47 @@ const handlers: { [M in WorkerMethod]: HandlerFor<M> } = {
 	deleteSpecies: (request) => {
 		deleteSpecies(getDb(), request.args[0]);
 		return { id: request.id, result: null };
-	}
+	},
+	loadMonsterTemplates: (request) => ({
+		id: request.id,
+		result: loadMonsterTemplates(getDb())
+	}),
+	upsertMonsterTemplate: (request) => {
+		upsertMonsterTemplate(getDb(), request.args[0]);
+		return { id: request.id, result: null };
+	},
+	deleteMonsterTemplate: (request) => {
+		deleteMonsterTemplate(getDb(), request.args[0]);
+		return { id: request.id, result: null };
+	},
+	migrateMonsterTemplates: (request) => ({
+		id: request.id,
+		result: migrateMonsterTemplatesFromLocalStorage(getDb(), request.args[0])
+	}),
+	loadMediaLibrarySnapshot: (request) => ({
+		id: request.id,
+		result: loadMediaLibrarySnapshot(getDb(), request.args[0])
+	}),
+	loadMediaLibraryBlob: (request) => {
+		const buffer = loadMediaLibraryBlob(getDb(), request.args[0], request.args[1]);
+		return buffer
+			? { id: request.id, result: null, buffer }
+			: { id: request.id, result: null };
+	},
+	createMediaAsset: (request) => ({
+		id: request.id,
+		result: createMediaAsset(
+			getDb(),
+			request.args[0],
+			request.args[1],
+			request.args[2],
+			request.args[3]
+		)
+	}),
+	loadMediaAssetById: (request) => ({
+		id: request.id,
+		result: loadMediaAssetById(getDb(), request.args[0])
+	})
 };
 
 export async function handleRequest(request: WorkerRequest): Promise<WorkerResponse> {

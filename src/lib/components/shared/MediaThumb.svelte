@@ -154,7 +154,7 @@
 		border-radius: var(--radius-sm);
 		background: color-mix(in srgb, var(--color-text-muted) 8%, transparent);
 		overflow: hidden;
-		cursor: zoom-in;
+		cursor: pointer;
 	}
 
 	.media-thumb-portrait {

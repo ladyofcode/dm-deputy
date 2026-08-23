@@ -17,6 +17,7 @@
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import DialogFormFooter from '$lib/components/shared/DialogFormFooter.svelte';
 	import ImageUploadDialog from '$lib/components/shared/ImageUploadDialog.svelte';
+	import { getMediaLibraryFullUrl } from '$lib/data/media-library-blob-cache';
 	import { createBlobPreview } from '$lib/stores/blob-preview.svelte';
 	import { trackCampaignCharactersRevision } from '$lib/stores/campaign-characters.svelte';
 	import { Label } from 'bits-ui';
@@ -26,6 +27,7 @@
 	type Props = {
 		variant?: 'portrait' | 'presentation';
 		characterId?: string;
+		fallbackImageUrl?: string | null;
 		file?: File | null;
 		thumbCropFile?: File | null;
 		thumbCropRect?: import('$lib/domain/crop-image').NormalizedCropRect | null;
@@ -38,6 +40,7 @@
 	let {
 		variant = 'portrait',
 		characterId,
+		fallbackImageUrl = null,
 		file = $bindable(null),
 		thumbCropFile = $bindable(null),
 		thumbCropRect = $bindable(null),
@@ -48,6 +51,7 @@
 	}: Props = $props();
 
 	let savedImageUrl = $state<string | null>(null);
+	let libraryDisplayMediaId = $state<string | null>(null);
 	let cropSourceUrl = $state<string | null>(null);
 	let uploadDialogOpen = $state(false);
 	let sourceDialogOpen = $state(false);
@@ -97,6 +101,32 @@
 		return parseCropRect(cropJson);
 	});
 
+	async function loadSavedCharacterUrls(
+		targetCharacterId: string,
+		targetVariant: 'portrait' | 'presentation'
+	): Promise<{ displayUrl: string | null; cropSourceUrl: string | null }> {
+		const loadDisplayUrl =
+			targetVariant === 'presentation'
+				? getCharacterPresentationObjectUrl(targetCharacterId, 'full')
+				: getCharacterPortraitObjectUrl(targetCharacterId, 'full');
+		const loadCropSourceUrl =
+			targetVariant === 'presentation'
+				? getCharacterPresentationCropSourceUrl(targetCharacterId)
+				: getCharacterPortraitCropSourceUrl(targetCharacterId);
+
+		const [displayUrl, cropSourceUrl] = await Promise.all([loadDisplayUrl, loadCropSourceUrl]);
+		return { displayUrl, cropSourceUrl };
+	}
+
+	async function loadLibraryMediaUrls(
+		mediaId: string
+	): Promise<{ displayUrl: string | null; cropSourceUrl: string | null }> {
+		const url = await getMediaLibraryFullUrl(mediaId);
+		return { displayUrl: url, cropSourceUrl: url };
+	}
+
+	let lastFallbackImageUrl: string | null = null;
+
 	$effect(() => {
 		if (!characterId || file) return;
 
@@ -109,32 +139,53 @@
 	});
 
 	$effect(() => {
-		if (!characterId || file) {
+		const fallback = fallbackImageUrl?.trim() || null;
+		if (fallback !== lastFallbackImageUrl) {
+			lastFallbackImageUrl = fallback;
+			libraryDisplayMediaId = null;
+		}
+
+		if (characterId) {
+			if (file) return;
+
+			let cancelled = false;
+
+			void loadSavedCharacterUrls(characterId, variant).then(({ displayUrl, cropSourceUrl: sourceUrl }) => {
+				if (!cancelled) {
+					savedImageUrl = displayUrl;
+					cropSourceUrl = sourceUrl;
+				}
+			});
+
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		if (file) {
 			savedImageUrl = null;
+			libraryDisplayMediaId = null;
 			cropSourceUrl = null;
 			return;
 		}
 
-		let cancelled = false;
-		const loadDisplayUrl =
-			variant === 'presentation'
-				? getCharacterPresentationObjectUrl(characterId, 'full')
-				: getCharacterPortraitObjectUrl(characterId, 'full');
-		const loadCropSourceUrl =
-			variant === 'presentation'
-				? getCharacterPresentationCropSourceUrl(characterId)
-				: getCharacterPortraitCropSourceUrl(characterId);
+		if (libraryDisplayMediaId) {
+			let cancelled = false;
 
-		void Promise.all([loadDisplayUrl, loadCropSourceUrl]).then(([displayUrl, sourceUrl]) => {
-			if (!cancelled) {
-				savedImageUrl = displayUrl;
-				cropSourceUrl = sourceUrl;
-			}
-		});
+			void loadLibraryMediaUrls(libraryDisplayMediaId).then(({ displayUrl, cropSourceUrl: sourceUrl }) => {
+				if (!cancelled) {
+					savedImageUrl = displayUrl;
+					cropSourceUrl = sourceUrl;
+				}
+			});
 
-		return () => {
-			cancelled = true;
-		};
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		savedImageUrl = fallback;
+		cropSourceUrl = null;
 	});
 
 	function openUploadDialog() {
@@ -149,9 +200,9 @@
 
 	async function handleUploadConfirm(result: ImageUploadResult) {
 		imageSource = result.imageSource;
-		onFileChange?.(result);
 
 		if (characterId) {
+			onFileChange?.(result);
 			uploading = true;
 			try {
 				await getCharacterMediaUploadPersist(variant)(
@@ -161,6 +212,7 @@
 				file = null;
 				thumbCropFile = null;
 				thumbCropRect = null;
+				libraryDisplayMediaId = null;
 				savedImageUrl =
 					variant === 'presentation'
 						? await getCharacterPresentationObjectUrl(characterId, 'full')
@@ -171,17 +223,29 @@
 						: await getCharacterPortraitCropSourceUrl(characterId);
 			} catch {
 				file = result.originalFile ?? null;
-				thumbCropFile = result.file;
+				thumbCropFile = result.file ?? null;
 				thumbCropRect = result.thumbCropRect ?? null;
+				libraryDisplayMediaId = result.existingMediaId ?? null;
 			} finally {
 				uploading = false;
 			}
 			return;
 		}
 
+		if (result.existingMediaId) {
+			file = null;
+			thumbCropFile = result.file ?? null;
+			thumbCropRect = result.thumbCropRect ?? null;
+			libraryDisplayMediaId = result.existingMediaId;
+			onFileChange?.(result);
+			return;
+		}
+
+		libraryDisplayMediaId = null;
 		file = result.originalFile ?? null;
-		thumbCropFile = result.file;
+		thumbCropFile = result.file ?? null;
 		thumbCropRect = result.thumbCropRect ?? null;
+		onFileChange?.(result);
 	}
 
 	$effect(() => {

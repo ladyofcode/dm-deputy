@@ -18,6 +18,7 @@ import {
 } from './context';
 import { savePartItemLayout, savePartNodeLayout, savePartStoryNodes } from './part-story';
 import { applyMigration, repairSchemaColumns, tableExists } from './schema-repair';
+import { backfillMediaAssets } from './media-assets';
 import { DEFAULT_SPECIES } from '$lib/games/dnd5e/data/default-species';
 import { timeAsync, timeSync } from '$lib/debug/load-timing';
 
@@ -54,7 +55,9 @@ const REQUIRED_TABLES = [
 	'conditions',
 	'species',
 	'species_traits',
-	'species_trait_effects'
+	'species_trait_effects',
+	'monster_templates',
+	'media_assets'
 ] as const;
 
 export function countCampaigns(database: AppDb): number {
@@ -131,6 +134,14 @@ function repairMissingRequiredTables(database: AppDb): void {
 
 	if (missing.includes('campaign_npcs')) {
 		applyMigration(database, 14);
+	}
+
+	if (missing.includes('monster_templates')) {
+		applyMigration(database, 36);
+	}
+
+	if (missing.includes('media_assets')) {
+		applyMigration(database, 37);
 	}
 }
 
@@ -325,6 +336,7 @@ export async function initDatabase(
 		runMigrations(getDb());
 		repairMissingRequiredTables(getDb());
 		repairSchemaColumns(getDb());
+		backfillMediaAssets(getDb());
 	});
 
 	const needsTemplate = timeSync(
@@ -388,6 +400,7 @@ export async function importDatabase(module: SqliteModule, buffer: ArrayBuffer):
 			runMigrations(getDb());
 			repairMissingRequiredTables(getDb());
 			repairSchemaColumns(getDb());
+			backfillMediaAssets(getDb());
 			verifyRequiredTables(getDb());
 			return;
 		} catch (cause) {
@@ -399,5 +412,6 @@ export async function importDatabase(module: SqliteModule, buffer: ArrayBuffer):
 	runMigrations(getDb());
 	repairMissingRequiredTables(getDb());
 	repairSchemaColumns(getDb());
+	backfillMediaAssets(getDb());
 	verifyRequiredTables(getDb());
 }

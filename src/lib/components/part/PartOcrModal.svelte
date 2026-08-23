@@ -4,6 +4,7 @@
 	import AppDialog from '$lib/components/shared/AppDialog.svelte';
 	import ImageUploadDialog from '$lib/components/shared/ImageUploadDialog.svelte';
 	import { recognizeImage, terminateOcrWorker, type OcrProgress } from '$lib/ocr/recognize';
+	import { loadMediaLibraryBlobInDb } from '$lib/db/client';
 	import type { ImageUploadResult } from '$lib/types/image-upload';
 
 	type Props = {
@@ -70,14 +71,25 @@
 		}
 	}
 
-	function handleUploadConfirm(result: ImageUploadResult) {
+	async function handleUploadConfirm(result: ImageUploadResult) {
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl);
 		}
 
-		selectedFile = result.file;
+		let file = result.file ?? null;
+
+		if (!file && result.existingMediaId) {
+			const buffer = await loadMediaLibraryBlobInDb(result.existingMediaId, 'full');
+			if (buffer) {
+				file = new File([buffer], 'library-image.jpg', { type: 'image/jpeg' });
+			}
+		}
+
+		if (!file) return;
+
+		selectedFile = file;
 		imageSource = result.imageSource;
-		previewUrl = URL.createObjectURL(result.file);
+		previewUrl = URL.createObjectURL(file);
 		pendingFile = null;
 		extractedText = '';
 		error = null;

@@ -83,6 +83,7 @@ export type NpcDraftLine = {
 	portraitThumbCropFile: File | null;
 	portraitThumbCropRect: NormalizedCropRect | null;
 	portraitImageSource: string | null;
+	portraitExistingMediaId: string | null;
 	presentationFile: File | null;
 	presentationThumbCropFile: File | null;
 	presentationThumbCropRect: NormalizedCropRect | null;
@@ -158,6 +159,7 @@ export function createEmptyNpcDraftLine(): NpcDraftLine {
 		portraitThumbCropFile: null,
 		portraitThumbCropRect: null,
 		portraitImageSource: null,
+		portraitExistingMediaId: null,
 		presentationFile: null,
 		presentationThumbCropFile: null,
 		presentationThumbCropRect: null,

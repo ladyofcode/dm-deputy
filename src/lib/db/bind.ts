@@ -7,6 +7,11 @@ function asBindableDb(database: object): BindableDb {
 	return database as BindableDb;
 }
 
+export function bufferFromBytes(bytes: Uint8Array | null | undefined): ArrayBuffer | null {
+	if (!bytes?.byteLength) return null;
+	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export function prefixBindKeys(
 	bind?: Record<string, unknown>
 ): Record<string, unknown> | undefined {

@@ -7,15 +7,16 @@
 	import MonsterTemplateMetadataSection from '$lib/components/library/MonsterTemplateMetadataSection.svelte';
 	import { formatErrorMessage } from '$lib/domain/errors';
 	import {
-		createBlankMonsterTemplate,
-		getDefaultMonsterTemplate
-	} from '$lib/domain/monster-template-storage';
-	import {
 		applyMonsterTemplateToDraft,
 		fetchMonsterTemplatePortrait,
+		getMonsterTemplatePortraitUrl,
 		monsterTemplateFromDraft
 	} from '$lib/games/dnd5e/data/monsters';
 	import { resolveLibraryCharactersHref, resolveTemplateHref } from '$lib/navigation/hrefs';
+	import {
+		createBlankMonsterTemplate,
+		getDefaultMonsterTemplate
+	} from '$lib/domain/monster-template-storage';
 	import {
 		getStoredMonsterTemplateById,
 		replaceMonsterTemplate,
@@ -26,7 +27,12 @@
 	import { setupCharacterSheetAutoSave } from '$lib/stores/autosave.svelte';
 	import { getReactiveCatalogArmor, getReactiveCatalogWeapons } from '$lib/stores/catalog.svelte';
 	import { CHARACTER_KIND_LABELS, type NpcCharacterKind } from '$lib/types/schema';
-	import { fileToDataUrl } from '$lib/types/image-upload';
+	import type { ImageUploadResult } from '$lib/types/image-upload';
+	import { getMediaLibraryFullUrl } from '$lib/data/media-library-blob-cache';
+	import { createMediaAssetInDb } from '$lib/db/client';
+	import { buildMediaAssetId } from '$lib/domain/media-asset';
+	import { processCharacterPortraitUpload } from '$lib/domain/character-portrait';
+	import { imageUploadResultToPortraitPayload } from '$lib/domain/character-media';
 
 	const sheet = createCharacterSheetStore();
 
@@ -47,6 +53,7 @@
 	let draftId = $state('');
 	let savedImageUrl = $state('');
 	let portraitDirty = $state(false);
+	let portraitExistingMediaId = $state<string | null>(null);
 	let weaponNames = $state<string[]>(['']);
 	let armorName = $state('');
 	let initializedFor = $state<string | null>(null);
@@ -73,9 +80,14 @@
 			identity: applied.identity,
 			extras: applied.extras
 		});
-		savedImageUrl = template.image_url ?? '';
+		if (template.media_id?.trim()) {
+			savedImageUrl = (await getMediaLibraryFullUrl(template.media_id)) ?? '';
+		} else {
+			savedImageUrl = getMonsterTemplatePortraitUrl(template) ?? '';
+		}
 		sheet.portraitImageSource = template.image_source ?? null;
 		portraitDirty = false;
+		portraitExistingMediaId = template.media_id ?? null;
 		sheet.portraitFile = await fetchMonsterTemplatePortrait(template);
 		weaponNames = template.weapon_names?.length ? [...template.weapon_names] : [''];
 		armorName = template.armor_name ?? '';
@@ -83,8 +95,23 @@
 		sheet.loading = false;
 	}
 
-	function handlePortraitFileChange() {
+	function handlePortraitFileChange(result: ImageUploadResult) {
 		portraitDirty = true;
+		portraitExistingMediaId = result.existingMediaId ?? null;
+
+		if (result.existingMediaId) {
+			sheet.portraitFile = null;
+			sheet.portraitThumbCropFile = result.file ?? null;
+			sheet.portraitThumbCropRect = result.thumbCropRect ?? null;
+			void getMediaLibraryFullUrl(result.existingMediaId).then((url) => {
+				savedImageUrl = url ?? '';
+			});
+			return;
+		}
+
+		sheet.portraitFile = result.originalFile ?? null;
+		sheet.portraitThumbCropFile = result.file ?? null;
+		sheet.portraitThumbCropRect = result.thumbCropRect ?? null;
 	}
 
 	$effect(() => {
@@ -103,10 +130,50 @@
 
 		try {
 			const payload = sheet.cloneForSave();
-			const imageUrl =
-				portraitDirty && payload.portraitFile
-					? await fileToDataUrl(payload.portraitFile)
-					: savedImageUrl.trim() || undefined;
+			const existingTemplate = getStoredMonsterTemplateById(draftId);
+			let mediaId = portraitExistingMediaId ?? existingTemplate?.media_id ?? undefined;
+			let imageUrl: string | undefined;
+
+			if (portraitDirty) {
+				if (portraitExistingMediaId) {
+					mediaId = portraitExistingMediaId;
+					imageUrl = undefined;
+				} else if (payload.portraitFile) {
+					const processed = await processCharacterPortraitUpload(
+						imageUploadResultToPortraitPayload({
+							file: payload.portraitFile,
+							originalFile: payload.portraitFile,
+							imageSource: payload.portraitImageSource
+						})
+					);
+					mediaId = buildMediaAssetId();
+					await createMediaAssetInDb(
+						{
+							media_id: mediaId,
+							label: payload.name.trim() || 'Template',
+							mime_type: processed.mime_type,
+							original_mime_type: processed.original_mime_type,
+							full_width: processed.portrait_width,
+							full_height: processed.portrait_height,
+							original_width: processed.original_width,
+							original_height: processed.original_height,
+							thumb_width: processed.thumb_width,
+							thumb_height: processed.thumb_height,
+							image_source: payload.portraitImageSource,
+							created_at: new Date().toISOString()
+						},
+						processed.thumbBuffer,
+						processed.fullBuffer!,
+						processed.originalBuffer
+					);
+					imageUrl = undefined;
+				}
+			} else {
+				imageUrl =
+					savedImageUrl.trim() ||
+					(existingTemplate ? getMonsterTemplatePortraitUrl(existingTemplate) : null) ||
+					undefined;
+			}
 
 			const template = monsterTemplateFromDraft(
 				{ id: draftId },
@@ -123,9 +190,22 @@
 				}
 			);
 
-			replaceMonsterTemplate(template);
-			savedImageUrl = template.image_url ?? '';
+			if (mediaId) {
+				template.media_id = mediaId;
+				template.image_url = undefined;
+			}
+
+			await replaceMonsterTemplate(template);
+			if (template.media_id?.trim()) {
+				savedImageUrl = (await getMediaLibraryFullUrl(template.media_id)) ?? '';
+			} else {
+				savedImageUrl = template.image_url ?? '';
+			}
+			sheet.portraitFile = await fetchMonsterTemplatePortrait(template);
+			sheet.portraitThumbCropFile = null;
+			sheet.portraitThumbCropRect = null;
 			portraitDirty = false;
+			portraitExistingMediaId = template.media_id ?? null;
 
 			if (isNew) {
 				await goto(resolveTemplateHref(template.id));
@@ -140,8 +220,7 @@
 	function handleReset() {
 		if (!canReset) return;
 
-		resetMonsterTemplate(templateId);
-		void loadTemplateIntoSheet(templateId);
+		void resetMonsterTemplate(templateId).then(() => loadTemplateIntoSheet(templateId));
 	}
 
 	setupCharacterSheetAutoSave({
@@ -184,6 +263,7 @@
 				{sheet}
 				mode="npc"
 				templateMode
+				portraitFallbackUrl={savedImageUrl}
 				onPortraitFileChange={handlePortraitFileChange}
 			/>
 		{/snippet}

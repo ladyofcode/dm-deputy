@@ -12,7 +12,12 @@ export const LIBRARY_LINKS = [
 	{
 		href: '/library/assets',
 		label: 'Assets',
-		hint: 'Map images'
+		hint: 'Campaign maps'
+	},
+	{
+		href: '/library/media',
+		label: 'Media',
+		hint: 'Uploaded images'
 	}
 ] as const;
 
